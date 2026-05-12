@@ -1,6 +1,7 @@
 import imgGrid from "./assets/inno-grid.webp";
 import imgSolar from "./assets/inno-panel.webp";
 import imgWind from "./assets/inno-wind.webp";
+import imgHydro from "./assets/central-hidraulica.png";
 
 export const innovationsSection = {
   title: "Latest Innovations",
@@ -29,4 +30,34 @@ export const innovationsSection = {
   visual: "innovations-section-image.jpg",
   callToAction: "Explore the Future of Green Energy with [Company Name]",
   button: "Learn More",
+};
+
+export const innovationsSectionProceso = {
+  title: "Latest Innovations",
+  innovations: [
+    {
+      title: "Smart Grid Integration",
+      description:
+        "Revolutionize energy distribution with our smart grid technology, optimizing efficiency, minimizing wastage, and adapting to demand fluctuations.",
+      visual: imgGrid,
+    },
+    {
+      title: "Advanced Solar Panel Design",
+      description:
+        "Boost solar efficiency with our state-of-the-art solar panel designs. Our innovative technologies capture more sunlight, ensuring maximum energy production.",
+      visual: imgSolar,
+    },
+    {
+      title: "Next-gen Wind Turbines",
+      description:
+        "Transform your wind energy experience with our next-generation wind turbines. Our sleek design, enhanced efficiency, and minimal environmental impact.",
+      visual: imgWind,
+    },
+    {
+      title: "Hydropower Systems",
+      description:
+        "Flow with nature. Our hydropower systems harness the energy of flowing water, delivering reliable and eco-friendly electricity.",
+      visual: imgHydro,
+    },
+  ],
 };

@@ -6,28 +6,46 @@ import Paragraph from "../../shared/Paragraph.astro";
 import SubTitle2 from "../../shared/SubTitle2.astro";
 import Title2 from "../../shared/Title2.astro";
 import Title3 from "../../shared/Title3.astro";
-import { innovationsSection } from "./data.ts";
+import { innovationsSection, innovationsSectionProceso } from "./data.ts";
+
+interface Innovation {
+  title: string;
+  description: string;
+  visual: any;
+}
+
+interface SectionData {
+  title: string;
+  subheading1_1?: string;
+  subheading1_2?: string;
+  innovations: Innovation[];
+}
 
 export interface Props {
   className?: string;
+  variant?: "default" | "proceso";
 }
 
-const { className } = Astro.props;
+const { className, variant = "default" } = Astro.props;
+
+const sectionData: SectionData = variant === "proceso" ? innovationsSectionProceso : innovationsSection;
 ---
 
 <section id="innovations" class=`${className}`>
   <Container
     className="mx-auto flex flex-col items-center justify-center text-center"
   >
-    <Title2>{innovationsSection.title}</Title2>
-    <SubTitle2>
-      {innovationsSection.subheading1_1}<br />
-      <GradiantText>{innovationsSection.subheading1_2}</GradiantText>
-    </SubTitle2>
+    <Title2 className="mx-auto">{sectionData.title}</Title2>
+    {variant === "default" && sectionData.subheading1_1 && (
+      <SubTitle2>
+        {sectionData.subheading1_1}<br />
+        <GradiantText>{sectionData.subheading1_2}</GradiantText>
+      </SubTitle2>
+    )}
   </Container>
   <Container>
     {
-      innovationsSection.innovations.map((solution, index: number) => {
+      sectionData.innovations.map((solution: Innovation, index: number) => {
         const oddIndex = index % 2 === 0;
         const flexRow = oddIndex ? "midmd:flex-row-reverse" : "midmd:flex-row";
         const bgColor = "";
