@@ -1,31 +1,20 @@
 ---
-import { windParks } from "../../data/mockData";
-
-const mapData = windParks.map(p => ({
-  nombre: p.nombre,
-  id: p.id,
-  lat: p.lat,
-  lng: p.lng,
-  estacion: p.estacion,
-}));
+const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 ---
 
 <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
   <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Ubicación de Parques Eólicos</h3>
   <div id="windMap" class="h-96 w-full rounded-lg"></div>
-  <div class="mt-4">
+  <div id="loading-map" class="text-center py-2 text-gray-500">Cargando datos...</div>
+  <div class="mt-4" id="parks-list">
     <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Parques monitorizados:</h4>
-    <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-      {windParks.map((park) => (
-        <li>
-          <span class="font-medium">{park.nombre}</span> (ID: {park.id})
-        </li>
-      ))}
+    <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1" id="parks-list-ul">
+      <li class="text-gray-400">Cargando...</li>
     </ul>
   </div>
 </div>
 
-<script define:vars={{ mapData }}>
+<script define:vars={{ API_BASE_URL }}>
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
 
@@ -42,9 +31,30 @@ const mapData = windParks.map(p => ({
     iconAnchor: [10, 10],
   });
 
-  mapData.forEach((park) => {
-    L.marker([park.lat, park.lng], { icon })
-      .addTo(map)
-      .bindPopup(`<strong>${park.nombre}</strong><br>ID: ${park.id}<br>Lat: ${park.lat.toFixed(4)}<br>Lng: ${park.lng.toFixed(4)}`);
-  });
+  async function fetchData() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/wind-parks`);
+      const data = await response.json();
+
+      document.getElementById("loading-map").style.display = "none";
+
+      const listUl = document.getElementById("parks-list-ul");
+      listUl.innerHTML = "";
+
+      data.forEach((park) => {
+        L.marker([park.lat, park.lng], { icon })
+          .addTo(map)
+          .bindPopup(`<strong>${park.nombre}</strong><br>ID: ${park.id}<br>Estación: ${park.estacion}<br>Lat: ${park.lat.toFixed(4)}<br>Lng: ${park.lng.toFixed(4)}`);
+
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="font-medium">${park.nombre}</span> (ID: ${park.id})`;
+        listUl.appendChild(li);
+      });
+    } catch (error) {
+      console.error("Error fetching wind parks:", error);
+      document.getElementById("loading-map").textContent = "Error al cargar datos";
+    }
+  }
+
+  fetchData();
 </script>

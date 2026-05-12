@@ -1,64 +1,83 @@
 ---
-import { featureImportance } from "../../data/mockData";
-
-const chartData = {
-  labels: featureImportance.map(f => f.feature),
-  values: featureImportance.map(f => f.importance),
-};
+const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 ---
 
 <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
   <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Importancia de Features (Modelo Linear Regression)</h3>
   <canvas id="featureImportanceChart"></canvas>
+  <div id="loading-features" class="text-center py-4 text-gray-500">Cargando datos...</div>
 </div>
 
-<script define:vars={{ chartData }}>
+<script define:vars={{ API_BASE_URL }}>
   import { Chart, registerables } from "chart.js";
 
   Chart.register(...registerables);
 
-  const ctx = document.getElementById("featureImportanceChart");
+  async function fetchData() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/feature-importance`);
+      const data = await response.json();
 
-  new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: chartData.labels,
-      datasets: [
-        {
-          label: "Importancia",
-          data: chartData.values,
-          backgroundColor: [
-            "#2196F3",
-            "#4CAF50",
-            "#FF9800",
-            "#9C27B0",
-            "#00BCD4",
-            "#F44336",
-            "#795548",
-          ],
-          borderWidth: 1,
-        },
-      ],
-    },
-    options: {
-      indexAxis: "y",
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: {
-          display: false,
-        },
+      document.getElementById("loading-features").style.display = "none";
+
+      return {
+        labels: data.map(f => f.feature),
+        values: data.map(f => f.importance),
+      };
+    } catch (error) {
+      console.error("Error fetching feature importance:", error);
+      document.getElementById("loading-features").textContent = "Error al cargar datos";
+      return null;
+    }
+  }
+
+  fetchData().then(chartData => {
+    if (!chartData) return;
+
+    const ctx = document.getElementById("featureImportanceChart");
+    if (!ctx) return;
+
+    new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          {
+            label: "Importancia",
+            data: chartData.values,
+            backgroundColor: [
+              "#2196F3",
+              "#4CAF50",
+              "#FF9800",
+              "#9C27B0",
+              "#00BCD4",
+              "#F44336",
+              "#795548",
+            ],
+            borderWidth: 1,
+          },
+        ],
       },
-      scales: {
-        x: {
-          beginAtZero: true,
-          max: 0.5,
-          title: {
-            display: true,
-            text: "Importancia",
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: false,
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            max: 0.5,
+            title: {
+              display: true,
+              text: "Importancia",
+            },
           },
         },
       },
-    },
+    });
   });
 </script>

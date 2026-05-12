@@ -12,6 +12,8 @@ import PredictionChart from "../components/charts/PredictionChart.astro";
 import FeatureImportanceChart from "../components/charts/FeatureImportanceChart.astro";
 import WindMap from "../components/charts/WindMap.astro";
 import { currentPrediction } from "../data/mockData";
+
+const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 ---
 
 <Layout title="Resultados - Predicción Eólica ML">
@@ -26,22 +28,23 @@ import { currentPrediction } from "../data/mockData";
     </Container>
 
     <Container>
-      <section class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white mb-12">
+      <section class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white mb-12" id="prediction-section">
         <div class="flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
             <Title3>Predicción para Mañana</Title3>
-            <p class="text-blue-100 text-sm mt-1">Última actualización: {currentPrediction.fecha}</p>
+            <p class="text-blue-100 text-sm mt-1" id="prediction-date">Última actualización: {currentPrediction.fecha}</p>
           </div>
           <div class="text-center">
-            <div class="text-5xl font-bold">{currentPrediction.prediccionMWh.toLocaleString()}</div>
+            <div class="text-5xl font-bold" id="prediction-value">{currentPrediction.prediccionMWh.toLocaleString()}</div>
             <div class="text-blue-200">MWh</div>
           </div>
-          <div class="text-right text-sm">
-            <p><strong>Modelo:</strong> {currentPrediction.modelo}</p>
-            <p><strong>Velocidad viento:</strong> {currentPrediction.features.velmedia} m/s</p>
-            <p><strong>Ráfagas:</strong> {currentPrediction.features.racha} m/s</p>
+          <div class="text-right text-sm" id="prediction-features">
+            <p><strong>Modelo:</strong> <span id="prediction-modelo">{currentPrediction.modelo}</span></p>
+            <p><strong>Velocidad viento:</strong> <span id="prediction-velmedia">{currentPrediction.features.velmedia} m/s</span></p>
+            <p><strong>Ráfagas:</strong> <span id="prediction-racha">{currentPrediction.features.racha} m/s</span></p>
           </div>
         </div>
+        <p class="text-xs text-blue-400 mt-4 text-center" id="loading-indicator">Cargando datos en tiempo real...</p>
       </section>
     </Container>
 
@@ -126,10 +129,34 @@ import { currentPrediction } from "../data/mockData";
     <Container>
       <section class="bg-gray-100 dark:bg-gray-800 rounded-xl p-6 text-center">
         <Paragraph>
-          <strong>Nota:</strong> Los datos mostrados son de ejemplo. Cuando el backend esté desplegado,
-          los gráficos se actualizarán con datos en tiempo real obtenidos de las APIs.
+          <strong>Nota:</strong> Los datos se cargan desde el backend en tiempo real.
+          Si los gráficos muestran "Cargando datos...", el servidor puede no estar disponible.
         </Paragraph>
       </section>
     </Container>
   </main>
 </Layout>
+
+<script define:vars={{ API_BASE_URL }}>
+  const API_URL = API_BASE_URL;
+
+  async function fetchPrediction() {
+    try {
+      const response = await fetch(`${API_URL}/api/prediction`);
+      const data = await response.json();
+
+      document.getElementById("prediction-date").textContent = `Última actualización: ${data.fecha}`;
+      document.getElementById("prediction-value").textContent = Number(data.prediccionMWh).toLocaleString();
+      document.getElementById("prediction-modelo").textContent = data.modelo;
+      document.getElementById("prediction-velmedia").textContent = `${data.features.velmedia} m/s`;
+      document.getElementById("prediction-racha").textContent = `${data.features.racha} m/s`;
+      document.getElementById("loading-indicator").textContent = "Datos actualizados desde el servidor";
+      document.getElementById("loading-indicator").classList.add("text-green-400");
+    } catch (error) {
+      console.error("Error fetching prediction:", error);
+      document.getElementById("loading-indicator").textContent = "Usando datos locales (servidor no disponible)";
+    }
+  }
+
+  fetchPrediction();
+</script>

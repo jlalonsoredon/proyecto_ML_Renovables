@@ -1,11 +1,5 @@
 ---
-import { energyMix } from "../../data/mockData";
-
-const mixData = {
-  renovate: energyMix.renovable,
-  noRenovate: energyMix.noRenovable,
-  tecnologias: Object.entries(energyMix.tecnologias).map(([key, value]) => ({ name: key, value })),
-};
+const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 ---
 
 <div class="space-y-8">
@@ -14,6 +8,7 @@ const mixData = {
     <div class="max-w-md mx-auto">
       <canvas id="energyPieChart"></canvas>
     </div>
+    <div id="loading-energy1" class="text-center py-4 text-gray-500">Cargando datos...</div>
   </div>
 
   <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
@@ -21,74 +16,104 @@ const mixData = {
     <div class="max-w-md mx-auto">
       <canvas id="renewablePieChart"></canvas>
     </div>
+    <div id="loading-energy2" class="text-center py-4 text-gray-500">Cargando datos...</div>
   </div>
 </div>
 
-<script define:vars={{ mixData }}>
+<script define:vars={{ API_BASE_URL }}>
   import { Chart, registerables } from "chart.js";
 
   Chart.register(...registerables);
 
-  const energyPieCtx = document.getElementById("energyPieChart");
-  new Chart(energyPieCtx, {
-    type: "pie",
-    data: {
-      labels: ["Renovables", "No Renovables"],
-      datasets: [
-        {
-          data: [mixData.renovate, mixData.noRenovate],
-          backgroundColor: ["#4CAF50", "#F44336"],
-          borderWidth: 2,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          position: "bottom",
-        },
-        tooltip: {
-          callbacks: {
-            label: (context) => `${context.label}: ${context.raw}%`,
-          },
-        },
-      },
-    },
-  });
+  async function fetchData() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/energy-mix`);
+      const data = await response.json();
 
-  const renewablePieCtx = document.getElementById("renewablePieChart");
-  new Chart(renewablePieCtx, {
-    type: "pie",
-    data: {
-      labels: mixData.tecnologias.map(t => t.name),
-      datasets: [
-        {
-          data: mixData.tecnologias.map(t => t.value),
-          backgroundColor: [
-            "#2196F3",
-            "#FF9800",
-            "#4CAF50",
-            "#9C27B0",
-            "#00BCD4",
-            "#795548",
+      document.getElementById("loading-energy1").style.display = "none";
+      document.getElementById("loading-energy2").style.display = "none";
+
+      return {
+        renovate: data.renovable,
+        noRenovate: data.noRenovable,
+        tecnologias: Object.entries(data.tecnologias || {}).map(([key, value]) => ({ name: key, value })),
+      };
+    } catch (error) {
+      console.error("Error fetching energy mix:", error);
+      document.getElementById("loading-energy1").textContent = "Error al cargar datos";
+      document.getElementById("loading-energy2").textContent = "Error al cargar datos";
+      return null;
+    }
+  }
+
+  fetchData().then(mixData => {
+    if (!mixData) return;
+
+    const energyPieCtx = document.getElementById("energyPieChart");
+    if (energyPieCtx) {
+      new Chart(energyPieCtx, {
+        type: "pie",
+        data: {
+          labels: ["Renovables", "No Renovables"],
+          datasets: [
+            {
+              data: [mixData.renovate, mixData.noRenovate],
+              backgroundColor: ["#4CAF50", "#F44336"],
+              borderWidth: 2,
+            },
           ],
-          borderWidth: 2,
         },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          position: "bottom",
-        },
-        tooltip: {
-          callbacks: {
-            label: (context) => `${context.label}: ${context.raw}%`,
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: "bottom",
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => `${context.label}: ${context.raw}%`,
+              },
+            },
           },
         },
-      },
-    },
+      });
+    }
+
+    const renewablePieCtx = document.getElementById("renewablePieChart");
+    if (renewablePieCtx) {
+      new Chart(renewablePieCtx, {
+        type: "pie",
+        data: {
+          labels: mixData.tecnologias.map(t => t.name),
+          datasets: [
+            {
+              data: mixData.tecnologias.map(t => t.value),
+              backgroundColor: [
+                "#2196F3",
+                "#FF9800",
+                "#4CAF50",
+                "#9C27B0",
+                "#00BCD4",
+                "#795548",
+              ],
+              borderWidth: 2,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: "bottom",
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => `${context.label}: ${context.raw}%`,
+              },
+            },
+          },
+        },
+      });
+    }
   });
 </script>

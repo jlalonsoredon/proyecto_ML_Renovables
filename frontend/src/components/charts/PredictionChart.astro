@@ -1,85 +1,109 @@
 ---
-import { historicalData, currentPrediction } from "../../data/mockData";
-
-const chartData = {
-  labels: historicalData.map(d => d.fecha),
-  real: historicalData.map(d => d.eolica),
-  predictionDate: currentPrediction.fecha,
-  predictionValue: currentPrediction.prediccionMWh,
-};
+const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 ---
 
 <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
   <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Predicción vs Real (Último mes + Predicción)</h3>
   <canvas id="predictionChart"></canvas>
+  <div id="loading-prediction" class="text-center py-4 text-gray-500">Cargando datos...</div>
 </div>
 
-<script define:vars={{ chartData }}>
+<script define:vars={{ API_BASE_URL }}>
   import { Chart, registerables } from "chart.js";
 
   Chart.register(...registerables);
 
-  const ctx = document.getElementById("predictionChart");
+  async function fetchData() {
+    try {
+      const [historicalRes, predictionRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/historical?days=30`),
+        fetch(`${API_BASE_URL}/api/prediction`)
+      ]);
 
-  const allLabels = [...chartData.labels, chartData.predictionDate];
-  const realValues = [...chartData.real];
+      const historical = await historicalRes.json();
+      const prediction = await predictionRes.json();
 
-  const predictedValues = new Array(chartData.real.length - 1).fill(null);
-  predictedValues.push(chartData.real[chartData.real.length - 1]);
-  predictedValues.push(chartData.predictionValue);
+      document.getElementById("loading-prediction").style.display = "none";
 
-  new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: allLabels,
-      datasets: [
-        {
-          label: "Producción Real (MWh)",
-          data: realValues,
-          borderColor: "#2196F3",
-          backgroundColor: "rgba(33, 150, 243, 0.1)",
-          tension: 0.4,
-          fill: false,
-          pointRadius: 3,
+      return {
+        labels: historical.map(d => d.fecha),
+        real: historical.map(d => d.eolica),
+        predictionDate: prediction.fecha,
+        predictionValue: prediction.prediccionMWh,
+      };
+    } catch (error) {
+      console.error("Error fetching prediction data:", error);
+      document.getElementById("loading-prediction").textContent = "Error al cargar datos";
+      return null;
+    }
+  }
+
+  fetchData().then(chartData => {
+    if (!chartData) return;
+
+    const ctx = document.getElementById("predictionChart");
+    if (!ctx) return;
+
+    const allLabels = [...chartData.labels, chartData.predictionDate];
+    const realValues = [...chartData.real];
+
+    const predictedValues = new Array(chartData.real.length - 1).fill(null);
+    predictedValues.push(chartData.real[chartData.real.length - 1]);
+    predictedValues.push(chartData.predictionValue);
+
+    new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: allLabels,
+        datasets: [
+          {
+            label: "Producción Real (MWh)",
+            data: realValues,
+            borderColor: "#2196F3",
+            backgroundColor: "rgba(33, 150, 243, 0.1)",
+            tension: 0.4,
+            fill: false,
+            pointRadius: 3,
+          },
+          {
+            label: "Predicción (MWh)",
+            data: predictedValues,
+            borderColor: "#FF5722",
+            backgroundColor: "rgba(255, 87, 34, 0.1)",
+            borderDash: [5, 5],
+            tension: 0.4,
+            fill: false,
+            pointRadius: 6,
+            pointBackgroundColor: "#FF5722",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: "top",
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.raw;
+                return value ? `${context.dataset.label}: ${Math.round(value).toLocaleString()} MWh` : "";
+              },
+            },
+          },
         },
-        {
-          label: "Predicción (MWh)",
-          data: predictedValues,
-          borderColor: "#FF5722",
-          backgroundColor: "rgba(255, 87, 34, 0.1)",
-          borderDash: [5, 5],
-          tension: 0.4,
-          fill: false,
-          pointRadius: 6,
-          pointBackgroundColor: "#FF5722",
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: {
-          position: "top",
-        },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const value = context.raw;
-              return value ? `${context.dataset.label}: ${Math.round(value).toLocaleString()} MWh` : "";
+        scales: {
+          y: {
+            beginAtZero: false,
+            title: {
+              display: true,
+              text: "MWh",
             },
           },
         },
       },
-      scales: {
-        y: {
-          beginAtZero: false,
-          title: {
-            display: true,
-            text: "MWh",
-          },
-        },
-      },
-    },
+    });
   });
 </script>

@@ -1,74 +1,93 @@
 ---
-import { historicalData } from "../../data/mockData";
-
-const chartData = {
-  labels: historicalData.map(d => d.fecha),
-  eolica: historicalData.map(d => d.eolica),
-  solar: historicalData.map(d => d.solar),
-  hidraulica: historicalData.map(d => d.hidraulica),
-};
+const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 ---
 
 <div class="chart-container bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
   <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Evolución de Generación Renovable (Últimos 30 días)</h3>
   <canvas id="renewableLineChart"></canvas>
+  <div id="loading-renewable" class="text-center py-4 text-gray-500">Cargando datos...</div>
 </div>
 
-<script define:vars={{ chartData }}>
+<script define:vars={{ API_BASE_URL }}>
   import { Chart, registerables } from "chart.js";
 
   Chart.register(...registerables);
 
-  const ctx = document.getElementById("renewableLineChart");
+  async function fetchData() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/historical?days=30`);
+      const data = await response.json();
 
-  new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: chartData.labels,
-      datasets: [
-        {
-          label: "Eólica (MWh)",
-          data: chartData.eolica,
-          borderColor: "#2196F3",
-          backgroundColor: "rgba(33, 150, 243, 0.1)",
-          tension: 0.4,
-          fill: true,
-        },
-        {
-          label: "Solar Fotovoltaica (MWh)",
-          data: chartData.solar,
-          borderColor: "#FF9800",
-          backgroundColor: "rgba(255, 152, 0, 0.1)",
-          tension: 0.4,
-          fill: true,
-        },
-        {
-          label: "Hidráulica (MWh)",
-          data: chartData.hidraulica,
-          borderColor: "#4CAF50",
-          backgroundColor: "rgba(76, 175, 80, 0.1)",
-          tension: 0.4,
-          fill: true,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: {
-          position: "top",
-        },
+      document.getElementById("loading-renewable").style.display = "none";
+
+      return {
+        labels: data.map(d => d.fecha),
+        eolica: data.map(d => d.eolica),
+        solar: data.map(d => d.solar),
+        hidraulica: data.map(d => d.hidraulica),
+      };
+    } catch (error) {
+      console.error("Error fetching historical data:", error);
+      document.getElementById("loading-renewable").textContent = "Error al cargar datos";
+      return null;
+    }
+  }
+
+  fetchData().then(chartData => {
+    if (!chartData) return;
+
+    const ctx = document.getElementById("renewableLineChart");
+    if (!ctx) return;
+
+    new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          {
+            label: "Eólica (MWh)",
+            data: chartData.eolica,
+            borderColor: "#2196F3",
+            backgroundColor: "rgba(33, 150, 243, 0.1)",
+            tension: 0.4,
+            fill: true,
+          },
+          {
+            label: "Solar Fotovoltaica (MWh)",
+            data: chartData.solar,
+            borderColor: "#FF9800",
+            backgroundColor: "rgba(255, 152, 0, 0.1)",
+            tension: 0.4,
+            fill: true,
+          },
+          {
+            label: "Hidráulica (MWh)",
+            data: chartData.hidraulica,
+            borderColor: "#4CAF50",
+            backgroundColor: "rgba(76, 175, 80, 0.1)",
+            tension: 0.4,
+            fill: true,
+          },
+        ],
       },
-      scales: {
-        y: {
-          beginAtZero: false,
-          title: {
-            display: true,
-            text: "MWh",
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: "top",
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            title: {
+              display: true,
+              text: "MWh",
+            },
           },
         },
       },
-    },
+    });
   });
 </script>

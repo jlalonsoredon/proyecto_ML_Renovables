@@ -9,6 +9,8 @@ import Title3 from "../components/shared/Title3.astro";
 import Paragraph from "../components/shared/Paragraph.astro";
 import CtaButton from "../components/shared/CtaButton.astro";
 import { currentPrediction } from "../data/mockData";
+
+const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 ---
 
 <Layout title="Predicción Eólica ML">
@@ -39,22 +41,23 @@ import { currentPrediction } from "../data/mockData";
               </a>
             </div>
           </div>
-          <div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white">
+          <div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white" id="prediction-card">
             <Title3 className="text-white">Producción Eólica Prevista</Title3>
-            <p class="text-blue-100 text-sm mb-4">Fecha: {currentPrediction.fecha}</p>
-            <div class="text-5xl font-bold">{currentPrediction.prediccionMWh.toLocaleString()}</div>
+            <p class="text-blue-100 text-sm mb-4" id="prediction-date">Fecha: {currentPrediction.fecha}</p>
+            <div class="text-5xl font-bold" id="prediction-value">{currentPrediction.prediccionMWh.toLocaleString()}</div>
             <div class="text-blue-200 text-xl mt-2">MWh</div>
             <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span class="text-blue-300">Velocidad viento:</span>
-                <div class="font-semibold">{currentPrediction.features.velmedia} m/s</div>
+                <div class="font-semibold" id="prediction-velmedia">{currentPrediction.features.velmedia} m/s</div>
               </div>
               <div>
                 <span class="text-blue-300">Ráfagas:</span>
-                <div class="font-semibold">{currentPrediction.features.racha} m/s</div>
+                <div class="font-semibold" id="prediction-racha">{currentPrediction.features.racha} m/s</div>
               </div>
             </div>
-            <p class="text-xs text-blue-300 mt-4">Modelo: {currentPrediction.modelo}</p>
+            <p class="text-xs text-blue-300 mt-4" id="prediction-modelo">Modelo: {currentPrediction.modelo}</p>
+            <p class="text-xs text-blue-400 mt-2" id="loading-indicator">Cargando datos en tiempo real...</p>
           </div>
         </div>
       </section>
@@ -80,3 +83,27 @@ import { currentPrediction } from "../data/mockData";
     </Container>
   </main>
 </Layout>
+
+<script define:vars={{ API_BASE_URL }}>
+  const API_URL = API_BASE_URL;
+
+  async function fetchPrediction() {
+    try {
+      const response = await fetch(`${API_URL}/api/prediction`);
+      const data = await response.json();
+
+      document.getElementById("prediction-date").textContent = `Fecha: ${data.fecha}`;
+      document.getElementById("prediction-value").textContent = Number(data.prediccionMWh).toLocaleString();
+      document.getElementById("prediction-velmedia").textContent = `${data.features.velmedia} m/s`;
+      document.getElementById("prediction-racha").textContent = `${data.features.racha} m/s`;
+      document.getElementById("prediction-modelo").textContent = `Modelo: ${data.modelo}`;
+      document.getElementById("loading-indicator").textContent = "Datos actualizados desde el servidor";
+      document.getElementById("loading-indicator").classList.add("text-green-400");
+    } catch (error) {
+      console.error("Error fetching prediction:", error);
+      document.getElementById("loading-indicator").textContent = "Usando datos locales (servidor no disponible)";
+    }
+  }
+
+  fetchPrediction();
+</script>
