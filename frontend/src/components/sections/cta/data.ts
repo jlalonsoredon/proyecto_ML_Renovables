@@ -4,30 +4,30 @@ import svg3 from "./assets/green-3.svg?raw";
 import svg4 from "./assets/green-4.svg?raw";
 
 export const getInvolvedSection = {
-  title: "Get Involved",
-  subheading1_1: "Join Us ",
-  subheading1_2: "in Building a Sustainable Future",
+  title: "Resultados del Modelo",
+  subheading1_1: "Únete ",
+  subheading1_2: "en Construcción de un Futuro Sostenible",
   initiatives: [
     {
-      title: "Community Outreach",
+      title: "Precisión del Modelo",
       description:
-        "Discover our community initiatives aimed at promoting awareness and education on sustainable living. Join us in creating a positive impact together.",
+        "Nuestro modelo Linear Regression alcanza un R² de 0.579, explicando el 57.9% de la varianza en la producción eólica.",
       visual: svg2,
     },
     {
-      title: "Green Events",
+      title: "Datos Históricos",
       description:
-        "Participate in our upcoming green events. From tree-planting drives to eco-friendly workshops, be a part of the movement towards a healthier planet.",
+        "Analizamos más de 4 años de datos de generación eléctrica y meteorológicos para entrenar nuestros modelos predictivos.",
       visual: svg4,
     },
     {
-      title: "Partnerships for Sustainability",
+      title: "Predicción en Tiempo Real",
       description:
-        "Explore our partnerships with organizations dedicated to environmental conservation. Learn how you can contribute to sustainable practices through collaboration.",
+        "El sistema genera predicciones diarias actualizadas automáticamente cada noche basándose en el forecast de AEMET.",
       visual: svg3,
     },
   ],
   visual: "get-involved-section-image.jpg",
-  callToAction: "Take Action Today for a Greener Tomorrow",
-  button: "Join Our Initiatives",
+  callToAction: "Actúa Hoy para un Futuro más Verde",
+  button: "Ver Predicciones",
 };

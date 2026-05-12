@@ -1,101 +1,82 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import Hero from "../components/sections/hero/Hero.astro";
+import KeyServices from "../components/sections/services/KeyServices.astro";
+import GetInvolved from "../components/sections/cta/GetInvolved.astro";
 import Container from "../components/shared/Container.astro";
-import Title from "../components/shared/Title.astro";
-import SubTitle from "../components/shared/SubTitle.astro";
+import Title2 from "../components/shared/Title2.astro";
+import Title3 from "../components/shared/Title3.astro";
 import Paragraph from "../components/shared/Paragraph.astro";
 import CtaButton from "../components/shared/CtaButton.astro";
-import Title3 from "../components/shared/Title3.astro";
+import { currentPrediction } from "../data/mockData";
 ---
 
 <Layout title="Predicción Eólica ML">
   <main class="flex flex-col gap-y-20 md:gap-y-40 overflow-hidden">
+    <!-- 1. CABECERA (Hero original) -->
+    <Hero />
+
+    <!-- 2. BLOQUE "Discover Our Cutting-edge Green Energy Technologies" -->
+    <KeyServices />
+
+    <!-- 3. TARJETAS DE RESULTADOS (estilo GetInvolved/Join Us) -->
+    <GetInvolved />
+
+    <!-- 4. SECCIÓN DE PREDICCIÓN ACTUAL -->
     <Container>
-      <div class="py-20 md:py-32 text-center">
-        <Title>
-          Predicción de Generación Eólica con Machine Learning
-        </Title>
-        <SubTitle>
-          Utilizando datos de la API de Red Eléctrica de España y datos climáticos de AEMET
-        </SubTitle>
+      <section class="py-12">
+        <div class="grid md:grid-cols-2 gap-8 items-center">
+          <div>
+            <Title2>Predicción para Mañana</Title2>
+            <Paragraph>
+              Nuestro modelo predictivo utiliza datos meteorológicos de AEMET y
+              datos históricos de generación de la API de Red Eléctrica de España
+              para estimar la producción eólica del día siguiente.
+            </Paragraph>
+            <div class="mt-6">
+              <a href="/resultados" class="inline-block bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors">
+                Ver Todos los Gráficos
+              </a>
+            </div>
+          </div>
+          <div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white">
+            <Title3 className="text-white">Producción Eólica Prevista</Title3>
+            <p class="text-blue-100 text-sm mb-4">Fecha: {currentPrediction.fecha}</p>
+            <div class="text-5xl font-bold">{currentPrediction.prediccionMWh.toLocaleString()}</div>
+            <div class="text-blue-200 text-xl mt-2">MWh</div>
+            <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span class="text-blue-300">Velocidad viento:</span>
+                <div class="font-semibold">{currentPrediction.features.velmedia} m/s</div>
+              </div>
+              <div>
+                <span class="text-blue-300">Ráfagas:</span>
+                <div class="font-semibold">{currentPrediction.features.racha} m/s</div>
+              </div>
+            </div>
+            <p class="text-xs text-blue-300 mt-4">Modelo: {currentPrediction.modelo}</p>
+          </div>
+        </div>
+      </section>
+    </Container>
+
+    <!-- 5. SECCIÓN DE PROCESO (CTA final) -->
+    <Container>
+      <section class="py-12 text-center bg-gray-100 dark:bg-gray-800 rounded-xl">
+        <Title2>¿Quieres Saber Cómo Funciona?</Title2>
         <Paragraph>
-          Este proyecto utiliza algoritmos de Machine Learning para predecir la producción de energía eólica en España.
-          Combinamos datos históricos de generación eléctrica con información meteorológica en tiempo real para obtener
-          predicciones precisas.
+          Descubre el proceso completo: desde la obtención de datos de las APIs
+          hasta la predicción con Machine Learning.
         </Paragraph>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-          <CtaButton href="/resultados" variant="primary">
+        <div class="flex justify-center mt-6 gap-4">
+          <CtaButton href="/proceso" variant="primary">
+            Ver el Proceso
+          </CtaButton>
+          <CtaButton href="/resultados" variant="secondary">
             Ver Resultados
           </CtaButton>
-          <CtaButton href="/proceso" variant="secondary">
-            Conocer el Proceso
-          </CtaButton>
         </div>
-      </div>
-    </Container>
-
-    <Container>
-      <div class="grid md:grid-cols-2 gap-8 py-12">
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-          <Title3>Objetivo</Title3>
-          <Paragraph>
-            Predecir la producción diaria de energía eólica en el sistema eléctrico español,
-            utilizando como principales features la velocidad del viento y las ráfagas de las
-            estaciones meteorológicas de AEMET.
-          </Paragraph>
-        </div>
-
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-          <Title3>Tecnologías</Title3>
-          <Paragraph>
-            <ul class="list-disc list-inside space-y-2">
-              <li>API Red Eléctrica de España (REE)</li>
-              <li>API Agencia Estatal de Meteorología (AEMET)</li>
-              <li>Machine Learning: Linear Regression, XGBoost, Random Forest</li>
-              <li>Backend: Python/FastAPI</li>
-              <li>Frontend: Astro + Chart.js + Leaflet</li>
-            </ul>
-          </Paragraph>
-        </div>
-
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-          <Title3>Datos Utilizados</Title3>
-          <Paragraph>
-            <ul class="list-disc list-inside space-y-2">
-              <li>Generación eléctrica: Enero 2022 - Actualidad</li>
-              <li>Datos climáticos: 14 estaciones meteorológicas</li>
-              <li>Período de predicción: Mañana (dia+1)</li>
-              <li>Frecuencia: Actualización diaria</li>
-            </ul>
-          </Paragraph>
-        </div>
-
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-          <Title3>Resultados</Title3>
-          <Paragraph>
-            El modelo Linear Regression obtiene los mejores resultados con:
-            <ul class="list-disc list-inside space-y-2 mt-2">
-              <li>R² = 0.579 (57.9% de varianza explicada)</li>
-              <li>RMSE = 60,433 MWh</li>
-              <li>MAPE = 41.73%</li>
-            </ul>
-          </Paragraph>
-        </div>
-      </div>
-    </Container>
-
-    <Container>
-      <div class="text-center py-12">
-        <Title3>¿Quieres ver las predicciones?</Title3>
-        <Paragraph>
-          Consulta nuestra página de resultados para ver los gráficos y la predicción actual.
-        </Paragraph>
-        <div class="flex justify-center mt-6">
-          <CtaButton href="/resultados" variant="primary">
-            Ver Predicciones en Tiempo Real
-          </CtaButton>
-        </div>
-      </div>
+      </section>
     </Container>
   </main>
 </Layout>

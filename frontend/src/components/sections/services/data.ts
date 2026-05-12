@@ -1,59 +1,57 @@
 import img1 from "./assets/solar3.png";
 import img2 from "./assets/wind.png";
-// TODO
 import img3 from "./assets/hydro.png";
 import img4 from "./assets/storage.png";
-// TODO
 import img5 from "./assets/smart-grid.png";
 import img6 from "./assets/green.png";
 
 export const servicesSectionData = {
-  title: "Our Sustainable Energy Solutions",
+  title: "Discover Our Cutting-edge Green Energy Technologies",
   subheading: {
-    text1_1: "Experience a Revolution in Energy Solutions - ",
-    text1_2: "Embrace Innovation, Embrace Sustainability.",
+    text1_1: "Predicción de Generación Eólica con Machine Learning - ",
+    text1_2: "Innovación y Sostenibilidad.",
     text2:
-      "We're here to Empower Your Life and Spaces with Clean, Renewable Energy, Paving the Way for a Brighter and Greener Tomorrow.",
+      "Combinamos datos de la Red Eléctrica de España con información meteorológica de AEMET para predecir la producción de energía eólica.",
   },
   services: [
     {
-      title: "Solar Power Solutions",
+      title: "Datos de Generación Eléctrica",
       briefDescription:
-        "Harness the power of the sun with our state-of-the-art solar panels. Generate clean energy for your home or business and reduce your carbon footprint.",
-      visual: img1,
-    },
-    {
-      title: "Wind Energy Harvesting",
-      briefDescription:
-        "Embrace the power of the wind. Our wind energy solutions provide a sustainable and efficient way to generate electricity, ensuring a greener future.",
+        "Obtenemos datos históricos de producción de energía eólica, solar e hidráulica desde la API de Red Eléctrica de España.",
       visual: img2,
     },
     {
-      title: "Hydropower Systems",
+      title: "Datos Meteorológicos",
       briefDescription:
-        "Flow with nature. Our hydropower systems harness the energy of flowing water, delivering reliable and eco-friendly electricity to your doorstep.",
-      visual: img3,
+        "Recopilamos datos de velocidad del viento, ráfagas y temperatura de 14 estaciones de AEMET cercanas a parques eólicos.",
+      visual: img1,
     },
     {
-      title: "Energy Storage Solutions",
+      title: "Machine Learning",
       briefDescription:
-        "Store excess energy efficiently. Our cutting-edge energy storage solutions ensure uninterrupted power supply, even during cloudy days or low-wind periods.",
-      visual: img4,
-    },
-    {
-      title: "Smart Grid Technology",
-      briefDescription:
-        "Navigate the future with our smart grid technology. Optimize energy distribution, monitor consumption, and contribute to a more sustainable and efficient energy ecosystem.",
+        "Entrenamos modelos predictivos utilizando Linear Regression, XGBoost y Random Forest para forecasting de generación eólica.",
       visual: img5,
     },
     {
-      title: "Energy-efficient Lighting",
+      title: "Predicción Diaria",
       briefDescription:
-        "Illuminate your space responsibly. Our energy-efficient lighting solutions provide bright, sustainable, and cost-effective illumination for homes and businesses.",
+        "Generamos predicciones diarias de producción eólica para el día siguiente basándonos en el forecast de AEMET.",
+      visual: img4,
+    },
+    {
+      title: "Visualización de Datos",
+      briefDescription:
+        "Presentamos gráficos interactivos con la evolución histórica, comparativa de modelos y predicción vs real.",
       visual: img6,
+    },
+    {
+      title: "Actualización Automática",
+      briefDescription:
+        "El sistema se actualiza automáticamente cada noche a las 3:00 AM para proporcionar predicciones siempre actualizadas.",
+      visual: img3,
     },
   ],
   callToAction:
-    "Discover the Future of Green Energy. Choose Your Sustainable Solution Today!",
-  buttonText: "Explore More",
+    "Descubre el Futuro de la Predicción Energética. Explora Nuestro Proyecto Hoy!",
+  buttonText: "Ver Resultados",
 };
