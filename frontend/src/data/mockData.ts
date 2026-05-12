@@ -17,6 +17,7 @@ export interface EnergyMix {
 
 export interface WindPark {
   nombre: string;
+  id: string;
   lat: number;
   lng: number;
   estacion: string;
@@ -71,13 +72,13 @@ export const energyMix: EnergyMix = {
 };
 
 export const windParks: WindPark[] = [
-  { nombre: "El Andévalo (Huelva)", lat: 37.264, lng: -6.945, estacion: "ALOSNO, THARSIS" },
-  { nombre: "Gecama (Cuenca)", lat: 39.408, lng: -2.219, estacion: "ALBACETE BASE AÉREA" },
-  { nombre: "Maranchón (Guadalajara)", lat: 41.064, lng: -2.206, estacion: "MOLINA DE ARAGÓN" },
-  { nombre: "Borja (Zaragoza)", lat: 41.877, lng: -1.563, estacion: "TARAZONA" },
-  { nombre: "Tarifa (Cádiz)", lat: 36.037, lng: -5.571, estacion: "TARIFA" },
-  { nombre: "Briviesca (Burgos)", lat: 42.529, lng: -3.408, estacion: "BRIVIESCA" },
-  { nombre: "La Muela (Zaragoza)", lat: 41.592, lng: -1.158, estacion: "TARAZONA" },
+  { nombre: "El Andévalo (Huelva)", id: "4589X", lat: 37.26418296737997, lng: -6.944856396315273, estacion: "ALOSNO, THARSIS" },
+  { nombre: "Gecama (Cuenca)", id: "8175", lat: 39.40848408319995, lng: -2.2192737751771614, estacion: "ALBACETE BASE AÉREA" },
+  { nombre: "Maranchón (Guadalajara)", id: "3013", lat: 41.06356588209968, lng: -2.206160824662825, estacion: "MOLINA DE ARAGÓN" },
+  { nombre: "Borja (Zaragoza)", id: "9299X", lat: 41.877046928697204, lng: -1.5630303402886618, estacion: "TARAZONA" },
+  { nombre: "Tarifa (Cádiz)", id: "6001", lat: 36.037373555997895, lng: -5.570950423574283, estacion: "TARIFA" },
+  { nombre: "Briviesca (Burgos)", id: "9031C", lat: 42.52921710077489, lng: -3.408352539310985, estacion: "BRIVIESCA" },
+  { nombre: "La Muela (Zaragoza)", id: "9299X", lat: 41.5924449830392, lng: -1.1575020732335635, estacion: "TARAZONA" },
 ];
 
 export const featureImportance: FeatureImportance[] = [

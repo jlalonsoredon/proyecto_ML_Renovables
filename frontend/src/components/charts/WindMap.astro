@@ -3,6 +3,7 @@ import { windParks } from "../../data/mockData";
 
 const mapData = windParks.map(p => ({
   nombre: p.nombre,
+  id: p.id,
   lat: p.lat,
   lng: p.lng,
   estacion: p.estacion,
@@ -13,11 +14,11 @@ const mapData = windParks.map(p => ({
   <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Ubicación de Parques Eólicos</h3>
   <div id="windMap" class="h-96 w-full rounded-lg"></div>
   <div class="mt-4">
-    <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Leyenda:</h4>
+    <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Parques monitorizados:</h4>
     <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
       {windParks.map((park) => (
         <li>
-          <span class="font-medium">{park.nombre}</span> - Estación: {park.estacion}
+          <span class="font-medium">{park.nombre}</span> (ID: {park.id})
         </li>
       ))}
     </ul>
@@ -44,6 +45,6 @@ const mapData = windParks.map(p => ({
   mapData.forEach((park) => {
     L.marker([park.lat, park.lng], { icon })
       .addTo(map)
-      .bindPopup(`<strong>${park.nombre}</strong><br>Estación: ${park.estacion}`);
+      .bindPopup(`<strong>${park.nombre}</strong><br>ID: ${park.id}<br>Lat: ${park.lat.toFixed(4)}<br>Lng: ${park.lng.toFixed(4)}`);
   });
 </script>
