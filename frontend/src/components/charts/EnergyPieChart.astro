@@ -1,0 +1,94 @@
+---
+import { energyMix } from "../../data/mockData";
+
+const mixData = {
+  renovate: energyMix.renovable,
+  noRenovate: energyMix.noRenovable,
+  tecnologias: Object.entries(energyMix.tecnologias).map(([key, value]) => ({ name: key, value })),
+};
+---
+
+<div class="space-y-8">
+  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
+    <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Mix Energético: Renovables vs No Renovables</h3>
+    <div class="max-w-md mx-auto">
+      <canvas id="energyPieChart"></canvas>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
+    <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Desglose de Energías Renovables</h3>
+    <div class="max-w-md mx-auto">
+      <canvas id="renewablePieChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ mixData }}>
+  import { Chart, registerables } from "chart.js";
+
+  Chart.register(...registerables);
+
+  const energyPieCtx = document.getElementById("energyPieChart");
+  new Chart(energyPieCtx, {
+    type: "pie",
+    data: {
+      labels: ["Renovables", "No Renovables"],
+      datasets: [
+        {
+          data: [mixData.renovate, mixData.noRenovate],
+          backgroundColor: ["#4CAF50", "#F44336"],
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: "bottom",
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${context.label}: ${context.raw}%`,
+          },
+        },
+      },
+    },
+  });
+
+  const renewablePieCtx = document.getElementById("renewablePieChart");
+  new Chart(renewablePieCtx, {
+    type: "pie",
+    data: {
+      labels: mixData.tecnologias.map(t => t.name),
+      datasets: [
+        {
+          data: mixData.tecnologias.map(t => t.value),
+          backgroundColor: [
+            "#2196F3",
+            "#FF9800",
+            "#4CAF50",
+            "#9C27B0",
+            "#00BCD4",
+            "#795548",
+          ],
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: "bottom",
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${context.label}: ${context.raw}%`,
+          },
+        },
+      },
+    },
+  });
+</script>

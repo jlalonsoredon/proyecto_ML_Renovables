@@ -1,0 +1,74 @@
+---
+import { historicalData } from "../../data/mockData";
+
+const chartData = {
+  labels: historicalData.map(d => d.fecha),
+  eolica: historicalData.map(d => d.eolica),
+  solar: historicalData.map(d => d.solar),
+  hidraulica: historicalData.map(d => d.hidraulica),
+};
+---
+
+<div class="chart-container bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
+  <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Evolución de Generación Renovable (Últimos 30 días)</h3>
+  <canvas id="renewableLineChart"></canvas>
+</div>
+
+<script define:vars={{ chartData }}>
+  import { Chart, registerables } from "chart.js";
+
+  Chart.register(...registerables);
+
+  const ctx = document.getElementById("renewableLineChart");
+
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: "Eólica (MWh)",
+          data: chartData.eolica,
+          borderColor: "#2196F3",
+          backgroundColor: "rgba(33, 150, 243, 0.1)",
+          tension: 0.4,
+          fill: true,
+        },
+        {
+          label: "Solar Fotovoltaica (MWh)",
+          data: chartData.solar,
+          borderColor: "#FF9800",
+          backgroundColor: "rgba(255, 152, 0, 0.1)",
+          tension: 0.4,
+          fill: true,
+        },
+        {
+          label: "Hidráulica (MWh)",
+          data: chartData.hidraulica,
+          borderColor: "#4CAF50",
+          backgroundColor: "rgba(76, 175, 80, 0.1)",
+          tension: 0.4,
+          fill: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: "top",
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          title: {
+            display: true,
+            text: "MWh",
+          },
+        },
+      },
+    },
+  });
+</script>

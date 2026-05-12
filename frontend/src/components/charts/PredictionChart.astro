@@ -1,0 +1,85 @@
+---
+import { historicalData, currentPrediction } from "../../data/mockData";
+
+const chartData = {
+  labels: historicalData.map(d => d.fecha),
+  real: historicalData.map(d => d.eolica),
+  predictionDate: currentPrediction.fecha,
+  predictionValue: currentPrediction.prediccionMWh,
+};
+---
+
+<div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
+  <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Predicción vs Real (Último mes + Predicción)</h3>
+  <canvas id="predictionChart"></canvas>
+</div>
+
+<script define:vars={{ chartData }}>
+  import { Chart, registerables } from "chart.js";
+
+  Chart.register(...registerables);
+
+  const ctx = document.getElementById("predictionChart");
+
+  const allLabels = [...chartData.labels, chartData.predictionDate];
+  const realValues = [...chartData.real];
+
+  const predictedValues = new Array(chartData.real.length - 1).fill(null);
+  predictedValues.push(chartData.real[chartData.real.length - 1]);
+  predictedValues.push(chartData.predictionValue);
+
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: allLabels,
+      datasets: [
+        {
+          label: "Producción Real (MWh)",
+          data: realValues,
+          borderColor: "#2196F3",
+          backgroundColor: "rgba(33, 150, 243, 0.1)",
+          tension: 0.4,
+          fill: false,
+          pointRadius: 3,
+        },
+        {
+          label: "Predicción (MWh)",
+          data: predictedValues,
+          borderColor: "#FF5722",
+          backgroundColor: "rgba(255, 87, 34, 0.1)",
+          borderDash: [5, 5],
+          tension: 0.4,
+          fill: false,
+          pointRadius: 6,
+          pointBackgroundColor: "#FF5722",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: "top",
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.raw;
+              return value ? `${context.dataset.label}: ${Math.round(value).toLocaleString()} MWh` : "";
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          title: {
+            display: true,
+            text: "MWh",
+          },
+        },
+      },
+    },
+  });
+</script>

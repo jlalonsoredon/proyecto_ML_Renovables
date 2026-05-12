@@ -1,0 +1,257 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Container from "../components/shared/Container.astro";
+import Title from "../components/shared/Title.astro";
+import Title2 from "../components/shared/Title2.astro";
+import Title3 from "../components/shared/Title3.astro";
+import Paragraph from "../components/shared/Paragraph.astro";
+---
+
+<Layout title="Proceso - Predicción Eólica ML">
+  <main class="flex flex-col gap-y-12 md:gap-y-20 overflow-hidden pb-20">
+    <Container>
+      <div class="py-12 text-center">
+        <Title>Proceso del Proyecto</Title>
+        <Paragraph>
+          Descubre cómo se construye la predicción de generación eólica paso a paso
+        </Paragraph>
+      </div>
+    </Container>
+
+    <Container>
+      <div class="space-y-16">
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
+          <Title2>1. Obtención de Datos</Title2>
+          <div class="mt-6 space-y-4">
+            <Paragraph>
+              El proyecto utiliza dos fuentes principales de datos:
+            </Paragraph>
+            <div class="grid md:grid-cols-2 gap-6 mt-4">
+              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <Title3>API Red Eléctrica de España (REE)</Title3>
+                <Paragraph>
+                  Proporciona datos históricos de generación eléctrica por tecnología:
+                  <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>energía eólica</li>
+                    <li>Solar fotovoltaica</li>
+                    <li>Hidráulica</li>
+                    <li>Solar térmica</li>
+                    <li>Otras renovables</li>
+                    <li>Residuos renovables</li>
+                  </ul>
+                </Paragraph>
+                <Paragraph>
+                  <strong>Período:</strong> Enero 2022 - Actualidad
+                </Paragraph>
+              </div>
+
+              <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                <Title3>API AEMET (Meteorología)</Title3>
+                <Paragraph>
+                  Proporciona datos climáticos de 14 estaciones meteorológicas:
+                  <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>Temperatura media, mínima y máxima</li>
+                    <li>Velocidad media del viento</li>
+                    <li>Ráfagas máxima</li>
+                    <li>Precipitación</li>
+                    <li>Horas de sol</li>
+                  </ul>
+                </Paragraph>
+                <Paragraph>
+                  <strong>Estaciones:</strong> Albacete, Almería, Burgos, Cádiz, Cuenca, Guadalajara, Huelva, Sevilla, Zaragoza
+                </Paragraph>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
+          <Title2>2. Preprocesamiento de Datos</Title2>
+          <div class="mt-6 space-y-4">
+            <Paragraph>
+              Una vez obtenidos los datos de ambas APIs, se realiza un proceso de limpieza y fusión:
+            </Paragraph>
+            <ul class="list-disc list-inside space-y-3 text-gray-700 dark:text-gray-300">
+              <li>Eliminación de registros duplicados</li>
+              <li>Normalización de fechas y horas</li>
+              <li>Tratamiento de valores nulos (interpolación)</li>
+              <li>Conversión de unidades (km/h a m/s)</li>
+              <li>Merge de datos de generación con datos climáticos por fecha</li>
+            </ul>
+
+            <Paragraph>
+              <strong>Features creadas:</strong>
+            </Paragraph>
+            <div class="grid md:grid-cols-3 gap-4 mt-4">
+              <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                <strong>Temporales</strong>
+                <p class="text-sm mt-1">mes, día de la semana, día del año, trimestre</p>
+              </div>
+              <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                <strong>Lags</strong>
+                <p class="text-sm mt-1">eólica_lag1, eólica_lag2, eólica_lag3, eólica_lag7</p>
+              </div>
+              <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                <strong>Medias móviles</strong>
+                <p class="text-sm mt-1">vel_ma3, vel_ma7, vel_ma14, racha_ma7, eolica_ma7</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
+          <Title2>3. Modelos de Machine Learning</Title2>
+          <div class="mt-6 space-y-4">
+            <Paragraph>
+              Se han probado múltiples modelos de Machine Learning para encontrar el mejor:
+            </Paragraph>
+            <div class="overflow-x-auto mt-4">
+              <table class="w-full text-sm text-left">
+                <thead class="bg-gray-100 dark:bg-gray-700">
+                  <tr>
+                    <th class="px-4 py-2 rounded-tl-lg">Modelo</th>
+                    <th class="px-4 py-2">RMSE (MWh)</th>
+                    <th class="px-4 py-2">R²</th>
+                    <th class="px-4 py-2">MAPE (%)</th>
+                    <th class="px-4 py-2 rounded-tr-lg">Accuracy (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="border-b">
+                    <td class="px-4 py-2 font-semibold text-green-600">Linear Regression</td>
+                    <td class="px-4 py-2">60,433</td>
+                    <td class="px-4 py-2">0.579</td>
+                    <td class="px-4 py-2">41.73</td>
+                    <td class="px-4 py-2">42.6</td>
+                  </tr>
+                  <tr class="border-b">
+                    <td class="px-4 py-2">Lasso</td>
+                    <td class="px-4 py-2">60,433</td>
+                    <td class="px-4 py-2">0.579</td>
+                    <td class="px-4 py-2">41.73</td>
+                    <td class="px-4 py-2">42.6</td>
+                  </tr>
+                  <tr class="border-b">
+                    <td class="px-4 py-2">Random Forest</td>
+                    <td class="px-4 py-2">60,438</td>
+                    <td class="px-4 py-2">0.579</td>
+                    <td class="px-4 py-2">44.30</td>
+                    <td class="px-4 py-2">36.3</td>
+                  </tr>
+                  <tr class="border-b">
+                    <td class="px-4 py-2">Ridge</td>
+                    <td class="px-4 py-2">60,498</td>
+                    <td class="px-4 py-2">0.578</td>
+                    <td class="px-4 py-2">41.95</td>
+                    <td class="px-4 py-2">42.0</td>
+                  </tr>
+                  <tr class="border-b">
+                    <td class="px-4 py-2">LightGBM</td>
+                    <td class="px-4 py-2">61,873</td>
+                    <td class="px-4 py-2">0.559</td>
+                    <td class="px-4 py-2">44.46</td>
+                    <td class="px-4 py-2">37.2</td>
+                  </tr>
+                  <tr class="border-b">
+                    <td class="px-4 py-2">XGBoost</td>
+                    <td class="px-4 py-2">63,346</td>
+                    <td class="px-4 py-2">0.537</td>
+                    <td class="px-4 py-2">45.87</td>
+                    <td class="px-4 py-2">36.6</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-2 rounded-bl-lg">Red Neuronal (MLP)</td>
+                    <td class="px-4 py-2">63,910</td>
+                    <td class="px-4 py-2">0.529</td>
+                    <td class="px-4 py-2">43.22</td>
+                    <td class="px-4 py-2 rounded-br-lg">37.5</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <Paragraph>
+              <strong>Modelo seleccionado:</strong> Linear Regression por obtener el mejor equilibrio entre R² (0.579) y menor RMSE.
+            </Paragraph>
+          </div>
+        </section>
+
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
+          <Title2>4. Predicción y Actualización</Title2>
+          <div class="mt-6 space-y-4">
+            <Paragraph>
+              El proceso de predicción funciona de la siguiente manera:
+            </Paragraph>
+            <ol class="list-decimal list-inside space-y-3 text-gray-700 dark:text-gray-300">
+              <li>
+                <strong>Descarga de forecast AEMET:</strong> Se obtiene el pronóstico meteorológico para el día siguiente
+                (velocidad media del viento y ráfagas) de las estaciones cercanas a los parques eólicos.
+              </li>
+              <li>
+                <strong>Construcción del vector de features:</strong> Se combinan los datos de forecast con los datos
+                históricos (lags, medias móviles) para crear el vector de entrada del modelo.
+              </li>
+              <li>
+                <strong>Predicción:</strong> El modelo Linear Regression genera la predicción de producción eólica en MWh.
+              </li>
+              <li>
+                <strong>Guardado:</strong> El resultado se guarda en la base de datos para su visualización en el frontend.
+              </li>
+            </ol>
+
+            <Paragraph>
+              <strong>Programación:</strong> La actualización se realiza automáticamente cada noche a las 3:00 AM
+              mediante un script en el backend (Render).
+            </Paragraph>
+          </div>
+        </section>
+
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
+          <Title2>5. Parques Eólicos Monitorizados</Title2>
+          <div class="mt-6">
+            <Paragraph>
+              El proyecto monitoriza 7 parques eólicos distribuidos por toda España:
+            </Paragraph>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <strong>El Andévalo</strong>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Huelva - Est: Alosno</p>
+              </div>
+              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <strong>Gecama</strong>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Cuenca - Est: Albacete</p>
+              </div>
+              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <strong>Maranchón</strong>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Guadalajara - Est: Molina de Aragón</p>
+              </div>
+              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <strong>Borja</strong>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Zaragoza - Est: Tarazona</p>
+              </div>
+              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <strong>Tarifa</strong>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Cádiz - Est: Tarifa</p>
+              </div>
+              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <strong>Briviesca</strong>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Burgos - Est: Briviesca</p>
+              </div>
+              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <strong>La Muela</strong>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Zaragoza - Est: Tarazona</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </Container>
+
+    <Container>
+      <div class="text-center py-8">
+        <a href="/resultados" class="inline-block bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors">
+          Ver Gráficos y Predicciones
+        </a>
+      </div>
+    </Container>
+  </main>
+</Layout>

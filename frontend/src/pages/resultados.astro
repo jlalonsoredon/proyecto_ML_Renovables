@@ -1,0 +1,135 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Container from "../components/shared/Container.astro";
+import Title from "../components/shared/Title.astro";
+import Title2 from "../components/shared/Title2.astro";
+import Title3 from "../components/shared/Title3.astro";
+import Paragraph from "../components/shared/Paragraph.astro";
+import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
+import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
+import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
+import PredictionChart from "../components/charts/PredictionChart.astro";
+import FeatureImportanceChart from "../components/charts/FeatureImportanceChart.astro";
+import WindMap from "../components/charts/WindMap.astro";
+import { currentPrediction } from "../data/mockData";
+---
+
+<Layout title="Resultados - Predicción Eólica ML">
+  <main class="flex flex-col gap-y-12 md:gap-y-20 overflow-hidden pb-20">
+    <Container>
+      <div class="py-12 text-center">
+        <Title>Resultados y Predicciones</Title>
+        <Paragraph>
+          Visualización de datos históricos, comparación de modelos y predicciones actuales
+        </Paragraph>
+      </div>
+    </Container>
+
+    <Container>
+      <section class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white mb-12">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div>
+            <Title3>Predicción para Mañana</Title3>
+            <p class="text-blue-100 text-sm mt-1">Última actualización: {currentPrediction.fecha}</p>
+          </div>
+          <div class="text-center">
+            <div class="text-5xl font-bold">{currentPrediction.prediccionMWh.toLocaleString()}</div>
+            <div class="text-blue-200">MWh</div>
+          </div>
+          <div class="text-right text-sm">
+            <p><strong>Modelo:</strong> {currentPrediction.modelo}</p>
+            <p><strong>Velocidad viento:</strong> {currentPrediction.features.velmedia} m/s</p>
+            <p><strong>Ráfagas:</strong> {currentPrediction.features.racha} m/s</p>
+          </div>
+        </div>
+      </section>
+    </Container>
+
+    <Container>
+      <section class="mb-12">
+        <Title2>Evolución de Generación Renovable</Title2>
+        <Paragraph>
+          Evolución temporal de la producción de energía eólica, solar fotovoltaica e hidráulica
+          durante los últimos 30 días.
+        </Paragraph>
+        <div class="mt-6">
+          <RenewableLineChart />
+        </div>
+      </section>
+    </Container>
+
+    <Container>
+      <section class="mb-12">
+        <Title2>Mix Energético en España</Title2>
+        <Paragraph>
+          Distribución porcentual de la generación eléctrica entre energías renovables
+          y no renovables, junto con el desglose detallado de las tecnologías renovables.
+        </Paragraph>
+        <div class="mt-6">
+          <EnergyPieChart />
+        </div>
+      </section>
+    </Container>
+
+    <Container>
+      <section class="mb-12">
+        <Title2>Comparación de Modelos de Machine Learning</Title2>
+        <Paragraph>
+          Comparación de rendimiento entre los diferentes modelos probados. Linear Regression
+          obtiene el mejor resultado general con R² = 0.579.
+        </Paragraph>
+        <div class="mt-6">
+          <ModelComparisonChart />
+        </div>
+      </section>
+    </Container>
+
+    <Container>
+      <section class="mb-12">
+        <Title2>Predicción vs Real</Title2>
+        <Paragraph>
+          Comparación entre la producción real de energía eólica y las predicciones del modelo
+          Linear Regression. La línea naranja discontinua muestra la predicción para mañana.
+        </Paragraph>
+        <div class="mt-6">
+          <PredictionChart />
+        </div>
+      </section>
+    </Container>
+
+    <Container>
+      <section class="mb-12">
+        <Title2>Importancia de Features</Title2>
+        <Paragraph>
+          Análisis de qué variables tienen mayor influencia en la predicción del modelo.
+          La velocidad media del viento es el feature más importante (35%), seguida de las ráfagas (25%).
+        </Paragraph>
+        <div class="mt-6 max-w-2xl mx-auto">
+          <FeatureImportanceChart />
+        </div>
+      </section>
+    </Container>
+
+    <Container>
+      <section class="mb-12">
+        <Title2>Mapa de Parques Eólicos</Title2>
+        <Paragraph>
+          Ubicación geográfica de los 7 parques eólicos monitorizados en el proyecto,
+          junto con sus estaciones meteorológicas asociadas de AEMET.
+        </Paragraph>
+        <div class="mt-6">
+          <WindMap />
+        </div>
+      </section>
+    </Container>
+
+    <Container>
+      <section class="bg-gray-100 dark:bg-gray-800 rounded-xl p-6 text-center">
+        <Paragraph>
+          <strong>Nota:</strong> Los datos mostrados son de ejemplo. Cuando el backend esté desplegado,
+          los gráficos se actualizarán con datos en tiempo real obtenidos de las APIs.
+        </Paragraph>
+      </section>
+    </Container>
+  </main>
+</Layout>

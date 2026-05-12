@@ -1,0 +1,64 @@
+---
+import { featureImportance } from "../../data/mockData";
+
+const chartData = {
+  labels: featureImportance.map(f => f.feature),
+  values: featureImportance.map(f => f.importance),
+};
+---
+
+<div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
+  <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Importancia de Features (Modelo Linear Regression)</h3>
+  <canvas id="featureImportanceChart"></canvas>
+</div>
+
+<script define:vars={{ chartData }}>
+  import { Chart, registerables } from "chart.js";
+
+  Chart.register(...registerables);
+
+  const ctx = document.getElementById("featureImportanceChart");
+
+  new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: "Importancia",
+          data: chartData.values,
+          backgroundColor: [
+            "#2196F3",
+            "#4CAF50",
+            "#FF9800",
+            "#9C27B0",
+            "#00BCD4",
+            "#F44336",
+            "#795548",
+          ],
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          display: false,
+        },
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          max: 0.5,
+          title: {
+            display: true,
+            text: "Importancia",
+          },
+        },
+      },
+    },
+  });
+</script>

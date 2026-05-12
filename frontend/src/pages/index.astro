@@ -1,54 +1,101 @@
 ---
-import CustomerTestimonials from "../components/sections/testimonials/CustomerTestimonials.astro";
-import EnvironmentalImpact from "../components/sections/environment/EnvironmentalImpact.astro";
-import FeaturedProjects from "../components/sections/featured/FeaturedProjects.astro";
-import GetInvolved from "../components/sections/cta/GetInvolved.astro";
-import Hero from "../components/sections/hero/Hero.astro";
-import KeyServices from "../components/sections/services/KeyServices.astro";
-import LatestInnovations from "../components/sections/innovations/LatestInnovations.astro";
 import Layout from "../layouts/Layout.astro";
+import Container from "../components/shared/Container.astro";
+import Title from "../components/shared/Title.astro";
+import SubTitle from "../components/shared/SubTitle.astro";
+import Paragraph from "../components/shared/Paragraph.astro";
+import CtaButton from "../components/shared/CtaButton.astro";
+import Title3 from "../components/shared/Title3.astro";
 ---
 
-<Layout title="Welcome to the Agency template ">
+<Layout title="Predicción Eólica ML">
   <main class="flex flex-col gap-y-20 md:gap-y-40 overflow-hidden">
-    <!-- Hero Section: -->
-    <!-- High-quality image or animation of renewable energy sources. -->
-    <!-- Headline and subheading centered on the page. -->
-    <Hero />
+    <Container>
+      <div class="py-20 md:py-32 text-center">
+        <Title>
+          Predicción de Generación Eólica con Machine Learning
+        </Title>
+        <SubTitle>
+          Utilizando datos de la API de Red Eléctrica de España y datos climáticos de AEMET
+        </SubTitle>
+        <Paragraph>
+          Este proyecto utiliza algoritmos de Machine Learning para predecir la producción de energía eólica en España.
+          Combinamos datos históricos de generación eléctrica con información meteorológica en tiempo real para obtener
+          predicciones precisas.
+        </Paragraph>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+          <CtaButton href="/resultados" variant="primary">
+            Ver Resultados
+          </CtaButton>
+          <CtaButton href="/proceso" variant="secondary">
+            Conocer el Proceso
+          </CtaButton>
+        </div>
+      </div>
+    </Container>
 
-    <KeyServices />
-    <!-- Key Services Overview: -->
-    <!-- Provide a brief overview of your main green energy services. -->
-    <!-- Use engaging visuals and concise text to highlight the benefits. -->
-    <!-- Include a call-to-action button leading to detailed service information. -->
+    <Container>
+      <div class="grid md:grid-cols-2 gap-8 py-12">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+          <Title3>Objetivo</Title3>
+          <Paragraph>
+            Predecir la producción diaria de energía eólica en el sistema eléctrico español,
+            utilizando como principales features la velocidad del viento y las ráfagas de las
+            estaciones meteorológicas de AEMET.
+          </Paragraph>
+        </div>
 
-    <LatestInnovations />
-    <!-- Latest Innovations: -->
-    <!-- Highlight any recent advancements or innovations in your green energy solutions. -->
-    <!-- Use images and concise descriptions to showcase your commitment to cutting-edge technology. -->
-    <!-- Emphasize how staying with your company means staying at the forefront of green energy. -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+          <Title3>Tecnologías</Title3>
+          <Paragraph>
+            <ul class="list-disc list-inside space-y-2">
+              <li>API Red Eléctrica de España (REE)</li>
+              <li>API Agencia Estatal de Meteorología (AEMET)</li>
+              <li>Machine Learning: Linear Regression, XGBoost, Random Forest</li>
+              <li>Backend: Python/FastAPI</li>
+              <li>Frontend: Astro + Chart.js + Leaflet</li>
+            </ul>
+          </Paragraph>
+        </div>
 
-    <CustomerTestimonials />
-    <!-- Customer Testimonials: -->
-    <!-- Share testimonials from satisfied customers. -->
-    <!-- Include photos, names, and brief quotes to build trust. -->
-    <!-- Place a call-to-action to encourage users to explore more customer stories. -->
-    <EnvironmentalImpact />
-    <!-- Environmental Impact: -->
-    <!-- Showcase the positive impact users can make by choosing your services. -->
-    <!-- Use statistics, infographics, or visuals to illustrate the environmental benefits. -->
-    <!-- Emphasize the role your company plays in promoting sustainability. -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+          <Title3>Datos Utilizados</Title3>
+          <Paragraph>
+            <ul class="list-disc list-inside space-y-2">
+              <li>Generación eléctrica: Enero 2022 - Actualidad</li>
+              <li>Datos climáticos: 14 estaciones meteorológicas</li>
+              <li>Período de predicción: Mañana (dia+1)</li>
+              <li>Frecuencia: Actualización diaria</li>
+            </ul>
+          </Paragraph>
+        </div>
 
-    <FeaturedProjects />
-    <!-- Featured Projects or Case Studies: -->
-    <!-- Showcase successful green energy projects your company has undertaken. -->
-    <!-- Provide details on the impact and success of these projects. -->
-    <!-- Encourage users to explore more about your company's achievements. -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+          <Title3>Resultados</Title3>
+          <Paragraph>
+            El modelo Linear Regression obtiene los mejores resultados con:
+            <ul class="list-disc list-inside space-y-2 mt-2">
+              <li>R² = 0.579 (57.9% de varianza explicada)</li>
+              <li>RMSE = 60,433 MWh</li>
+              <li>MAPE = 41.73%</li>
+            </ul>
+          </Paragraph>
+        </div>
+      </div>
+    </Container>
 
-    <GetInvolved />
-    <!-- Get Involved Section: -->
-    <!-- Invite users to actively participate or learn more about sustainability. -->
-    <!-- Provide information on community initiatives, events, or partnerships. -->
-    <!-- Include a call-to-action for users to join your community or subscribe to updates. -->
+    <Container>
+      <div class="text-center py-12">
+        <Title3>¿Quieres ver las predicciones?</Title3>
+        <Paragraph>
+          Consulta nuestra página de resultados para ver los gráficos y la predicción actual.
+        </Paragraph>
+        <div class="flex justify-center mt-6">
+          <CtaButton href="/resultados" variant="primary">
+            Ver Predicciones en Tiempo Real
+          </CtaButton>
+        </div>
+      </div>
+    </Container>
   </main>
 </Layout>

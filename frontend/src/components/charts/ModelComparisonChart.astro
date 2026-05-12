@@ -1,0 +1,65 @@
+---
+import { modelResults } from "../../data/mockData";
+
+const chartData = {
+  labels: modelResults.map(m => m.modelo),
+  rmse: modelResults.map(m => m.rmse),
+  r2: modelResults.map(m => m.r2 * 100000),
+  mape: modelResults.map(m => m.mape * 1000),
+};
+---
+
+<div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
+  <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Comparación de Modelos ML</h3>
+  <canvas id="modelComparisonChart"></canvas>
+</div>
+
+<script define:vars={{ chartData }}>
+  import { Chart, registerables } from "chart.js";
+
+  Chart.register(...registerables);
+
+  const ctx = document.getElementById("modelComparisonChart");
+
+  new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: "RMSE (MWh)",
+          data: chartData.rmse,
+          backgroundColor: "rgba(244, 67, 54, 0.8)",
+        },
+        {
+          label: "R² (x100k)",
+          data: chartData.r2,
+          backgroundColor: "rgba(33, 150, 243, 0.8)",
+        },
+        {
+          label: "MAPE (x1k)",
+          data: chartData.mape,
+          backgroundColor: "rgba(76, 175, 80, 0.8)",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: "top",
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: "Valor",
+          },
+        },
+      },
+    },
+  });
+</script>
