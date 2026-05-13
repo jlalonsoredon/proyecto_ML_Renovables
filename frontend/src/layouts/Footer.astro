@@ -3,6 +3,8 @@ import GroupFooterNav from "../components/blocks/GroupFooterNav.astro";
 import Container from "../components/shared/Container.astro";
 import FooterNav from "../components/shared/FooterNav.astro";
 import Paragraph from "../components/shared/Paragraph.astro";
+import { Image } from "astro:assets";
+import logo from "../assets/logo_tb_b.png";
 
 const footerNav = [
   {
@@ -27,7 +29,8 @@ const footerNav = [
         class="grid grid-cols-2 lg:grid-cols-3 lg:items-stretch gap-8 relative"
       >
         <div class="col-span-2 lg:col-span-1 h-auto flex flex-col">
-          <div class="h-full">
+          <div class="h-full flex items-center gap-4">
+            <Image src={logo} alt="Logo KeepCoding" class="h-12 w-auto" />
             <Paragraph className={"mt-4"}>
               Proyecto realizado para el bootcamp de Data Science de KeepCoding
             </Paragraph>
@@ -53,9 +56,9 @@ const footerNav = [
           </div>
         </div>
 
-        <GroupFooterNav>
+        <div class="flex flex-col lg:flex-row lg:items-center gap-8">
           <FooterNav title={"Navegación"} navItems={footerNav} />
-        </GroupFooterNav>
+        </div>
       </div>
     </Container>
     
