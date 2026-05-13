@@ -10,9 +10,13 @@ const PARQUES_EOLICOS = [
 ];
 ---
 
+<!-- Leaflet via CDN: garantiza CSS + JS correctamente -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
   <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Ubicación de Parques Eólicos</h3>
-  <div id="windMap" class="h-96 w-full rounded-lg"></div>
+  <div id="windMap" style="height: 420px; width: 100%; border-radius: 8px;"></div>
   <div class="mt-4">
     <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Parques monitorizados:</h4>
     <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
@@ -26,31 +30,35 @@ const PARQUES_EOLICOS = [
   </div>
 </div>
 
-<script define:vars={{ PARQUES_EOLICOS }}>
-  import L from "leaflet";
-  import "leaflet/dist/leaflet.css";
+<script is:inline define:vars={{ PARQUES_EOLICOS }}>
+  // L está disponible globalmente desde el CDN
+  (function () {
+    const container = document.getElementById("windMap");
+    if (!container || container._leaflet_id) return; // evitar doble init
 
-  const map = L.map("windMap").setView([39.8, -3.5], 6);
+    const map = L.map("windMap").setView([39.8, -3.5], 6);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  }).addTo(map);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 18,
+    }).addTo(map);
 
-  const icon = L.divIcon({
-    className: "custom-marker",
-    html: `<div style="background-color:#3B82F6;width:20px;height:20px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.35);"></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
-  });
+    const icon = L.divIcon({
+      className: "",
+      html: '<div style="background-color:#3B82F6;width:18px;height:18px;border-radius:50%;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
 
-  PARQUES_EOLICOS.forEach((park) => {
-    L.marker([park.latitud, park.longitud], { icon })
-      .addTo(map)
-      .bindPopup(
-        `<strong>${park.nombre}</strong><br>
-         Indicativo AEMET: ${park.id}<br>
-         Lat: ${park.latitud.toFixed(5)}<br>
-         Lng: ${park.longitud.toFixed(5)}`
-      );
-  });
+    PARQUES_EOLICOS.forEach(function (park) {
+      L.marker([park.latitud, park.longitud], { icon })
+        .addTo(map)
+        .bindPopup(
+          "<strong>" + park.nombre + "</strong><br>" +
+          "Indicativo AEMET: " + park.id + "<br>" +
+          "Lat: " + park.latitud.toFixed(5) + "<br>" +
+          "Lng: " + park.longitud.toFixed(5)
+        );
+    });
+  })();
 </script>

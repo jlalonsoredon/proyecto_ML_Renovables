@@ -73,9 +73,9 @@ const PCT_NO_RENOVABLE = 41.67;
   </div>
 </div>
 
-<script define:vars={{ RENOVABLES, PCT_RENOVABLE, PCT_NO_RENOVABLE }}>
-  import { Chart, registerables } from "chart.js";
-  Chart.register(...registerables);
+<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<script is:inline define:vars={{ RENOVABLES, PCT_RENOVABLE, PCT_NO_RENOVABLE }}>
 
   const COLORS = ["#3B82F6", "#F59E0B", "#10B981", "#8B5CF6", "#06B6D4", "#EF4444"];
 
