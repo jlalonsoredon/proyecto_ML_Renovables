@@ -159,90 +159,140 @@ def get_mock_energy_mix():
 def get_prediction_chart():
     """
     Último mes histórico + predicción de mañana, listos para renderizar el gráfico
-    dual-eje (generación eólica izquierda / viento z-score derecha), equivalente
-    al gráfico del notebook api.ipynb.
+    dual-eje (generación eólica izquierda / viento z-score derecha).
 
     Respuesta:
       fechas_hist  — fechas de los últimos 30 días disponibles
       real_gwh     — generación eólica real (GWh)
       pred_gwh     — predicción LR guardada para esos días (GWh, null si no disponible)
-      vel_norm     — velmedia estandarizada (z-score local)
-      racha_norm   — racha estandarizada (z-score local)
+      vel_norm     — velmedia estandarizada (z-score, null si no disponible)
+      racha_norm   — racha estandarizada (z-score, null si no disponible)
       manana       — {fecha, pred_gwh, vel_norm, racha_norm, velmedia, racha}
     """
     from datetime import timedelta
     from ..services.aemet_client import get_aggregated_forecast
-    from ..services.db_ree import get_predictions_for_dates, get_wind_for_dates
 
-    DAYS = 33  # pedir un poco más para asegurar 30 días completos
+    _ESTACIONES_EOLICAS = ("4589X", "8175", "3013", "9299X", "6001", "9031C", "9299")
+    DAYS = 33
 
     # ── 1. Datos históricos reales ────────────────────────────────────────────
-    hist = db_ree.get_historical_data(DAYS)[-30:]
-    fechas = [d["fecha"] for d in hist]
+    try:
+        hist = db_ree.get_historical_data(DAYS)[-30:]
+    except Exception as e:
+        logger.error(f"Error obteniendo datos históricos: {e}")
+        hist = []
+
+    fechas   = [d["fecha"]  for d in hist]
     real_mwh = [d["eolica"] for d in hist]
 
-    # ── 2. Predicciones LR guardadas para esas fechas ─────────────────────────
-    preds_map = get_predictions_for_dates(fechas)
-    pred_mwh = [preds_map.get(f) for f in fechas]
+    # ── 2. Predicciones LR guardadas (inline, compatible con cualquier versión) ─
+    pred_mwh = [None] * len(fechas)
+    if fechas:
+        try:
+            ph = ",".join("?" * len(fechas))
+            with db_ree._get_conn() as conn:
+                rows = conn.execute(
+                    f"SELECT fecha, prediccion_mwh FROM predictions WHERE fecha IN ({ph})",
+                    fechas,
+                ).fetchall()
+            preds_map = {r[0]: float(r[1]) for r in rows if r[1] is not None}
+            pred_mwh  = [preds_map.get(f) for f in fechas]
+        except Exception as e:
+            logger.warning(f"No se pudieron obtener predicciones históricas: {e}")
 
-    # ── 3. Datos de viento alineados por fecha ────────────────────────────────
-    wind_map = get_wind_for_dates(fechas)
-    vel_hist = [wind_map.get(f, {}).get("velmedia") for f in fechas]
-    racha_hist = [wind_map.get(f, {}).get("racha") for f in fechas]
+    # ── 3. Datos de viento (inline) ───────────────────────────────────────────
+    vel_hist   = [None] * len(fechas)
+    racha_hist = [None] * len(fechas)
+    if fechas:
+        try:
+            ph = ",".join("?" * len(fechas))
+            with db_ree._get_conn() as conn:
+                tables = {r[0] for r in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()}
 
-    # ── 4. Z-score normalización (fit sobre el período histórico) ─────────────
-    vel_vals   = [v for v in vel_hist   if v is not None]
-    racha_vals = [r for r in racha_hist if r is not None]
+                if "aemet_diario" in tables:
+                    est_ph = ",".join("?" * len(_ESTACIONES_EOLICAS))
+                    rows = conn.execute(
+                        f"""SELECT fecha, AVG(velmedia), AVG(racha)
+                            FROM aemet_diario
+                            WHERE indicativo IN ({est_ph}) AND fecha IN ({ph})
+                            GROUP BY fecha""",
+                        (*_ESTACIONES_EOLICAS, *fechas),
+                    ).fetchall()
+                elif "aemet_daily" in tables:
+                    rows = conn.execute(
+                        f"SELECT fecha, vel_media, rachas_max FROM aemet_daily WHERE fecha IN ({ph})",
+                        fechas,
+                    ).fetchall()
+                else:
+                    rows = []
+
+            wind_map   = {r[0]: (r[1], r[2]) for r in rows}
+            vel_hist   = [wind_map.get(f, (None, None))[0] for f in fechas]
+            racha_hist = [wind_map.get(f, (None, None))[1] for f in fechas]
+        except Exception as e:
+            logger.warning(f"No se pudieron obtener datos de viento: {e}")
+
+    # ── 4. Z-score normalización ──────────────────────────────────────────────
+    vel_vals   = [float(v) for v in vel_hist   if v is not None]
+    racha_vals = [float(r) for r in racha_hist if r is not None]
 
     vel_mean   = float(np.mean(vel_vals))   if vel_vals   else 0.0
-    vel_std    = float(np.std(vel_vals))    if vel_vals   else 1.0
+    vel_std    = max(float(np.std(vel_vals)),   0.001)    if vel_vals   else 1.0
     racha_mean = float(np.mean(racha_vals)) if racha_vals else 0.0
-    racha_std  = float(np.std(racha_vals))  if racha_vals else 1.0
-    if vel_std   == 0: vel_std   = 1.0
-    if racha_std == 0: racha_std = 1.0
+    racha_std  = max(float(np.std(racha_vals)), 0.001)    if racha_vals else 1.0
 
     def znorm(v, mean, std):
-        return round((v - mean) / std, 3) if v is not None else None
+        return round((float(v) - mean) / std, 3) if v is not None else None
 
     vel_norm   = [znorm(v, vel_mean,   vel_std)   for v in vel_hist]
     racha_norm = [znorm(r, racha_mean, racha_std) for r in racha_hist]
 
     # ── 5. Predicción de mañana ───────────────────────────────────────────────
-    fecha_manana = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    fecha_manana    = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    pred_manana_mwh = None
+    vel_manana      = vel_mean
+    racha_manana    = racha_mean
 
-    saved = db_ree.get_latest_prediction()
-    if saved and saved.get("fecha") == fecha_manana:
-        pred_manana_mwh = float(saved["prediccionMWh"])
-        vel_manana      = float(saved["features"].get("velmedia") or vel_mean)
-        racha_manana    = float(saved["features"].get("racha")    or racha_mean)
-    else:
+    # Intentar usar la predicción ya guardada en BD
+    try:
+        saved = db_ree.get_latest_prediction()
+        if saved and saved.get("fecha") == fecha_manana:
+            pred_manana_mwh = float(saved["prediccionMWh"])
+            vel_manana      = float(saved["features"].get("velmedia") or vel_mean)
+            racha_manana    = float(saved["features"].get("racha")    or racha_mean)
+    except Exception as e:
+        logger.warning(f"Error leyendo predicción guardada: {e}")
+
+    # Si no hay predicción guardada, calcular con AEMET en tiempo real
+    if pred_manana_mwh is None:
         try:
             forecast = get_aggregated_forecast()
             if forecast:
-                result = model_service.predict(forecast["velmedia"], forecast["racha"])
+                result       = model_service.predict(forecast["velmedia"], forecast["racha"])
                 pred_manana_mwh = float(result["prediccionMWh"])
-                vel_manana      = float(forecast["velmedia"])
-                racha_manana    = float(forecast["racha"])
-            else:
-                raise ValueError("Sin forecast AEMET")
+                vel_manana   = float(forecast["velmedia"])
+                racha_manana = float(forecast["racha"])
         except Exception as e:
-            logger.warning(f"Usando fallback para predicción de mañana: {e}")
-            pred_manana_mwh = float(real_mwh[-1]) if real_mwh else 150000.0
-            vel_manana      = vel_mean
-            racha_manana    = racha_mean
+            logger.warning(f"Error calculando predicción AEMET: {e}")
+
+    # Fallback final
+    if pred_manana_mwh is None:
+        pred_manana_mwh = float(real_mwh[-1]) if real_mwh else 150000.0
 
     return {
         "fechas_hist": fechas,
-        "real_gwh":    [round(v / 1000, 2) for v in real_mwh],
-        "pred_gwh":    [round(v / 1000, 2) if v is not None else None for v in pred_mwh],
+        "real_gwh":    [round(float(v) / 1000, 2) for v in real_mwh],
+        "pred_gwh":    [round(float(v) / 1000, 2) if v is not None else None for v in pred_mwh],
         "vel_norm":    vel_norm,
         "racha_norm":  racha_norm,
         "manana": {
-            "fecha":     fecha_manana,
-            "pred_gwh":  round(pred_manana_mwh / 1000, 2),
-            "vel_norm":  znorm(vel_manana,   vel_mean,   vel_std),
+            "fecha":      fecha_manana,
+            "pred_gwh":   round(pred_manana_mwh / 1000, 2),
+            "vel_norm":   znorm(vel_manana,   vel_mean,   vel_std),
             "racha_norm": znorm(racha_manana, racha_mean, racha_std),
-            "velmedia":  round(vel_manana,   1),
-            "racha":     round(racha_manana, 1),
+            "velmedia":   round(vel_manana,   1),
+            "racha":      round(racha_manana, 1),
         },
     }
