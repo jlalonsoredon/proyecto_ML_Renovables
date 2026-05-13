@@ -1,84 +1,169 @@
 ---
-const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
+// ─────────────────────────────────────────────────────────────────────────────
+// Datos reales exportados del notebook api.ipynb — test set semanal
+// Período: 2025-06-29 → 2026-05-10 (46 semanas)  |  valores en MWh
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FECHAS = ["29 Jun","06 Jul","13 Jul","20 Jul","27 Jul","03 Ago","10 Ago","17 Ago","24 Ago","31 Ago","07 Sep","14 Sep","21 Sep","28 Sep","05 Oct","12 Oct","19 Oct","26 Oct","02 Nov","09 Nov","16 Nov","23 Nov","30 Nov","07 Dic","14 Dic","21 Dic","28 Dic","04 Ene","11 Ene","18 Ene","25 Ene","01 Feb","08 Feb","15 Feb","22 Feb","01 Mar","08 Mar","15 Mar","22 Mar","29 Mar","05 Abr","12 Abr","19 Abr","26 Abr","03 May","10 May"];
+
+const REAL = [84516,148169,99384,124024,171649,184277,102101,84110,116484,144185,151500,116071,123471,132268,109335,123582,103884,220707,170654,242260,280762,249468,187683,276889,133251,157636,143539,175283,301390,133743,353679,304884,272236,315150,164431,117837,149493,141270,135943,209546,169335,159096,85472,94900,92141,105428];
+
+const MODELOS = [
+  {
+    id: "modelChart0",
+    nombre: "Linear Regression ⭐",
+    rmse: "60.418", r2: "0.5779", mape: "41.6",
+    pred: [99901,139901,128742,127009,149047,168770,111466,105603,125023,142729,153725,131896,119083,141510,134538,142349,95120,221455,171644,219404,246068,201692,206677,240015,148041,159554,175985,161778,278266,172331,286450,271314,236291,241340,184267,111355,173091,150065,142567,182821,164381,143274,120672,108858,115710,123885]
+  },
+  {
+    id: "modelChart1",
+    nombre: "Lasso",
+    rmse: "60.419", r2: "0.5779", mape: "41.6",
+    pred: [99905,139896,128739,127010,149047,168771,111465,105605,125024,142732,153721,131894,119085,141513,134538,142345,95121,221457,171646,219401,246067,201693,206680,240012,148040,159554,175988,161778,278263,172333,286451,271315,236287,241335,184267,111358,173087,150066,142567,182823,164380,143273,120674,108860,115710,123883]
+  },
+  {
+    id: "modelChart2",
+    nombre: "Ridge",
+    rmse: "60.484", r2: "0.5769", mape: "41.8",
+    pred: [100878,139033,129143,126840,148632,168819,111823,106571,124885,142855,153339,131666,119714,141294,134917,142024,95739,220729,171848,218838,246066,200802,207111,239151,149207,159162,176403,161411,276939,173546,286200,271335,236284,240229,183226,111984,172426,150513,142620,182948,164378,142901,121390,109271,115928,123926]
+  },
+  {
+    id: "modelChart3",
+    nombre: "Random Forest",
+    rmse: "60.544", r2: "0.5761", mape: "44.3",
+    pred: [110632,132547,117466,132313,146607,161837,113406,110335,118976,130044,130761,118418,118662,130381,134282,141091,97585,220381,174550,216481,238535,202259,208538,236176,144689,175735,181006,194066,261336,157765,296663,287258,241614,265062,206291,148976,166750,151692,153332,198608,186409,148819,138869,115915,120674,118908]
+  },
+  {
+    id: "modelChart4",
+    nombre: "LightGBM",
+    rmse: "61.625", r2: "0.5608", mape: "44.1",
+    pred: [106168,129346,114619,129519,144291,166880,111050,106617,109413,124274,137422,123242,110231,133138,136059,127251,100154,221638,173190,222907,256262,209104,178582,221928,145094,178909,160654,195485,275239,146800,316484,305914,244831,259942,210122,141162,183906,171759,172907,207598,178877,141791,146778,116145,120242,125735]
+  },
+  {
+    id: "modelChart5",
+    nombre: "XGBoost",
+    rmse: "62.182", r2: "0.5529", mape: "44.6",
+    pred: [106967,130653,112066,129863,157471,165416,112115,104003,101789,122770,127063,112619,116417,133155,135558,131975,96006,225509,174622,221923,250332,198447,200037,225006,140732,177577,169105,183081,261922,149033,304458,283195,234621,260467,205913,137513,177263,160042,177068,204747,182714,141347,141280,127974,122810,123761]
+  },
+  {
+    id: "modelChart6",
+    nombre: "Red Neuronal (MLP)",
+    rmse: "62.424", r2: "0.5494", mape: "44.0",
+    pred: [110136,124440,123619,122474,149977,168939,109750,103481,115185,135682,143677,116654,114941,132198,132011,141870,92739,217351,168069,219696,244549,189299,185651,233520,139982,163175,185045,184276,276053,165186,313705,273223,225794,215912,190433,129970,167846,170392,153514,191042,160939,142647,123273,116725,121647,124909]
+  },
+  {
+    id: "modelChart7",
+    nombre: "SARIMAX",
+    rmse: "91.679", r2: "0.0280", mape: "43.3",
+    pred: [108130,139948,125811,111504,120189,138644,98054,132469,107381,121951,123271,97658,110740,97741,80205,92541,79250,139570,91981,117534,156496,96698,107330,121286,68244,75460,89057,65268,137763,75910,186488,222427,227621,240671,134469,81892,110552,102545,117739,153789,135062,120053,108910,105874,105723,120966]
+  }
+];
 ---
 
-<div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
-  <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Comparación de Modelos ML</h3>
-  <canvas id="modelComparisonChart"></canvas>
-  <div id="loading-model" class="text-center py-4 text-gray-500">Cargando datos...</div>
+<div class="space-y-6">
+  <p class="text-sm text-gray-500 dark:text-gray-400 italic">
+    Test set: 46 semanas (jun 2025 – may 2026). Valores en GWh. Mejor modelo marcado con ⭐.
+  </p>
+
+  {MODELOS.map((m) => (
+    <div class="bg-white dark:bg-gray-900 rounded-xl p-4 shadow border border-gray-100 dark:border-gray-700">
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-1 mb-3">
+        <span class="font-semibold text-gray-800 dark:text-white text-base">{m.nombre}</span>
+        <span class="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full">
+          RMSE: {m.rmse} k MWh
+        </span>
+        <span class="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+          R²: {m.r2}
+        </span>
+        <span class="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full">
+          MAPE: {m.mape}%
+        </span>
+      </div>
+      <div style="position:relative;height:200px;">
+        <canvas id={m.id} style="width:100%;height:200px;"></canvas>
+      </div>
+    </div>
+  ))}
 </div>
 
-<script define:vars={{ API_BASE_URL }}>
-  import { Chart, registerables } from "chart.js";
+<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script is:inline define:vars={{ FECHAS, REAL, MODELOS }}>
+  function makeModelChart(canvasId, predData) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx || ctx._mcDone) return;
+    ctx._mcDone = true;
 
-  Chart.register(...registerables);
-
-  async function fetchData() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/model-comparison`);
-      const data = await response.json();
-
-      document.getElementById("loading-model").style.display = "none";
-
-      return {
-        labels: data.map(m => m.modelo),
-        rmse: data.map(m => m.rmse),
-        r2: data.map(m => m.r2 * 100000),
-        mape: data.map(m => m.mape * 1000),
-      };
-    } catch (error) {
-      console.error("Error fetching model comparison:", error);
-      document.getElementById("loading-model").textContent = "Error al cargar datos";
-      return null;
-    }
-  }
-
-  fetchData().then(chartData => {
-    if (!chartData) return;
-
-    const ctx = document.getElementById("modelComparisonChart");
-    if (!ctx) return;
+    const realGWh = REAL.map(v => +(v / 1000).toFixed(1));
+    const predGWh = predData.map(v => +(v / 1000).toFixed(1));
 
     new Chart(ctx, {
-      type: "bar",
+      type: "line",
       data: {
-        labels: chartData.labels,
+        labels: FECHAS,
         datasets: [
           {
-            label: "RMSE (MWh)",
-            data: chartData.rmse,
-            backgroundColor: "rgba(244, 67, 54, 0.8)",
+            label: "Real",
+            data: realGWh,
+            borderColor: "#111827",
+            borderWidth: 1.8,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: false
           },
           {
-            label: "R² (x100k)",
-            data: chartData.r2,
-            backgroundColor: "rgba(33, 150, 243, 0.8)",
-          },
-          {
-            label: "MAPE (x1k)",
-            data: chartData.mape,
-            backgroundColor: "rgba(76, 175, 80, 0.8)",
-          },
-        ],
+            label: "Predicción",
+            data: predGWh,
+            borderColor: "tomato",
+            borderWidth: 1.2,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: false
+          }
+        ]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
+        animation: false,
         plugins: {
           legend: {
             position: "top",
+            labels: { boxWidth: 12, font: { size: 11 } }
           },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return ctx.dataset.label + ": " + ctx.parsed.y.toLocaleString("es-ES") + " GWh";
+              }
+            }
+          }
         },
         scales: {
-          y: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: "Valor",
-            },
+          x: {
+            ticks: { font: { size: 9 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 12 },
+            grid: { display: false }
           },
-        },
-      },
+          y: {
+            title: { display: true, text: "GWh", font: { size: 10 } },
+            ticks: {
+              font: { size: 9 },
+              callback: function(v) { return v.toLocaleString("es-ES"); }
+            },
+            grid: { color: "rgba(0,0,0,0.06)" }
+          }
+        }
+      }
     });
-  });
+  }
+
+  function initCharts() {
+    if (typeof Chart === "undefined") { setTimeout(initCharts, 50); return; }
+    MODELOS.forEach(function(m) { makeModelChart(m.id, m.pred); });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initCharts);
+  } else {
+    initCharts();
+  }
 </script>

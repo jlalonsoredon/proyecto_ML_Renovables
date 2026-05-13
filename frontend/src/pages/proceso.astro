@@ -9,6 +9,7 @@ import LatestInnovations from "../components/sections/innovations/LatestInnovati
 import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
 import WindMap from "../components/charts/WindMap.astro";
 import EolicaScaledCharts from "../components/charts/EolicaScaledCharts.astro";
+import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
 ---
 
 <Layout title="Proceso - Predicción Eólica ML">
@@ -234,6 +235,10 @@ import EolicaScaledCharts from "../components/charts/EolicaScaledCharts.astro";
             <Paragraph>
               <strong>Modelo seleccionado:</strong> Linear Regression por obtener el mejor equilibrio entre R² (0.579) y menor RMSE.
             </Paragraph>
+
+            <div class="mt-6">
+              <ModelComparisonChart />
+            </div>
           </div>
         </section>
 
