@@ -7,6 +7,7 @@ import Title3 from "../components/shared/Title3.astro";
 import Paragraph from "../components/shared/Paragraph.astro";
 import LatestInnovations from "../components/sections/innovations/LatestInnovations.astro";
 import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
+import WindMap from "../components/charts/WindMap.astro";
 ---
 
 <Layout title="Proceso - Predicción Eólica ML">
@@ -46,6 +47,28 @@ import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
     </Container>
 
     <LatestInnovations variant="proceso" />
+
+    <Container>
+      <section class="mb-12">
+        <Title2>Mapa de Parques Eólicos</Title2>
+        <Paragraph>
+          Ubicación geográfica de los 7 parques eólicos monitorizados en el proyecto,
+          junto con sus estaciones meteorológicas asociadas de AEMET.
+        </Paragraph>
+        <div class="mt-6">
+          <WindMap />
+        </div>
+      </section>
+    </Container>
+
+    <Container>
+      <section class="bg-gray-100 dark:bg-gray-800 rounded-xl p-6 text-center">
+        <Paragraph>
+          <strong>Nota:</strong> Los datos se cargan desde el backend en tiempo real.
+          Si los gráficos muestran "Cargando datos...", el servidor puede no estar disponible.
+        </Paragraph>
+      </section>
+    </Container>
 
 
     <Container>

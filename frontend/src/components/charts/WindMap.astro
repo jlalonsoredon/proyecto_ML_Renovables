@@ -1,24 +1,36 @@
 ---
-const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
+const PARQUES_EOLICOS = [
+  { nombre: "Parque Eólico El Andévalo (Huelva)",    id: "4589X", latitud: 37.26418296737997,  longitud: -6.944856396315273  },
+  { nombre: "Parque Eólico Gecama (Cuenca)",          id: "8175",  latitud: 39.40848408319995,  longitud: -2.2192737751771614 },
+  { nombre: "Parque Eólico Maranchón (Guadalajara)",  id: "3013",  latitud: 41.06356588209968,  longitud: -2.206160824662825  },
+  { nombre: "Parque Eólico de Borja (Zaragoza)",      id: "9299X", latitud: 41.877046928697204, longitud: -1.5630303402886618 },
+  { nombre: "Parque Eólico De Tarifa",                id: "6001",  latitud: 36.037373555997895, longitud: -5.570950423574283  },
+  { nombre: "Parque Eólico De Briviesca",             id: "9031C", latitud: 42.52921710077489,  longitud: -3.408352539310985  },
+  { nombre: "Parque Eólico La Muela (Zaragoza)",      id: "9299X", latitud: 41.5924449830392,   longitud: -1.1575020732335635 },
+];
 ---
 
 <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
   <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Ubicación de Parques Eólicos</h3>
   <div id="windMap" class="h-96 w-full rounded-lg"></div>
-  <div id="loading-map" class="text-center py-2 text-gray-500">Cargando datos...</div>
-  <div class="mt-4" id="parks-list">
+  <div class="mt-4">
     <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Parques monitorizados:</h4>
-    <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1" id="parks-list-ul">
-      <li class="text-gray-400">Cargando...</li>
+    <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+      {PARQUES_EOLICOS.map((p) => (
+        <li>
+          <span class="font-medium">{p.nombre}</span>
+          <span class="ml-1 text-gray-400">(ID: {p.id})</span>
+        </li>
+      ))}
     </ul>
   </div>
 </div>
 
-<script define:vars={{ API_BASE_URL }}>
+<script define:vars={{ PARQUES_EOLICOS }}>
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
 
-  const map = L.map("windMap").setView([39.5, -3.5], 6);
+  const map = L.map("windMap").setView([39.8, -3.5], 6);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -26,35 +38,19 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 
   const icon = L.divIcon({
     className: "custom-marker",
-    html: `<div style="background-color: #2196F3; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+    html: `<div style="background-color:#3B82F6;width:20px;height:20px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.35);"></div>`,
     iconSize: [20, 20],
     iconAnchor: [10, 10],
   });
 
-  async function fetchData() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/wind-parks`);
-      const data = await response.json();
-
-      document.getElementById("loading-map").style.display = "none";
-
-      const listUl = document.getElementById("parks-list-ul");
-      listUl.innerHTML = "";
-
-      data.forEach((park) => {
-        L.marker([park.lat, park.lng], { icon })
-          .addTo(map)
-          .bindPopup(`<strong>${park.nombre}</strong><br>ID: ${park.id}<br>Estación: ${park.estacion}<br>Lat: ${park.lat.toFixed(4)}<br>Lng: ${park.lng.toFixed(4)}`);
-
-        const li = document.createElement("li");
-        li.innerHTML = `<span class="font-medium">${park.nombre}</span> (ID: ${park.id})`;
-        listUl.appendChild(li);
-      });
-    } catch (error) {
-      console.error("Error fetching wind parks:", error);
-      document.getElementById("loading-map").textContent = "Error al cargar datos";
-    }
-  }
-
-  fetchData();
+  PARQUES_EOLICOS.forEach((park) => {
+    L.marker([park.latitud, park.longitud], { icon })
+      .addTo(map)
+      .bindPopup(
+        `<strong>${park.nombre}</strong><br>
+         Indicativo AEMET: ${park.id}<br>
+         Lat: ${park.latitud.toFixed(5)}<br>
+         Lng: ${park.longitud.toFixed(5)}`
+      );
+  });
 </script>
