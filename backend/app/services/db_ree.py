@@ -211,3 +211,73 @@ def get_historical_data(days: int = 30) -> List[dict]:
             "hidraulica": round(hidraulica.get(fecha, 0), 0)
         })
     return result
+
+
+# ---------------------------------------------------------------------------
+# Helpers para features del modelo (lags y medias móviles)
+# ---------------------------------------------------------------------------
+
+# Indicativos de estaciones AEMET en zonas eólicas (igual que en api.ipynb)
+_ESTACIONES_EOLICAS = ("4589X", "8175", "3013", "9299X", "6001", "9031C", "9299")
+
+
+def get_eolica_recent(days: int = 14) -> list:
+    """
+    Devuelve lista de generación diaria eólica total (MWh) de los últimos `days` días,
+    ordenada de más antiguo a más reciente.
+    """
+    query = f"""
+        SELECT DATE(datetime) AS fecha, SUM(valor_MWh) AS valor
+        FROM {TABLE_NAME}
+        WHERE tecnologia = 'Eólica'
+          AND DATE(datetime) >= DATE('now', ? || ' days')
+        GROUP BY DATE(datetime)
+        ORDER BY fecha ASC
+    """
+    with _get_conn() as conn:
+        rows = conn.execute(query, (f"-{days}",)).fetchall()
+    return [float(r[1]) for r in rows if r[1] is not None]
+
+
+def get_wind_recent(days: int = 14) -> dict:
+    """
+    Devuelve historial de velmedia y racha promedio de los últimos `days` días
+    desde la tabla `aemet_diario` (estaciones eólicas) o `aemet_daily` si no existe.
+    Listas ordenadas de más antiguo a más reciente.
+    """
+    with _get_conn() as conn:
+        # Intentar tabla del notebook (contiene datos por estación eólica)
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+
+        if "aemet_diario" in tables:
+            placeholders = ",".join("?" * len(_ESTACIONES_EOLICAS))
+            query = f"""
+                SELECT fecha, AVG(velmedia) AS velmedia, AVG(racha) AS racha
+                FROM aemet_diario
+                WHERE indicativo IN ({placeholders})
+                  AND fecha >= DATE('now', ? || ' days')
+                GROUP BY fecha
+                ORDER BY fecha ASC
+            """
+            rows = conn.execute(query, (*_ESTACIONES_EOLICAS, f"-{days}")).fetchall()
+            return {
+                "velmedia": [float(r[1]) for r in rows if r[1] is not None],
+                "racha":    [float(r[2]) for r in rows if r[2] is not None],
+            }
+
+        if "aemet_daily" in tables:
+            query = f"""
+                SELECT fecha, vel_media, rachas_max
+                FROM aemet_daily
+                WHERE fecha >= DATE('now', ? || ' days')
+                ORDER BY fecha ASC
+            """
+            rows = conn.execute(query, (f"-{days}",)).fetchall()
+            return {
+                "velmedia": [float(r[1]) for r in rows if r[1] is not None],
+                "racha":    [float(r[2]) for r in rows if r[2] is not None],
+            }
+
+    return {"velmedia": [], "racha": []}
