@@ -5,10 +5,8 @@ import Title from "../components/shared/Title.astro";
 import Title2 from "../components/shared/Title2.astro";
 import Title3 from "../components/shared/Title3.astro";
 import Paragraph from "../components/shared/Paragraph.astro";
-import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
 import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
 import PredictionChart from "../components/charts/PredictionChart.astro";
-import FeatureImportanceChart from "../components/charts/FeatureImportanceChart.astro";
 import { currentPrediction } from "../data/mockData";
 
 const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
@@ -48,18 +46,16 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 
     <Container>
       <section class="mb-12">
-        <Title2>Evolución de Generación Renovable</Title2>
+        <Title2>Predicción vs Real</Title2>
         <Paragraph>
-          Evolución temporal de la producción de energía eólica, solar fotovoltaica e hidráulica
-          durante los últimos 30 días.
+          Comparación entre la producción real de energía eólica y las predicciones del modelo
+          Linear Regression. La línea naranja discontinua muestra la predicción para mañana.
         </Paragraph>
         <div class="mt-6">
-          <RenewableLineChart />
+          <PredictionChart />
         </div>
       </section>
     </Container>
-
-   
 
     <Container>
       <section class="mb-12">
@@ -74,33 +70,6 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
       </section>
     </Container>
 
-    <Container>
-      <section class="mb-12">
-        <Title2>Predicción vs Real</Title2>
-        <Paragraph>
-          Comparación entre la producción real de energía eólica y las predicciones del modelo
-          Linear Regression. La línea naranja discontinua muestra la predicción para mañana.
-        </Paragraph>
-        <div class="mt-6">
-          <PredictionChart />
-        </div>
-      </section>
-    </Container>
-
-    <Container>
-      <section class="mb-12">
-        <Title2>Importancia de Features</Title2>
-        <Paragraph>
-          Análisis de qué variables tienen mayor influencia en la predicción del modelo.
-          La velocidad media del viento es el feature más importante (35%), seguida de las ráfagas (25%).
-        </Paragraph>
-        <div class="mt-6 max-w-2xl mx-auto">
-          <FeatureImportanceChart />
-        </div>
-      </section>
-    </Container>
-
-    
   </main>
 </Layout>
 

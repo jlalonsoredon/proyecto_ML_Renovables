@@ -281,3 +281,47 @@ def get_wind_recent(days: int = 14) -> dict:
             }
 
     return {"velmedia": [], "racha": []}
+
+
+def get_predictions_for_dates(fechas: list) -> dict:
+    """Devuelve {fecha: prediccion_mwh} para las fechas indicadas."""
+    if not fechas:
+        return {}
+    placeholders = ",".join("?" * len(fechas))
+    with _get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT fecha, prediccion_mwh FROM predictions WHERE fecha IN ({placeholders})",
+            fechas,
+        ).fetchall()
+    # Si hay duplicados (varias predicciones para la misma fecha) queda la última
+    return {r[0]: float(r[1]) for r in rows}
+
+
+def get_wind_for_dates(fechas: list) -> dict:
+    """Devuelve {fecha: {velmedia, racha}} para las fechas indicadas."""
+    if not fechas:
+        return {}
+    placeholders = ",".join("?" * len(fechas))
+    with _get_conn() as conn:
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+
+        if "aemet_diario" in tables:
+            est_ph = ",".join("?" * len(_ESTACIONES_EOLICAS))
+            rows = conn.execute(
+                f"""SELECT fecha, AVG(velmedia), AVG(racha)
+                    FROM aemet_diario
+                    WHERE indicativo IN ({est_ph}) AND fecha IN ({placeholders})
+                    GROUP BY fecha""",
+                (*_ESTACIONES_EOLICAS, *fechas),
+            ).fetchall()
+        elif "aemet_daily" in tables:
+            rows = conn.execute(
+                f"SELECT fecha, vel_media, rachas_max FROM aemet_daily WHERE fecha IN ({placeholders})",
+                fechas,
+            ).fetchall()
+        else:
+            return {}
+
+    return {r[0]: {"velmedia": float(r[1] or 0), "racha": float(r[2] or 0)} for r in rows}

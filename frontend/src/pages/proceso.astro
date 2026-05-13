@@ -10,6 +10,7 @@ import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
 import WindMap from "../components/charts/WindMap.astro";
 import EolicaScaledCharts from "../components/charts/EolicaScaledCharts.astro";
 import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
+import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
 ---
 
 <Layout title="Proceso - Predicción Eólica ML">
@@ -95,6 +96,19 @@ import ModelComparisonChart from "../components/charts/ModelComparisonChart.astr
     </Container>
 
     <LatestInnovations variant="proceso" />
+
+    <Container>
+      <section class="mb-12">
+        <Title2>Evolución de Generación Renovable</Title2>
+        <Paragraph>
+          Evolución temporal de la producción de energía eólica, solar fotovoltaica e hidráulica
+          durante los últimos 30 días.
+        </Paragraph>
+        <div class="mt-6">
+          <RenewableLineChart />
+        </div>
+      </section>
+    </Container>
 
     <Container>
       <section class="mb-12">

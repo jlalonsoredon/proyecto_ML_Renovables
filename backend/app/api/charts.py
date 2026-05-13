@@ -153,3 +153,96 @@ def get_mock_energy_mix():
             "Residuos renovables": 0.28
         }
     }
+
+
+@router.get("/prediction-chart")
+def get_prediction_chart():
+    """
+    Último mes histórico + predicción de mañana, listos para renderizar el gráfico
+    dual-eje (generación eólica izquierda / viento z-score derecha), equivalente
+    al gráfico del notebook api.ipynb.
+
+    Respuesta:
+      fechas_hist  — fechas de los últimos 30 días disponibles
+      real_gwh     — generación eólica real (GWh)
+      pred_gwh     — predicción LR guardada para esos días (GWh, null si no disponible)
+      vel_norm     — velmedia estandarizada (z-score local)
+      racha_norm   — racha estandarizada (z-score local)
+      manana       — {fecha, pred_gwh, vel_norm, racha_norm, velmedia, racha}
+    """
+    from datetime import timedelta
+    from ..services.aemet_client import get_aggregated_forecast
+    from ..services.db_ree import get_predictions_for_dates, get_wind_for_dates
+
+    DAYS = 33  # pedir un poco más para asegurar 30 días completos
+
+    # ── 1. Datos históricos reales ────────────────────────────────────────────
+    hist = db_ree.get_historical_data(DAYS)[-30:]
+    fechas = [d["fecha"] for d in hist]
+    real_mwh = [d["eolica"] for d in hist]
+
+    # ── 2. Predicciones LR guardadas para esas fechas ─────────────────────────
+    preds_map = get_predictions_for_dates(fechas)
+    pred_mwh = [preds_map.get(f) for f in fechas]
+
+    # ── 3. Datos de viento alineados por fecha ────────────────────────────────
+    wind_map = get_wind_for_dates(fechas)
+    vel_hist = [wind_map.get(f, {}).get("velmedia") for f in fechas]
+    racha_hist = [wind_map.get(f, {}).get("racha") for f in fechas]
+
+    # ── 4. Z-score normalización (fit sobre el período histórico) ─────────────
+    vel_vals   = [v for v in vel_hist   if v is not None]
+    racha_vals = [r for r in racha_hist if r is not None]
+
+    vel_mean   = float(np.mean(vel_vals))   if vel_vals   else 0.0
+    vel_std    = float(np.std(vel_vals))    if vel_vals   else 1.0
+    racha_mean = float(np.mean(racha_vals)) if racha_vals else 0.0
+    racha_std  = float(np.std(racha_vals))  if racha_vals else 1.0
+    if vel_std   == 0: vel_std   = 1.0
+    if racha_std == 0: racha_std = 1.0
+
+    def znorm(v, mean, std):
+        return round((v - mean) / std, 3) if v is not None else None
+
+    vel_norm   = [znorm(v, vel_mean,   vel_std)   for v in vel_hist]
+    racha_norm = [znorm(r, racha_mean, racha_std) for r in racha_hist]
+
+    # ── 5. Predicción de mañana ───────────────────────────────────────────────
+    fecha_manana = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    saved = db_ree.get_latest_prediction()
+    if saved and saved.get("fecha") == fecha_manana:
+        pred_manana_mwh = float(saved["prediccionMWh"])
+        vel_manana      = float(saved["features"].get("velmedia") or vel_mean)
+        racha_manana    = float(saved["features"].get("racha")    or racha_mean)
+    else:
+        try:
+            forecast = get_aggregated_forecast()
+            if forecast:
+                result = model_service.predict(forecast["velmedia"], forecast["racha"])
+                pred_manana_mwh = float(result["prediccionMWh"])
+                vel_manana      = float(forecast["velmedia"])
+                racha_manana    = float(forecast["racha"])
+            else:
+                raise ValueError("Sin forecast AEMET")
+        except Exception as e:
+            logger.warning(f"Usando fallback para predicción de mañana: {e}")
+            pred_manana_mwh = float(real_mwh[-1]) if real_mwh else 150000.0
+            vel_manana      = vel_mean
+            racha_manana    = racha_mean
+
+    return {
+        "fechas_hist": fechas,
+        "real_gwh":    [round(v / 1000, 2) for v in real_mwh],
+        "pred_gwh":    [round(v / 1000, 2) if v is not None else None for v in pred_mwh],
+        "vel_norm":    vel_norm,
+        "racha_norm":  racha_norm,
+        "manana": {
+            "fecha":     fecha_manana,
+            "pred_gwh":  round(pred_manana_mwh / 1000, 2),
+            "vel_norm":  znorm(vel_manana,   vel_mean,   vel_std),
+            "racha_norm": znorm(racha_manana, racha_mean, racha_std),
+            "velmedia":  round(vel_manana,   1),
+            "racha":     round(racha_manana, 1),
+        },
+    }
