@@ -29,19 +29,19 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
       <section class="py-12 text-center">
         <Title2>Predicción para Mañana</Title2>
         <div class="grid md:grid-cols-2 gap-8 items-center">
-          <div>
+          <div class="text-left">
             <Paragraph>
               Nuestro modelo predictivo utiliza datos meteorológicos de AEMET y
               datos históricos de generación de la API de Red Eléctrica de España
               para estimar la producción eólica del día siguiente.
             </Paragraph>
-            <div class="mt-6">
+            <div class="mt-6 text-center">
               <a href="/resultados" class="inline-block bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors">
                 Ver Todos los Gráficos
               </a>
             </div>
           </div>
-          <div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white" id="prediction-card">
+          <div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white" id="prediction-card text-left">
             <Title3 className="text-white">Producción Eólica Prevista</Title3>
             <p class="text-blue-100 text-sm mb-4" id="prediction-date">Fecha: {currentPrediction.fecha}</p>
             <div class="text-5xl font-bold" id="prediction-value">{currentPrediction.prediccionMWh.toLocaleString()}</div>
@@ -65,10 +65,8 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 
     <!-- 5. SECCIÓN DE PROCESO (CTA final) -->
     <Container>
-      
-      <Title2>¿Quieres Saber Cómo Funciona?</Title2>
       <section class="py-12 text-center bg-gray-100 dark:bg-gray-800 rounded-xl">
-        
+        <Title2>¿Quieres Saber Cómo Funciona?</Title2>
         <Paragraph>
           Descubre el proceso completo: desde la obtención de datos de las APIs
           hasta la predicción con Machine Learning.
