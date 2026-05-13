@@ -6,7 +6,7 @@ import Title2 from "../components/shared/Title2.astro";
 import Title3 from "../components/shared/Title3.astro";
 import Paragraph from "../components/shared/Paragraph.astro";
 import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
-import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
+
 import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
 import PredictionChart from "../components/charts/PredictionChart.astro";
 import FeatureImportanceChart from "../components/charts/FeatureImportanceChart.astro";
@@ -61,18 +61,7 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
       </section>
     </Container>
 
-    <Container>
-      <section class="mb-12">
-        <Title2>Mix Energético en España</Title2>
-        <Paragraph>
-          Distribución porcentual de la generación eléctrica entre energías renovables
-          y no renovables, junto con el desglose detallado de las tecnologías renovables.
-        </Paragraph>
-        <div class="mt-6">
-          <EnergyPieChart />
-        </div>
-      </section>
-    </Container>
+   
 
     <Container>
       <section class="mb-12">
