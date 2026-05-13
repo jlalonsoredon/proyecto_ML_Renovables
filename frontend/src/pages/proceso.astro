@@ -8,6 +8,7 @@ import Paragraph from "../components/shared/Paragraph.astro";
 import LatestInnovations from "../components/sections/innovations/LatestInnovations.astro";
 import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
 import WindMap from "../components/charts/WindMap.astro";
+import EolicaScaledCharts from "../components/charts/EolicaScaledCharts.astro";
 ---
 
 <Layout title="Proceso - Predicción Eólica ML">
@@ -110,8 +111,9 @@ import WindMap from "../components/charts/WindMap.astro";
     <Container>
       <section class="bg-gray-100 dark:bg-gray-800 rounded-xl p-6 text-center">
         <Paragraph>
-          <strong>Nota:</strong> Los datos se cargan desde el backend en tiempo real.
-          Si los gráficos muestran "Cargando datos...", el servidor puede no estar disponible.
+          Para obtener los datos de históricos de generación eólica y datos meteorológicos, se han utilizado las APIs de Red Eléctrica de España (REE) y AEMET respectivamente. La integración de estas fuentes de datos ha sido fundamental para el desarrollo del modelo de predicción.
+          Una vez obtennido el dato correctamente se ha volcado en una base de datos local.
+          Se han realizado numerosas iteraciones de llamadas a la API de AEMET para obtener los datos faltantes y completar el histórico de datos necesario para el entrenamiento del modelo.
         </Paragraph>
       </section>
     </Container>
@@ -134,6 +136,12 @@ import WindMap from "../components/charts/WindMap.astro";
               <li>Conversión de unidades (km/h a m/s)</li>
               <li>Merge de datos de generación con datos climáticos por fecha</li>
             </ul>
+
+            <Paragraph>
+              Una vez porcesados los datos se han visualizado en diversas gráficas para entender mejor las relaciones entre las variables y detectar posibles patrones o anomalías.
+            </Paragraph>
+
+            <EolicaScaledCharts />
 
             <Paragraph>
               <strong>Features creadas:</strong>

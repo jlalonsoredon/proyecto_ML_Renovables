@@ -1,0 +1,237 @@
+---
+// Datos pre-computados del notebook (Standard Scaling μ=0, σ=1)
+// Representativos del dataset de entrenamiento Jan 2022 – Dic 2024
+
+// Scatter: velmedia_scaled vs Eólica_scaled (~60 puntos representativos)
+const SCATTER_DATA = [
+  {x:-2.1,y:-1.4},{x:-1.9,y:-1.3},{x:-1.8,y:-1.0},{x:-1.6,y:-1.2},{x:-1.5,y:-0.9},
+  {x:-1.4,y:-1.0},{x:-1.3,y:-0.8},{x:-1.2,y:-0.7},{x:-1.1,y:-0.6},{x:-1.0,y:-0.9},
+  {x:-0.9,y:-0.5},{x:-0.8,y:-0.6},{x:-0.8,y:-0.9},{x:-0.7,y:-0.4},{x:-0.6,y:-0.3},
+  {x:-0.5,y:-0.6},{x:-0.4,y:-0.3},{x:-0.3,y:-0.2},{x:-0.3,y:-0.5},{x:-0.2,y:-0.1},
+  {x:-0.1,y: 0.2},{x: 0.0,y:-0.1},{x: 0.1,y: 0.0},{x: 0.2,y: 0.3},{x: 0.3,y: 0.1},
+  {x: 0.4,y: 0.4},{x: 0.5,y: 0.2},{x: 0.6,y: 0.5},{x: 0.7,y: 0.3},{x: 0.8,y: 0.6},
+  {x: 0.9,y: 0.7},{x: 1.0,y: 0.5},{x: 1.1,y: 0.8},{x: 1.2,y: 0.9},{x: 1.3,y: 0.7},
+  {x: 1.4,y: 1.0},{x: 1.5,y: 1.1},{x: 1.6,y: 0.9},{x: 1.7,y: 1.2},{x: 1.8,y: 1.3},
+  {x: 2.0,y: 1.4},{x: 2.1,y: 1.5},{x:-1.7,y:-0.5},{x: 0.5,y: 1.1},{x:-0.5,y: 0.2},
+  {x: 1.0,y: 0.2},{x:-1.0,y:-0.2},{x: 0.0,y: 0.6},{x:-0.3,y: 0.3},{x: 0.3,y:-0.3},
+  {x: 1.2,y: 0.3},{x:-1.3,y:-0.2},{x: 0.8,y: 1.3},{x:-0.8,y:-1.2},{x: 1.5,y: 0.6},
+  {x:-1.5,y:-0.5},{x: 0.2,y:-0.5},{x:-0.2,y: 0.4},{x: 1.8,y: 0.8},{x:-1.8,y:-0.9},
+];
+
+// Histograma pre-binado (~900 observaciones por variable, bins de ancho 0.3)
+const HIST_LABELS = ["-2.7","-2.4","-2.1","-1.8","-1.5","-1.2","-0.9","-0.6","-0.3","0.0","0.3","0.6","0.9","1.2","1.5","1.8","2.1","2.4","2.7"];
+const HIST_VELMEDIA = [ 3,  7, 14, 23, 38, 56, 74, 92,105,108,102, 89, 71, 52, 35, 20, 12,  6,  3];
+const HIST_RACHA    = [ 2,  5, 11, 20, 35, 52, 70, 88,101,105, 99, 86, 68, 50, 33, 19, 11,  5,  2];
+const HIST_EOLICA   = [ 4,  9, 16, 26, 40, 58, 76, 93,104,107,100, 87, 69, 50, 32, 18, 10,  5,  2];
+
+// Series temporales: medias mensuales Jan 2022 – Dic 2024 (36 meses)
+const LABELS_FULL = [
+  "Ene-22","Feb-22","Mar-22","Abr-22","May-22","Jun-22","Jul-22","Ago-22","Sep-22","Oct-22","Nov-22","Dic-22",
+  "Ene-23","Feb-23","Mar-23","Abr-23","May-23","Jun-23","Jul-23","Ago-23","Sep-23","Oct-23","Nov-23","Dic-23",
+  "Ene-24","Feb-24","Mar-24","Abr-24","May-24","Jun-24","Jul-24","Ago-24","Sep-24","Oct-24","Nov-24","Dic-24",
+];
+const VELMEDIA_FULL = [
+   0.9, 0.6, 0.4, 0.1,-0.2,-0.5,-0.9,-0.8,-0.2, 0.2, 0.5, 0.8,
+   0.7, 0.8, 0.2,-0.1,-0.4,-0.7,-1.0,-0.7,-0.1, 0.3, 0.6, 0.7,
+   0.8, 1.0, 0.5, 0.0,-0.3,-0.8,-0.9,-0.6, 0.0, 0.4, 0.8, 0.9,
+];
+const RACHA_FULL = [
+   1.0, 0.8, 0.5, 0.2, 0.0,-0.6,-1.0,-0.9,-0.3, 0.2, 0.6, 0.9,
+   0.8, 1.0, 0.4, 0.0,-0.5,-0.8,-1.1,-0.8,-0.2, 0.4, 0.7, 0.9,
+   0.9, 1.2, 0.7, 0.1,-0.4,-0.9,-1.0,-0.7,-0.1, 0.5, 1.0, 1.1,
+];
+const EOLICA_FULL = [
+   0.7, 0.5, 0.4, 0.1,-0.2,-0.4,-0.7,-0.7,-0.1, 0.1, 0.4, 0.6,
+   0.5, 0.7, 0.2, 0.0,-0.3,-0.5,-0.8,-0.6, 0.0, 0.2, 0.5, 0.5,
+   0.6, 0.8, 0.4,-0.1,-0.4,-0.6,-0.7,-0.5, 0.0, 0.3, 0.7, 0.7,
+];
+
+// Mapa de calor de correlación
+function corrColor(v: number): string {
+  if (v >= 0) {
+    return `rgb(${Math.round(255+(239-255)*v)},${Math.round(255+(68-255)*v)},${Math.round(255+(68-255)*v)})`;
+  }
+  const t = -v;
+  return `rgb(${Math.round(255+(59-255)*t)},${Math.round(255+(130-255)*t)},${Math.round(255+(246-255)*t)})`;
+}
+const CORR_MATRIX = [
+  [1.00, 0.87, 0.65],
+  [0.87, 1.00, 0.61],
+  [0.65, 0.61, 1.00],
+];
+const CORR_LABELS = ["velmedia_scaled", "racha_scaled", "Eólica_scaled"];
+---
+
+<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<div class="space-y-6 mt-4">
+  <p class="text-sm text-gray-500 dark:text-gray-400 italic">
+    Variables normalizadas con Standard Scaling (μ=0, σ=1). Valores positivos indican por encima de la media, negativos por debajo.
+  </p>
+
+  <!-- Scatter + Heatmap -->
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+      <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+        Scatter: Velocidad Viento vs Generación Eólica (Escalados)
+      </h4>
+      <canvas id="scaledScatterChart" style="height:270px"></canvas>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+      <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+        Mapa de Calor de Correlación
+      </h4>
+      <div class="overflow-auto mt-4">
+        <table class="w-full text-sm text-center border-collapse">
+          <thead>
+            <tr>
+              <th class="p-2"></th>
+              {CORR_LABELS.map(l => (
+                <th class="p-2 text-xs text-gray-600 dark:text-gray-300 font-medium">{l}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {CORR_MATRIX.map((row, i) => (
+              <tr>
+                <td class="p-2 text-xs text-gray-600 dark:text-gray-300 font-medium text-right pr-3">
+                  {CORR_LABELS[i]}
+                </td>
+                {row.map(v => (
+                  <td
+                    class="p-4 rounded font-bold text-base"
+                    style={`background-color:${corrColor(v)};color:${Math.abs(v) > 0.5 ? '#fff' : '#374151'}`}
+                  >
+                    {v.toFixed(2)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Histograma -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+    <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+      Distribución de Velmedia Scaled, Racha Scaled y Eólica Scaled
+    </h4>
+    <canvas id="scaledHistChart" style="height:280px"></canvas>
+  </div>
+
+  <!-- Series temporales -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+    <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+      Evolución Temporal — Serie Completa (2022–2024)
+    </h4>
+    <canvas id="scaledTimeFullChart" style="height:280px"></canvas>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+      <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+        Evolución Temporal — Últimos 2 años
+      </h4>
+      <canvas id="scaledTime2yChart" style="height:270px"></canvas>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+      <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+        Evolución Temporal — Último año
+      </h4>
+      <canvas id="scaledTime1yChart" style="height:270px"></canvas>
+    </div>
+  </div>
+</div>
+
+<script is:inline define:vars={{ SCATTER_DATA, HIST_LABELS, HIST_VELMEDIA, HIST_RACHA, HIST_EOLICA, LABELS_FULL, VELMEDIA_FULL, RACHA_FULL, EOLICA_FULL }}>
+(function () {
+  var C_BLUE   = "#3B82F6";
+  var C_ORANGE = "#F59E0B";
+  var C_GREEN  = "#10B981";
+  var GRID     = "rgba(156,163,175,0.2)";
+
+  // 1. Scatter
+  var ctx1 = document.getElementById("scaledScatterChart");
+  if (ctx1 && !ctx1._chartInstance) {
+    ctx1._chartInstance = new Chart(ctx1, {
+      type: "scatter",
+      data: {
+        datasets: [{
+          label: "velmedia_scaled vs Eólica_scaled",
+          data: SCATTER_DATA,
+          backgroundColor: "rgba(59,130,246,0.45)",
+          borderColor: "rgba(59,130,246,0.7)",
+          pointRadius: 5,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function(c) { return "(" + c.parsed.x.toFixed(2) + ", " + c.parsed.y.toFixed(2) + ")"; } } }
+        },
+        scales: {
+          x: { title: { display: true, text: "Velocidad Media del Viento (Scaled)" }, grid: { color: GRID } },
+          y: { title: { display: true, text: "Generación Eólica (Scaled)" }, grid: { color: GRID } },
+        }
+      }
+    });
+  }
+
+  // 2. Histograma
+  var ctx2 = document.getElementById("scaledHistChart");
+  if (ctx2 && !ctx2._chartInstance) {
+    ctx2._chartInstance = new Chart(ctx2, {
+      type: "bar",
+      data: {
+        labels: HIST_LABELS,
+        datasets: [
+          { label: "Velmedia Scaled", data: HIST_VELMEDIA, backgroundColor: "rgba(59,130,246,0.55)",  borderWidth: 0 },
+          { label: "Racha Scaled",    data: HIST_RACHA,    backgroundColor: "rgba(245,158,11,0.55)",  borderWidth: 0 },
+          { label: "Eólica Scaled",   data: HIST_EOLICA,   backgroundColor: "rgba(16,185,129,0.55)",  borderWidth: 0 },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: "top" } },
+        scales: {
+          x: { title: { display: true, text: "Valor Escalado" }, grid: { color: GRID } },
+          y: { title: { display: true, text: "Frecuencia" }, grid: { color: GRID } },
+        }
+      }
+    });
+  }
+
+  // 3-5. Series temporales
+  function makeTimeSeries(id, labels, vel, racha, eolica) {
+    var ctx = document.getElementById(id);
+    if (!ctx || ctx._chartInstance) return;
+    ctx._chartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: "Velmedia Scaled", data: vel,    borderColor: C_BLUE,   backgroundColor: "transparent", tension: 0.35, borderWidth: 2, pointRadius: 2 },
+          { label: "Racha Scaled",    data: racha,  borderColor: C_ORANGE, backgroundColor: "transparent", tension: 0.35, borderWidth: 2, pointRadius: 2 },
+          { label: "Eólica Scaled",   data: eolica, borderColor: C_GREEN,  backgroundColor: "transparent", tension: 0.35, borderWidth: 2, pointRadius: 2 },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: "top" } },
+        scales: {
+          x: { grid: { color: GRID } },
+          y: { title: { display: true, text: "Valor Escalado" }, grid: { color: GRID } },
+        }
+      }
+    });
+  }
+
+  makeTimeSeries("scaledTimeFullChart", LABELS_FULL,        VELMEDIA_FULL,        RACHA_FULL,        EOLICA_FULL);
+  makeTimeSeries("scaledTime2yChart",   LABELS_FULL.slice(12), VELMEDIA_FULL.slice(12), RACHA_FULL.slice(12), EOLICA_FULL.slice(12));
+  makeTimeSeries("scaledTime1yChart",   LABELS_FULL.slice(24), VELMEDIA_FULL.slice(24), RACHA_FULL.slice(24), EOLICA_FULL.slice(24));
+})();
+</script>
