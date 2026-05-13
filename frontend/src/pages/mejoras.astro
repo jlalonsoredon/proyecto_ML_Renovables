@@ -1,0 +1,106 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Container from "../components/shared/Container.astro";
+import Title from "../components/shared/Title.astro";
+import Paragraph from "../components/shared/Paragraph.astro";
+import Title2 from "../components/shared/Title2.astro";
+
+const tareas = [
+  {
+    titulo: "Integración con datos reales de AEMET",
+    descripcion: "Conectar con la API de AEMET para obtener datos meteorológicos actualizados en tiempo real y mejorar la precisión de las predicciones.",
+    estado: "pendiente",
+    prioridad: "alta"
+  },
+  {
+    titulo: "Mejora del modelo con Random Forest",
+    descripcion: "Implementar y comparar modelos más avanzados como Random Forest o XGBoost para mejorar el R² actual de 0.579.",
+    estado: "pendiente",
+    prioridad: "alta"
+  }
+];
+
+const getEstadoBadge = (estado: string) => {
+  const estados = {
+    pendiente: { label: "Pendiente", class: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300" },
+    en_progreso: { label: "En Progreso", class: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
+    completado: { label: "Completado", class: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" }
+  };
+  return estados[estado as keyof typeof estados] || estados.pendiente;
+};
+
+const getPrioridadBadge = (prioridad: string) => {
+  const prioridades = {
+    alta: { label: "Alta", class: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" },
+    media: { label: "Media", class: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" },
+    baja: { label: "Baja", class: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" }
+  };
+  return prioridades[prioridad as keyof typeof prioridades] || prioridades.media;
+};
+---
+
+<Layout title="Mejoras - AeroPredictor">
+  <main class="flex flex-col gap-y-12 md:gap-y-20 overflow-hidden pb-20">
+    <Container>
+      <div class="py-12 text-center">
+        <Title>Mejoras y Futuro</Title>
+        <Paragraph>
+          Próximas funcionalidades y mejoras planificadas para el proyecto AeroPredictor.
+          Estas son las áreas de desarrollo que ampliarán las capacidades del sistema.
+        </Paragraph>
+      </div>
+    </Container>
+
+    <Container>
+      <section class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {tareas.map((tarea) => {
+          const estadoBadge = getEstadoBadge(tarea.estado);
+          const prioridadBadge = getPrioridadBadge(tarea.prioridad);
+          
+          return (
+            <article class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow duration-300">
+              <div class="flex flex-wrap gap-2 mb-4">
+                <span class={`px-3 py-1 rounded-full text-xs font-semibold ${estadoBadge.class}`}>
+                  {estadoBadge.label}
+                </span>
+                <span class={`px-3 py-1 rounded-full text-xs font-semibold ${prioridadBadge.class}`}>
+                  Prioridad {prioridadBadge.label}
+                </span>
+              </div>
+              
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                {tarea.titulo}
+              </h3>
+              
+              <p class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                {tarea.descripcion}
+              </p>
+            </article>
+          );
+        })}
+      </section>
+    </Container>
+
+    <Container>
+      <section class="bg-gradient-to-r from-green-600 to-green-800 rounded-xl p-8 text-white">
+        <Title2 className="text-white mb-4">¿Tienes sugerencias?</Title2>
+        <Paragraph className="text-green-100">
+          Si tienes ideas para mejorar el proyecto o quieres contribuir, no dudes en contactarme
+          a través de LinkedIn.
+        </Paragraph>
+        <div class="mt-6">
+          <a 
+            href="https://www.linkedin.com/in/jose-luis-alonso-redondo/" 
+            target="_blank"
+            class="inline-flex items-center gap-2 bg-white text-green-700 px-6 py-3 rounded-lg font-semibold hover:bg-green-50 transition-colors"
+          >
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854V1.146zm4.943 12.248V6.169H2.542v7.225h2.401zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248-.822 0-1.359.54-1.359 1.248 0 .694.521 1.248 1.327 1.248h.016zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016a5.54 5.54 0 0 1 .016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225h2.4z"/>
+            </svg>
+            Contactar en LinkedIn
+          </a>
+        </div>
+      </section>
+    </Container>
+  </main>
+</Layout>

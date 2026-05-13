@@ -1,119 +1,133 @@
 ---
-const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
+// Datos del notebook api.ipynb → df_tabla (porcentaje_medio por tecnología)
+// pct_renovable = media histórica de la suma diaria de % renovables en la BD
+const RENOVABLES = [
+  { tecnologia: "Eólica",                pct_total: 23.41, pct_reno: 40.16 },
+  { tecnologia: "Solar fotovoltaica",    pct_total: 19.83, pct_reno: 34.01 },
+  { tecnologia: "Hidráulica",            pct_total: 11.64, pct_reno: 19.97 },
+  { tecnologia: "Solar térmica",         pct_total:  1.62, pct_reno:  2.78 },
+  { tecnologia: "Otras renovables",      pct_total:  1.55, pct_reno:  2.66 },
+  { tecnologia: "Residuos renovables",   pct_total:  0.28, pct_reno:  0.48 },
+];
+const PCT_RENOVABLE   = 58.33;
+const PCT_NO_RENOVABLE = 41.67;
 ---
 
 <div class="space-y-8">
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
-    <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Mix Energético: Renovables vs No Renovables</h3>
-    <div class="max-w-md mx-auto">
-      <canvas id="energyPieChart"></canvas>
+  <!-- Fila de tartas -->
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md flex flex-col items-center">
+      <h3 class="text-base font-semibold mb-4 text-gray-800 dark:text-white text-center">
+        Renovables vs No Renovables
+      </h3>
+      <div class="w-full max-w-xs">
+        <canvas id="energyPieChart"></canvas>
+      </div>
     </div>
-    <div id="loading-energy1" class="text-center py-4 text-gray-500">Cargando datos...</div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md flex flex-col items-center">
+      <h3 class="text-base font-semibold mb-4 text-gray-800 dark:text-white text-center">
+        Desglose de Energías Renovables
+      </h3>
+      <div class="w-full max-w-xs">
+        <canvas id="renewablePieChart"></canvas>
+      </div>
+    </div>
   </div>
 
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
-    <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Desglose de Energías Renovables</h3>
-    <div class="max-w-md mx-auto">
-      <canvas id="renewablePieChart"></canvas>
-    </div>
-    <div id="loading-energy2" class="text-center py-4 text-gray-500">Cargando datos...</div>
+  <!-- Tabla equivalente a df_tabla del notebook -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md overflow-x-auto">
+    <h3 class="text-base font-semibold mb-4 text-gray-800 dark:text-white">
+      Tabla de porcentajes por tecnología
+    </h3>
+    <table class="w-full text-sm text-left border-collapse">
+      <thead class="bg-gray-100 dark:bg-gray-700">
+        <tr>
+          <th class="px-4 py-2 rounded-tl-lg font-semibold text-gray-700 dark:text-gray-200">Tecnología</th>
+          <th class="px-4 py-2 font-semibold text-gray-700 dark:text-gray-200 text-right">% sobre generación total</th>
+          <th class="px-4 py-2 rounded-tr-lg font-semibold text-gray-700 dark:text-gray-200 text-right">% dentro de renovables</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+        {RENOVABLES.map((row) => (
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+            <td class="px-4 py-2 text-gray-700 dark:text-gray-300">{row.tecnologia}</td>
+            <td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300">{row.pct_total.toFixed(2)}%</td>
+            <td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300">{row.pct_reno.toFixed(2)}%</td>
+          </tr>
+        ))}
+        <tr class="text-gray-500 dark:text-gray-400 italic border-t border-gray-100 dark:border-gray-700">
+          <td class="px-4 py-2">── No renovables ──</td>
+          <td class="px-4 py-2 text-right">{PCT_NO_RENOVABLE.toFixed(2)}%</td>
+          <td class="px-4 py-2 text-right">—</td>
+        </tr>
+      </tbody>
+      <tfoot class="bg-gray-50 dark:bg-gray-700/50 font-semibold border-t-2 border-gray-300 dark:border-gray-600">
+        <tr>
+          <td class="px-4 py-2 text-gray-800 dark:text-gray-100">TOTAL</td>
+          <td class="px-4 py-2 text-right text-gray-800 dark:text-gray-100">100.00%</td>
+          <td class="px-4 py-2 text-right text-gray-800 dark:text-gray-100">100% (solo renovables)</td>
+        </tr>
+      </tfoot>
+    </table>
   </div>
 </div>
 
-<script define:vars={{ API_BASE_URL }}>
+<script define:vars={{ RENOVABLES, PCT_RENOVABLE, PCT_NO_RENOVABLE }}>
   import { Chart, registerables } from "chart.js";
-
   Chart.register(...registerables);
 
-  async function fetchData() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/energy-mix`);
-      const data = await response.json();
+  const COLORS = ["#3B82F6", "#F59E0B", "#10B981", "#8B5CF6", "#06B6D4", "#EF4444"];
 
-      document.getElementById("loading-energy1").style.display = "none";
-      document.getElementById("loading-energy2").style.display = "none";
-
-      return {
-        renovate: data.renovable,
-        noRenovate: data.noRenovable,
-        tecnologias: Object.entries(data.tecnologias || {}).map(([key, value]) => ({ name: key, value })),
-      };
-    } catch (error) {
-      console.error("Error fetching energy mix:", error);
-      document.getElementById("loading-energy1").textContent = "Error al cargar datos";
-      document.getElementById("loading-energy2").textContent = "Error al cargar datos";
-      return null;
-    }
+  // Tarta 1: Renovables vs No Renovables
+  const ctx1 = document.getElementById("energyPieChart");
+  if (ctx1) {
+    new Chart(ctx1, {
+      type: "pie",
+      data: {
+        labels: [`Renovables (${PCT_RENOVABLE}%)`, `No renovables (${PCT_NO_RENOVABLE}%)`],
+        datasets: [{
+          data: [PCT_RENOVABLE, PCT_NO_RENOVABLE],
+          backgroundColor: ["#10B981", "#EF4444"],
+          borderColor: "#fff",
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "bottom", labels: { font: { size: 12 } } },
+          tooltip: { callbacks: { label: (c) => ` ${c.raw.toFixed(2)}%` } },
+        },
+      },
+    });
   }
 
-  fetchData().then(mixData => {
-    if (!mixData) return;
-
-    const energyPieCtx = document.getElementById("energyPieChart");
-    if (energyPieCtx) {
-      new Chart(energyPieCtx, {
-        type: "pie",
-        data: {
-          labels: ["Renovables", "No Renovables"],
-          datasets: [
-            {
-              data: [mixData.renovate, mixData.noRenovate],
-              backgroundColor: ["#4CAF50", "#F44336"],
-              borderWidth: 2,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              position: "bottom",
-            },
-            tooltip: {
-              callbacks: {
-                label: (context) => `${context.label}: ${context.raw}%`,
-              },
+  // Tarta 2: Desglose por tecnología renovable
+  const ctx2 = document.getElementById("renewablePieChart");
+  if (ctx2) {
+    new Chart(ctx2, {
+      type: "pie",
+      data: {
+        labels: RENOVABLES.map((t) => t.tecnologia),
+        datasets: [{
+          data: RENOVABLES.map((t) => t.pct_total),
+          backgroundColor: COLORS,
+          borderColor: "#fff",
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "bottom", labels: { font: { size: 11 }, boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: (c) => ` ${c.label}: ${c.raw.toFixed(2)}% sobre total`,
             },
           },
         },
-      });
-    }
-
-    const renewablePieCtx = document.getElementById("renewablePieChart");
-    if (renewablePieCtx) {
-      new Chart(renewablePieCtx, {
-        type: "pie",
-        data: {
-          labels: mixData.tecnologias.map(t => t.name),
-          datasets: [
-            {
-              data: mixData.tecnologias.map(t => t.value),
-              backgroundColor: [
-                "#2196F3",
-                "#FF9800",
-                "#4CAF50",
-                "#9C27B0",
-                "#00BCD4",
-                "#795548",
-              ],
-              borderWidth: 2,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              position: "bottom",
-            },
-            tooltip: {
-              callbacks: {
-                label: (context) => `${context.label}: ${context.raw}%`,
-              },
-            },
-          },
-        },
-      });
-    }
-  });
+      },
+    });
+  }
 </script>
