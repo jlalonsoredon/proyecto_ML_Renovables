@@ -2,18 +2,47 @@ from fastapi import APIRouter
 from typing import List
 from datetime import datetime
 import logging
+import json
+import os
+import numpy as np
 
 from ..services import db_ree
+from ..services.model_loader import model_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["charts"])
 
+# Parques eólicos con coordenadas reales y su indicativo AEMET asociado
+# (mismos datos que en api.ipynb → parques_eolicos / estaciones_meteorologicas_eolicas)
+_WIND_PARKS = [
+    {"nombre": "El Andévalo (Huelva)",       "indicativo": "4589X", "estacion": "ALOSNO, THARSIS",    "lat": 37.26418296737997,  "lng": -6.944856396315273},
+    {"nombre": "Gecama (Cuenca)",             "indicativo": "8175",  "estacion": "ALBACETE BASE AÉREA", "lat": 39.40848408319995,  "lng": -2.2192737751771614},
+    {"nombre": "Maranchón (Guadalajara)",     "indicativo": "3013",  "estacion": "MOLINA DE ARAGÓN",    "lat": 41.06356588209968,  "lng": -2.206160824662825},
+    {"nombre": "Borja (Zaragoza)",            "indicativo": "9299X", "estacion": "TARAZONA",            "lat": 41.877046928697204, "lng": -1.5630303402886618},
+    {"nombre": "Tarifa (Cádiz)",              "indicativo": "6001",  "estacion": "TARIFA",              "lat": 36.037373555997895, "lng": -5.570950423574283},
+    {"nombre": "Briviesca (Burgos)",          "indicativo": "9031C", "estacion": "BRIVIESCA",           "lat": 42.52921710077489,  "lng": -3.408352539310985},
+    {"nombre": "La Muela (Zaragoza)",         "indicativo": "9299X", "estacion": "TARAZONA",            "lat": 41.592444983039200, "lng": -1.157502073233564},
+]
+
+METRICS_PATH = os.environ.get("METRICS_PATH", "modelos/metrics.json")
+
 
 @router.get("/historical")
 def get_historical(days: int = 30):
+    from ..services.ree_client import ensure_recent_data
+
+    # Actualizar BD con datos de REE si hay días sin cubrir
+    try:
+        updated, msg = ensure_recent_data(days=max(days, 30))
+        if updated:
+            logger.info(f"Datos REE actualizados: {msg}")
+    except Exception as e:
+        logger.warning(f"No se pudo actualizar datos REE: {e}")
+
     data = db_ree.get_historical_data(days)
     if not data:
+        logger.warning("Sin datos en BD — devolviendo mock histórico")
         data = generate_mock_historical(days)
     return data
 
@@ -28,27 +57,60 @@ def get_energy_mix():
 
 @router.get("/model-comparison")
 def get_model_comparison():
+    # Intentar leer métricas guardadas junto al modelo (modelos/metrics.json)
+    try:
+        with open(METRICS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        logger.warning(f"Error leyendo {METRICS_PATH}: {e}")
+
+    # Valores reales del entrenamiento en api.ipynb (df_resultados)
     return [
-        {"modelo": "Linear Regression", "rmse": 60432.9, "r2": 0.579, "mape": 41.73, "accuracy": 42.6},
-        {"modelo": "Lasso", "rmse": 60433.1, "r2": 0.579, "mape": 41.73, "accuracy": 42.6},
-        {"modelo": "Random Forest", "rmse": 60437.6, "r2": 0.5789, "mape": 44.3, "accuracy": 36.3},
-        {"modelo": "Ridge", "rmse": 60498.1, "r2": 0.5781, "mape": 41.95, "accuracy": 42.0},
-        {"modelo": "LightGBM", "rmse": 61872.5, "r2": 0.5587, "mape": 44.46, "accuracy": 37.2},
-        {"modelo": "XGBoost", "rmse": 63346.3, "r2": 0.5374, "mape": 45.87, "accuracy": 36.6},
+        {"modelo": "Linear Regression",  "rmse": 60432.9, "r2": 0.579,  "mape": 41.73, "accuracy": 42.6},
+        {"modelo": "Lasso",              "rmse": 60433.1, "r2": 0.579,  "mape": 41.73, "accuracy": 42.6},
+        {"modelo": "Random Forest",      "rmse": 60437.6, "r2": 0.5789, "mape": 44.30, "accuracy": 36.3},
+        {"modelo": "Ridge",              "rmse": 60498.1, "r2": 0.5781, "mape": 41.95, "accuracy": 42.0},
+        {"modelo": "LightGBM",           "rmse": 61872.5, "r2": 0.5587, "mape": 44.46, "accuracy": 37.2},
+        {"modelo": "XGBoost",            "rmse": 63346.3, "r2": 0.5374, "mape": 45.87, "accuracy": 36.6},
         {"modelo": "Red Neuronal (MLP)", "rmse": 63909.6, "r2": 0.5291, "mape": 43.22, "accuracy": 37.5},
     ]
 
 
 @router.get("/feature-importance")
 def get_feature_importance():
+    # Calcular desde los coeficientes del modelo LinearRegression cargado
+    if model_service.model is not None and model_service.features:
+        try:
+            coefs = np.abs(model_service.model.coef_)
+            total = float(coefs.sum()) or 1.0
+            return [
+                {"feature": feat, "importance": round(float(c / total), 4)}
+                for feat, c in sorted(
+                    zip(model_service.features, coefs),
+                    key=lambda x: x[1],
+                    reverse=True,
+                )
+            ]
+        except Exception as e:
+            logger.warning(f"Error calculando feature importance desde el modelo: {e}")
+
+    # Fallback: importancias aproximadas basadas en el análisis del notebook
     return [
-        {"feature": "velmedia", "importance": 0.35},
-        {"feature": "racha", "importance": 0.25},
-        {"feature": "eolica_lag1", "importance": 0.15},
-        {"feature": "eolica_lag7", "importance": 0.10},
-        {"feature": "vel_ma7", "importance": 0.08},
-        {"feature": "mes", "importance": 0.04},
-        {"feature": "dia_semana", "importance": 0.03},
+        {"feature": "eolica_lag1",  "importance": 0.18},
+        {"feature": "eolica_ma7",   "importance": 0.14},
+        {"feature": "eolica_lag7",  "importance": 0.12},
+        {"feature": "eolica_lag2",  "importance": 0.11},
+        {"feature": "eolica_lag3",  "importance": 0.10},
+        {"feature": "vel_ma14",     "importance": 0.08},
+        {"feature": "racha_ma14",   "importance": 0.07},
+        {"feature": "vel_ma7",      "importance": 0.06},
+        {"feature": "racha_ma7",    "importance": 0.05},
+        {"feature": "velmedia",     "importance": 0.04},
+        {"feature": "racha",        "importance": 0.03},
+        {"feature": "mes",          "importance": 0.01},
+        {"feature": "dia_semana",   "importance": 0.01},
     ]
 
 

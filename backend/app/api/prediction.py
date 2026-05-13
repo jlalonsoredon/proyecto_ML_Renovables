@@ -30,16 +30,17 @@ def _fallback_prediction() -> dict:
 
 @router.get("/prediction")
 def get_prediction():
-    # 1. Intentar devolver la última predicción guardada en BD
+    fecha_manana = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    # 1. Usar predicción guardada sólo si corresponde a mañana
     prediction = db_ree.get_latest_prediction()
-    if prediction:
+    if prediction and prediction.get("fecha") == fecha_manana:
         return prediction
 
     # 2. Calcular nueva predicción con datos de AEMET + modelo
     forecast = get_aggregated_forecast()
     if forecast:
         result = model_service.predict(forecast["velmedia"], forecast["racha"])
-        # Guardar en BD para próximas consultas
         try:
             db_ree.save_prediction(
                 fecha=result["fecha"],
