@@ -20,11 +20,14 @@ import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
       </div>
     </Container>
 
-    <LatestInnovations variant="proceso" />
 
-     <Container>
+    <Container>
       <section class="mb-12">
         <Title2>Mix Energético en España</Title2>
+        <Paragraph>
+          Tras descargar el histórico de generación eléctrica por tecnología desde la API de REE, se ha calculado el porcentaje medio de generación que corresponde a energías renovables frente a no renovables. 
+          Además, se ha realizado un desglose detallado del porcentaje que representa cada tecnología renovable dentro del total de generación renovable.
+        </Paragraph>
         <Paragraph>
           Distribución porcentual de la generación eléctrica entre energías renovables
           y no renovables, junto con el desglose detallado de las tecnologías renovables.
@@ -32,10 +35,18 @@ import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
         <div class="mt-6">
           <EnergyPieChart />
         </div>
+        <paragraph class="text-sm text-gray-600 dark:text-gray-400 mt-4 italic">
+          Fuente: API Red Eléctrica de España (REE) - Datos históricos de generación eléctrica
+        </paragraph>
+
+        <Paragraph>
+          Como se aprecia en la gráfica, aproximadamente el 58.33% de la generación eléctrica en España proviene de fuentes renovables, siendo la energía eólica la tecnología más representativa con un 23.41% del total, seguida de la solar fotovoltaica con un 19.83% y la hidráulica con un 11.64%.
+        </Paragraph>
       </section>
     </Container>
 
-    
+    <LatestInnovations variant="proceso" />
+
 
     <Container>
       <div class="space-y-16">
