@@ -23,6 +23,52 @@ import WindMap from "../components/charts/WindMap.astro";
 
 
     <Container>
+        <section class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
+          <Title2 className="mx-auto">1. Obtención de Datos</Title2>
+          <div class="mt-6 space-y-4">
+            <Paragraph>
+              El proyecto utiliza dos fuentes principales de datos:
+            </Paragraph>
+            <div class="grid md:grid-cols-2 gap-6 mt-4">
+              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <Title3>API Red Eléctrica de España (REE)</Title3>
+                <Paragraph>
+                  Proporciona datos históricos de generación eléctrica por tecnología:
+                  <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>energía eólica</li>
+                    <li>Solar fotovoltaica</li>
+                    <li>Hidráulica</li>
+                    <li>Solar térmica</li>
+                    <li>Otras renovables</li>
+                    <li>Residuos renovables</li>
+                  </ul>
+                </Paragraph>
+                <Paragraph>
+                  <strong>Período:</strong> Enero 2022 - Actualidad
+                </Paragraph>
+              </div>
+
+              <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                <Title3>API AEMET (Meteorología)</Title3>
+                <Paragraph>
+                  Proporciona datos climáticos de 14 estaciones meteorológicas:
+                  <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>Temperatura media, mínima y máxima</li>
+                    <li>Velocidad media del viento</li>
+                    <li>Ráfagas máxima</li>
+                    <li>Precipitación</li>
+                    <li>Horas de sol</li>
+                  </ul>
+                </Paragraph>
+                <Paragraph>
+                  <strong>Estaciones:</strong> Albacete, Almería, Burgos, Cádiz, Cuenca, Guadalajara, Huelva, Sevilla, Zaragoza
+                </Paragraph>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
       <section class="mb-12">
         <Title2>Mix Energético en España</Title2>
         <Paragraph>
@@ -73,50 +119,7 @@ import WindMap from "../components/charts/WindMap.astro";
 
     <Container>
       <div class="space-y-16">
-        <section class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
-          <Title2 className="mx-auto">1. Obtención de Datos</Title2>
-          <div class="mt-6 space-y-4">
-            <Paragraph>
-              El proyecto utiliza dos fuentes principales de datos:
-            </Paragraph>
-            <div class="grid md:grid-cols-2 gap-6 mt-4">
-              <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                <Title3>API Red Eléctrica de España (REE)</Title3>
-                <Paragraph>
-                  Proporciona datos históricos de generación eléctrica por tecnología:
-                  <ul class="list-disc list-inside mt-2 space-y-1">
-                    <li>energía eólica</li>
-                    <li>Solar fotovoltaica</li>
-                    <li>Hidráulica</li>
-                    <li>Solar térmica</li>
-                    <li>Otras renovables</li>
-                    <li>Residuos renovables</li>
-                  </ul>
-                </Paragraph>
-                <Paragraph>
-                  <strong>Período:</strong> Enero 2022 - Actualidad
-                </Paragraph>
-              </div>
 
-              <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                <Title3>API AEMET (Meteorología)</Title3>
-                <Paragraph>
-                  Proporciona datos climáticos de 14 estaciones meteorológicas:
-                  <ul class="list-disc list-inside mt-2 space-y-1">
-                    <li>Temperatura media, mínima y máxima</li>
-                    <li>Velocidad media del viento</li>
-                    <li>Ráfagas máxima</li>
-                    <li>Precipitación</li>
-                    <li>Horas de sol</li>
-                  </ul>
-                </Paragraph>
-                <Paragraph>
-                  <strong>Estaciones:</strong> Albacete, Almería, Burgos, Cádiz, Cuenca, Guadalajara, Huelva, Sevilla, Zaragoza
-                </Paragraph>
-              </div>
-            </div>
-          </div>
-        </section>
 
         <section class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
           <Title2 className="mx-auto">2. Preprocesamiento de Datos</Title2>
