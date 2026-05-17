@@ -20,6 +20,11 @@ class SchedulerService:
             logger.error(f"Error descargando datos REE: {e}")
 
         try:
+            self.download_aemet_data()
+        except Exception as e:
+            logger.error(f"Error descargando datos AEMET históricos: {e}")
+
+        try:
             self.run_prediction()
         except Exception as e:
             logger.error(f"Error en predicción: {e}")
@@ -35,6 +40,21 @@ class SchedulerService:
             logger.info(f"Datos REE actualizados: {msg}")
         else:
             logger.info("Datos REE ya al día")
+
+    def download_aemet_data(self):
+        from ..services.aemet_client import download_aemet_diario
+        from ..services.db_ree import save_aemet_diario
+
+        ayer = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        logger.info(f"Descargando mediciones AEMET históricas para {ayer}...")
+        records = download_aemet_diario(ayer)
+        if records:
+            save_aemet_diario(records)
+            logger.info(f"AEMET diario: {len(records)} registros guardados para {ayer}")
+        else:
+            logger.warning(
+                f"AEMET diario: ningún registro para {ayer} — medias móviles no actualizadas"
+            )
 
     def run_prediction(self):
         from ..services.aemet_client import get_aggregated_forecast

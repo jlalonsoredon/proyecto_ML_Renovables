@@ -63,6 +63,16 @@ def init_db():
                 sol REAL
             )
         """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS aemet_diario (
+                fecha       TEXT NOT NULL,
+                indicativo  TEXT NOT NULL,
+                velmedia    REAL,
+                racha       REAL,
+                PRIMARY KEY (fecha, indicativo)
+            )
+        """)
     logger.info(f"BD inicializada: {DB_PATH}")
 
 
@@ -154,6 +164,17 @@ def get_latest_prediction() -> Optional[dict]:
             }
         }
     return None
+
+
+def save_aemet_diario(records: list):
+    if not records:
+        return
+    with _get_conn() as conn:
+        conn.executemany("""
+            INSERT OR IGNORE INTO aemet_diario (fecha, indicativo, velmedia, racha)
+            VALUES (:fecha, :indicativo, :velmedia, :racha)
+        """, records)
+    logger.info(f"aemet_diario: {len(records)} registros insertados (INSERT OR IGNORE)")
 
 
 def save_aemet_data(fecha: str, temp_max: float, temp_min: float, vel_media: float,
