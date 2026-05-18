@@ -179,7 +179,7 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
             type: "linear",
             position: "right",
             title: { display: true, text: windAxisLabel, font: { size: 10 }, color: "#9e9e9e" },
-            min: 0,
+            min: usaMs ? 0 : undefined,
             ticks: { font: { size: 9 }, color: "#9e9e9e" },
             grid: { drawOnChartArea: false },
           },

@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,39 @@ class SchedulerService:
             logger.error(f"Error en predicción: {e}")
 
         logger.info("Tarea diaria completada")
+
+    def backfill_aemet_diario(self, days: int = 35):
+        """Descarga los últimos `days` días de AEMET si faltan en aemet_diario."""
+        from ..services.aemet_client import download_aemet_diario
+        from ..services.db_ree import save_aemet_diario, _get_conn
+
+        with _get_conn() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT fecha FROM aemet_diario WHERE fecha >= DATE('now', ? || ' days')",
+                (f"-{days}",),
+            ).fetchall()
+        existentes = {r[0] for r in rows}
+
+        pendientes = [
+            (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+            for i in range(days, 0, -1)
+            if (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d") not in existentes
+        ]
+
+        if not pendientes:
+            logger.info("aemet_diario ya al día — sin backfill necesario")
+            return
+
+        logger.info(f"Backfill AEMET: {len(pendientes)} días pendientes")
+        for fecha in pendientes:
+            try:
+                records = download_aemet_diario(fecha)
+                if records:
+                    save_aemet_diario(records)
+                    logger.info(f"Backfill AEMET {fecha}: {len(records)} registros")
+            except Exception as e:
+                logger.error(f"Backfill AEMET error [{fecha}]: {e}")
+            time.sleep(1.0)
 
     def download_ree_data(self):
         from ..services.ree_client import ensure_recent_data

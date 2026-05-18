@@ -1,5 +1,6 @@
 import os
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -35,6 +36,15 @@ async def lifespan(app: FastAPI):
     )
     scheduler.start()
     logger.info("Scheduler iniciado (ejecutará a las 3:00 AM)")
+
+    def _backfill():
+        try:
+            scheduler_service.backfill_aemet_diario(days=35)
+        except Exception as e:
+            logger.error(f"Error en backfill AEMET: {e}")
+
+    threading.Thread(target=_backfill, daemon=True).start()
+    logger.info("Backfill AEMET iniciado en segundo plano")
 
     yield
 
