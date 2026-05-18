@@ -287,6 +287,8 @@ def get_prediction_chart():
         "pred_gwh":    [round(float(v) / 1000, 2) if v is not None else None for v in pred_mwh],
         "vel_norm":    vel_norm,
         "racha_norm":  racha_norm,
+        "vel_ms":      [round(float(v), 2) if v is not None else None for v in vel_hist],
+        "racha_ms":    [round(float(v), 2) if v is not None else None for v in racha_hist],
         "manana": {
             "fecha":      fecha_manana,
             "pred_gwh":   round(pred_manana_mwh / 1000, 2),

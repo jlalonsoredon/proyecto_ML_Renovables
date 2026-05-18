@@ -45,9 +45,15 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
     var dsManana = new Array(n).fill(null);
     dsManana.push(data.manana.pred_gwh);
 
-    // Viento z-score (eje derecho)
-    var dsVel   = data.vel_norm.concat([data.manana.vel_norm]);
-    var dsRacha = data.racha_norm.concat([data.manana.racha_norm]);
+    // Viento en m/s (eje derecho) — usar valores reales si disponibles, si no z-score
+    var velRaw   = (data.vel_ms   && data.vel_ms.some(function(v)   { return v !== null; })) ? data.vel_ms   : data.vel_norm;
+    var rachaRaw = (data.racha_ms && data.racha_ms.some(function(v) { return v !== null; })) ? data.racha_ms : data.racha_norm;
+    var usaMs    = velRaw === data.vel_ms;
+    var windUnit = usaMs ? " m/s" : " σ";
+    var windAxisLabel = usaMs ? "Viento (m/s)" : "Viento (z-score)";
+
+    var dsVel   = velRaw.concat([usaMs ? data.manana.velmedia : data.manana.vel_norm]);
+    var dsRacha = rachaRaw.concat([usaMs ? data.manana.racha  : data.manana.racha_norm]);
 
     // Color de las barras de viento: más oscuro para "mañana"
     var velColors   = data.vel_norm.map(function()  { return "rgba(128,203,196,0.55)"; });
@@ -63,7 +69,7 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
         datasets: [
           // ── Barras de viento (eje derecho) ───────────────────────────────
           {
-            label: "velmedia (std)",
+            label: "velmedia (m/s)",
             type: "bar",
             data: dsVel,
             backgroundColor: velColors,
@@ -73,7 +79,7 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
             categoryPercentage: 0.5,
           },
           {
-            label: "racha (std)",
+            label: "racha (m/s)",
             type: "bar",
             data: dsRacha,
             backgroundColor: rachaColors,
@@ -145,7 +151,7 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
                 var v = ctx.parsed.y;
                 if (v === null) return null;
                 if (ctx.dataset.yAxisID === "yWind") {
-                  return ctx.dataset.label + ": " + v.toFixed(2) + " σ";
+                  return ctx.dataset.label + ": " + v.toFixed(2) + windUnit;
                 }
                 return ctx.dataset.label + ": " + v.toLocaleString("es-ES") + " GWh";
               },
@@ -172,7 +178,8 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
           yWind: {
             type: "linear",
             position: "right",
-            title: { display: true, text: "Viento (z-score)", font: { size: 10 }, color: "#9e9e9e" },
+            title: { display: true, text: windAxisLabel, font: { size: 10 }, color: "#9e9e9e" },
+            min: 0,
             ticks: { font: { size: 9 }, color: "#9e9e9e" },
             grid: { drawOnChartArea: false },
           },

@@ -10,7 +10,7 @@ import { getInvolvedSection } from "./data.ts";
 export interface Props {
   className?: string;
 }
-const { className } = Astro.props;
+const { className = "" } = Astro.props;
 ---
 
 <section id="cta" class=`${className}`>
