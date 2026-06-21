@@ -1,5 +1,9 @@
 # Proyecto ML — Predicción de Generación Eólica Peninsular
 
+![Aero Predictor](aero.jpg)
+
+Web en producción: [Aero Predictor](https://aero-predictor.joseluisalonsoredondo.es/resultados)
+
 ## Descripción
 
 Este proyecto construye un modelo de Machine Learning capaz de predecir la generación diaria de energía eólica en la España peninsular, combinando datos históricos de producción de la Red Eléctrica de España (REE) con datos meteorológicos de la Agencia Estatal de Meteorología (AEMET).
