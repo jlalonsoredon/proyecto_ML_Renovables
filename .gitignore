@@ -1,3 +1,24 @@
 # Archivos CSV grandes (superan límite de GitHub de 100MB)
 data/stack-overflow-developer-survey-*.csv
 .env
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Variables de entorno
+.env
+
+# IDE
+.vscode/
+EOF
