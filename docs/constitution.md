@@ -1,7 +1,7 @@
 # Constitución — Diario de Estudio
 Principios innegociables. Toda spec, plan y tarea debe cumplirlos.
 1. **Simplicidad primero**: el codigo debe ser sencillo legible con los comentarios necesarios en castellano.
-   Debes mantenener la estructura del proyecto. Unicamete añadir el código necesario sin cambiar el pipeline de la estructura pricipal.
+   Debes mantenener la estructura del proyecto. Unicamete añadir el código necesario con los mínimos cambios necesarios en el pipeline de la estructura pricipal.
 2. **La spec manda**: nada se implementa si no está en la spec activa. Si falta una
 decisión, se para y se pregunta.
 1. **Lógica separada de interfaz**: los cálculos (fechas, rachas, estadísticas) son
