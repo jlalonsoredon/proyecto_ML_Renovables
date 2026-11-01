@@ -1,0 +1,147 @@
+{
+  "fecha_ejecucion": "2026-10-29",
+  "estaciones": [
+    {
+      "planta": "Planta Francisco Pizarro (Cáceres)",
+      "indicativo": "3469A",
+      "nombre": "CÁCERES",
+      "distancia_km": 55.7,
+      "cobertura": {
+        "sol": {
+          "days": 1759,
+          "with_data": 1758,
+          "missing_pct": 0.1,
+          "max_gap_days": 1
+        },
+        "tmed": {
+          "days": 1759,
+          "with_data": 1759,
+          "missing_pct": 0.0,
+          "max_gap_days": 0
+        }
+      }
+    },
+    {
+      "planta": "Fotovoltaica Núñez de Balboa (Badajoz)",
+      "indicativo": "4452",
+      "nombre": "BADAJOZ AEROPUERTO",
+      "distancia_km": 69.6,
+      "cobertura": {
+        "sol": {
+          "days": 1759,
+          "with_data": 1756,
+          "missing_pct": 0.2,
+          "max_gap_days": 1
+        },
+        "tmed": {
+          "days": 1759,
+          "with_data": 1759,
+          "missing_pct": 0.0,
+          "max_gap_days": 0
+        }
+      }
+    },
+    {
+      "planta": "Planta Solar de Mula (Murcia)",
+      "indicativo": "7228",
+      "nombre": "ALCANTARILLA, BASE AÉREA",
+      "distancia_km": 15.5,
+      "cobertura": {
+        "sol": {
+          "days": 1759,
+          "with_data": 1731,
+          "missing_pct": 1.6,
+          "max_gap_days": 3
+        },
+        "tmed": {
+          "days": 1759,
+          "with_data": 1759,
+          "missing_pct": 0.0,
+          "max_gap_days": 0
+        }
+      }
+    },
+    {
+      "planta": "Complejo Solar Don Rodrigo (Sevilla)",
+      "indicativo": "5783",
+      "nombre": "SEVILLA AEROPUERTO",
+      "distancia_km": 21.6,
+      "cobertura": {
+        "sol": {
+          "days": 1759,
+          "with_data": 1647,
+          "missing_pct": 6.4,
+          "max_gap_days": 3
+        },
+        "tmed": {
+          "days": 1759,
+          "with_data": 1747,
+          "missing_pct": 0.7,
+          "max_gap_days": 4
+        }
+      }
+    },
+    {
+      "planta": "Chiprana-Samper (Zaragoza)",
+      "indicativo": "9434",
+      "nombre": "ZARAGOZA, AEROPUERTO",
+      "distancia_km": 81.6,
+      "cobertura": {
+        "sol": {
+          "days": 1759,
+          "with_data": 1756,
+          "missing_pct": 0.2,
+          "max_gap_days": 1
+        },
+        "tmed": {
+          "days": 1759,
+          "with_data": 1759,
+          "missing_pct": 0.0,
+          "max_gap_days": 0
+        }
+      }
+    }
+  ],
+  "umbrales": {
+    "cobertura_minima_pct": 90.0,
+    "hueco_maximo_dias": 7
+  },
+  "metricas": {
+    "rmse": 25225.12110827162,
+    "mae": 20127.674027143996,
+    "r2": 0.8684360841974474,
+    "mape": 18.757408734990506,
+    "mape_excluidos": 0,
+    "accuracy": 68.37606837606837,
+    "n": 351
+  },
+  "modelo": "Linear Regression + StandardScaler",
+  "features": [
+    "sol",
+    "tmed",
+    "mes",
+    "dia_semana",
+    "dia_año",
+    "solar_lag1",
+    "solar_lag2",
+    "solar_lag3",
+    "solar_lag7",
+    "sol_ma3",
+    "sol_ma7",
+    "sol_ma14",
+    "tmed_ma3",
+    "tmed_ma7",
+    "tmed_ma14",
+    "solar_ma7"
+  ],
+  "entrenamiento": {
+    "dias": 1402,
+    "desde": "2022-01-07",
+    "hasta": "2025-11-08"
+  },
+  "prueba": {
+    "dias": 351,
+    "desde": "2025-11-09",
+    "hasta": "2026-10-25"
+  }
+}

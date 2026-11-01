@@ -1,0 +1,269 @@
+{
+  "fecha_ejecucion": "2026-10-31",
+  "criterio": {
+    "aceptado": true,
+    "mejoras": 3,
+    "validos": 4,
+    "motivo": "mejora en 3 de 4 folds válidos (mínimo 3)",
+    "detalle": [
+      {
+        "fold": 0,
+        "base": 41291.27930411497,
+        "variante": 39524.403462720664,
+        "mejora": true
+      },
+      {
+        "fold": 1,
+        "base": 39958.251958764944,
+        "variante": 39996.9205478504,
+        "mejora": false
+      },
+      {
+        "fold": 2,
+        "base": 40094.63006143488,
+        "variante": 39085.20430756837,
+        "mejora": true
+      },
+      {
+        "fold": 3,
+        "base": 39323.94447671195,
+        "variante": 38696.516386155046,
+        "mejora": true
+      }
+    ]
+  },
+  "cobertura": {
+    "3469A": {
+      "sol": {
+        "days": 1761,
+        "with_data": 1760,
+        "missing_pct": 0.1,
+        "max_gap_days": 1
+      },
+      "tmed": {
+        "days": 1761,
+        "with_data": 1761,
+        "missing_pct": 0.0,
+        "max_gap_days": 0
+      }
+    },
+    "4452": {
+      "sol": {
+        "days": 1761,
+        "with_data": 1758,
+        "missing_pct": 0.2,
+        "max_gap_days": 1
+      },
+      "tmed": {
+        "days": 1761,
+        "with_data": 1761,
+        "missing_pct": 0.0,
+        "max_gap_days": 0
+      }
+    },
+    "7228": {
+      "sol": {
+        "days": 1761,
+        "with_data": 1733,
+        "missing_pct": 1.6,
+        "max_gap_days": 3
+      },
+      "tmed": {
+        "days": 1761,
+        "with_data": 1761,
+        "missing_pct": 0.0,
+        "max_gap_days": 0
+      }
+    },
+    "5783": {
+      "sol": {
+        "days": 1761,
+        "with_data": 1649,
+        "missing_pct": 6.4,
+        "max_gap_days": 3
+      },
+      "tmed": {
+        "days": 1761,
+        "with_data": 1749,
+        "missing_pct": 0.7,
+        "max_gap_days": 4
+      }
+    },
+    "9434": {
+      "sol": {
+        "days": 1761,
+        "with_data": 1758,
+        "missing_pct": 0.2,
+        "max_gap_days": 1
+      },
+      "tmed": {
+        "days": 1761,
+        "with_data": 1761,
+        "missing_pct": 0.0,
+        "max_gap_days": 0
+      }
+    }
+  },
+  "decision": "aceptado",
+  "folds": [
+    {
+      "año": 2023,
+      "omitido": false,
+      "motivo": null,
+      "dias_train": 358,
+      "dias_test": 365,
+      "base": {
+        "rmse": 41291.27930411497,
+        "r2": 0.8107383130161264
+      },
+      "variante": {
+        "rmse": 39524.403462720664,
+        "r2": 0.8265889860958334
+      }
+    },
+    {
+      "año": 2024,
+      "omitido": false,
+      "motivo": null,
+      "dias_train": 723,
+      "dias_test": 366,
+      "base": {
+        "rmse": 39958.251958764944,
+        "r2": 0.7731710872404282
+      },
+      "variante": {
+        "rmse": 39996.9205478504,
+        "r2": 0.7727318589147927
+      }
+    },
+    {
+      "año": 2025,
+      "omitido": false,
+      "motivo": null,
+      "dias_train": 1089,
+      "dias_test": 365,
+      "base": {
+        "rmse": 40094.63006143488,
+        "r2": 0.764582555722998
+      },
+      "variante": {
+        "rmse": 39085.20430756837,
+        "r2": 0.7762871183283983
+      }
+    },
+    {
+      "año": 2026,
+      "omitido": false,
+      "motivo": null,
+      "dias_train": 1454,
+      "dias_test": 300,
+      "base": {
+        "rmse": 39323.94447671195,
+        "r2": 0.7897976321837714
+      },
+      "variante": {
+        "rmse": 38696.516386155046,
+        "r2": 0.796451833337437
+      }
+    }
+  ],
+  "modelo": {
+    "features_base": [
+      "velmedia",
+      "racha",
+      "mes",
+      "dia_semana",
+      "dia_año",
+      "eolica_lag1",
+      "eolica_lag2",
+      "eolica_lag3",
+      "eolica_lag7",
+      "vel_ma3",
+      "vel_ma7",
+      "vel_ma14",
+      "racha_ma3",
+      "racha_ma7",
+      "racha_ma14",
+      "eolica_ma7"
+    ],
+    "features_variante": [
+      "velmedia",
+      "racha",
+      "mes",
+      "dia_semana",
+      "dia_año",
+      "eolica_lag1",
+      "eolica_lag2",
+      "eolica_lag3",
+      "eolica_lag7",
+      "vel_ma3",
+      "vel_ma7",
+      "vel_ma14",
+      "racha_ma3",
+      "racha_ma7",
+      "racha_ma14",
+      "eolica_ma7",
+      "sol_lag1",
+      "tmed_lag1"
+    ],
+    "features_produccion": [
+      "velmedia",
+      "racha",
+      "mes",
+      "dia_semana",
+      "dia_año",
+      "eolica_lag1",
+      "eolica_lag2",
+      "eolica_lag3",
+      "eolica_lag7",
+      "vel_ma3",
+      "vel_ma7",
+      "vel_ma14",
+      "racha_ma3",
+      "racha_ma7",
+      "racha_ma14",
+      "eolica_ma7",
+      "sol_lag1",
+      "tmed_lag1"
+    ],
+    "decision": "aceptado",
+    "guardado": true
+  },
+  "racha": {
+    "usado": false,
+    "dias_estimados": 0,
+    "desde": null,
+    "hasta": null,
+    "motivo": "rachaMax disponible en el pronóstico de AEMET"
+  },
+  "metricas_test": {
+    "rmse": 39273.30164447161,
+    "mae": 29418.653295378856,
+    "r2": 0.8055207238253138,
+    "dias": 351,
+    "desde": "2025-11-11",
+    "hasta": "2026-10-27"
+  },
+  "rutas": {
+    "notebook": {
+      "ruta": "src/data/modelos/lr_eolica.joblib",
+      "sha256": "4a4aeba88063af8c3b860a0319b4c2b8dce3ae53057f49899cd1ab089533d15f",
+      "sincronizada": true
+    },
+    "modelos": {
+      "ruta": "modelos/lr_eolica.joblib",
+      "sha256": "3704300d879a1650e383d2c051b0bfc309f24b151a2ed07fc885037a6ebd33f6",
+      "sincronizada": false
+    },
+    "backend/modelos": {
+      "ruta": "backend/modelos/lr_eolica.joblib",
+      "sha256": "3704300d879a1650e383d2c051b0bfc309f24b151a2ed07fc885037a6ebd33f6",
+      "sincronizada": false
+    },
+    "src/model/production": {
+      "ruta": "src/model/production/lr_eolica.joblib",
+      "sha256": "3704300d879a1650e383d2c051b0bfc309f24b151a2ed07fc885037a6ebd33f6",
+      "sincronizada": false
+    }
+  }
+}
