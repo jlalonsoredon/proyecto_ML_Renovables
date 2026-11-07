@@ -73,6 +73,10 @@ def init_db():
                 PRIMARY KEY (fecha, indicativo)
             )
         """)
+
+        # Archivo de previsiones (spec 003): tabla propia, nunca la observación.
+        from .forecast_db import init_forecast_db
+        init_forecast_db(conn)
     logger.info(f"BD inicializada: {DB_PATH}")
 
 

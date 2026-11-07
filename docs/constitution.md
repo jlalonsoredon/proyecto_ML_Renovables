@@ -1,5 +1,6 @@
 # Constitución — Diario de Estudio
 Principios innegociables. Toda spec, plan y tarea debe cumplirlos.
+1. **El orden del procedimiento**: primero se realizan todos los desarrollos unicamente en el directorio src y principalmente en el main.ipynb, no se realizaran cambios ni en el backend ni en el frontend sin pedirlo expresamente.
 1. **Simplicidad primero**: el codigo debe ser sencillo legible con los comentarios necesarios en castellano.
    Debes mantenener la estructura del proyecto. Unicamete añadir el código necesario con los mínimos cambios necesarios en el pipeline de la estructura pricipal.
 2. **La spec manda**: nada se implementa si no está en la spec activa. Si falta una

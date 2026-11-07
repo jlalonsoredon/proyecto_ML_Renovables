@@ -34,8 +34,16 @@ async def lifespan(app: FastAPI):
         minute=0,
         timezone="Europe/Madrid"
     )
+    # Reintento del mismo día si la captura de previsiones no cubrió el día (CA-1.5).
+    scheduler.add_job(
+        scheduler_service.retry_forecast_capture,
+        "cron",
+        hour=9,
+        minute=0,
+        timezone="Europe/Madrid"
+    )
     scheduler.start()
-    logger.info("Scheduler iniciado (ejecutará a las 3:00 AM)")
+    logger.info("Scheduler iniciado (3:00 y reintento a las 9:00)")
 
     def _backfill():
         try:

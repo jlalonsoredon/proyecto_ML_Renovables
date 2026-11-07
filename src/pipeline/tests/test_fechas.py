@@ -86,11 +86,12 @@ class TestVentanaDescarga(unittest.TestCase):
     def test_hueco_de_varios_dias(self):
         inicio, fin = fechas.ventana_descarga(date(2026, 11, 1), date(2026, 10, 25))
         self.assertEqual(inicio, date(2026, 10, 26))
-        self.assertEqual(fin, date(2026, 10, 29))
+        self.assertEqual(fin, date(2026, 10, 28))
 
     def test_fin_nunca_supera_el_retraso(self):
+        # Medido: AEMET publica con cuatro días de retraso, no tres (plan, D-14).
         _, fin = fechas.ventana_descarga(date(2026, 11, 1), None)
-        self.assertEqual(fin, date(2026, 10, 29))
+        self.assertEqual(fin, date(2026, 10, 28))
 
     def test_bd_vacia_arranca_en_el_inicio_del_estudio(self):
         inicio, _ = fechas.ventana_descarga(date(2026, 11, 1), None)
@@ -102,7 +103,7 @@ class TestVentanaDescarga(unittest.TestCase):
 
     def test_acepta_fechas_en_texto(self):
         inicio, fin = fechas.ventana_descarga("2026-11-01", "2026-10-25")
-        self.assertEqual((inicio, fin), (date(2026, 10, 26), date(2026, 10, 29)))
+        self.assertEqual((inicio, fin), (date(2026, 10, 26), date(2026, 10, 28)))
 
     def test_inicio_de_estudio_personalizado(self):
         inicio, _ = fechas.ventana_descarga(date(2026, 11, 1), None, inicio_estudio=date(2023, 1, 1))

@@ -16,8 +16,10 @@ from datetime import date, datetime, time, timedelta
 # Mismo inicio que `solar.study_window` y el notebook.
 INICIO_ESTUDIO = date(2022, 1, 1)
 
-# AEMET publica con retraso: no se piden los últimos días.
-RETRASO_PUBLICACION_DIAS = 3
+# AEMET publica con retraso: no se piden los últimos días. Medido en 2026-11:
+# cuatro días, no tres (plan 003, decisión 14); con tres se pide a diario un día
+# que todavía no puede existir.
+RETRASO_PUBLICACION_DIAS = 4
 
 
 class FechaError(ValueError):

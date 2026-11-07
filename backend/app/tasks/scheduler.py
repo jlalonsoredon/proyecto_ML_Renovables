@@ -15,6 +15,13 @@ class SchedulerService:
         logger.info("INICIANDO TAREA PROGRAMADA DIARIA")
         logger.info("=" * 50)
 
+        # Primero la previsión: el archivo es la única fuente que no se puede
+        # recuperar más tarde (RF-1) y la predicción la usa.
+        try:
+            self.capture_aemet_forecast()
+        except Exception as e:
+            logger.error(f"Error capturando previsiones AEMET: {e}")
+
         try:
             self.download_ree_data()
         except Exception as e:
@@ -31,6 +38,44 @@ class SchedulerService:
             logger.error(f"Error en predicción: {e}")
 
         logger.info("Tarea diaria completada")
+
+    def capture_aemet_forecast(self):
+        """Archiva la previsión vigente de las 12 ubicaciones (RF-1, RF-3)."""
+        from ..services import forecast_db
+        from ..services.aemet_forecast import capture_forecast
+
+        resumen = capture_forecast()
+        if forecast_db.capture_failed(resumen):
+            raise RuntimeError(
+                f"captura sin ninguna ubicación: {len(resumen['errores'])} errores"
+            )
+        if resumen["estado"] == "parcial":
+            logger.warning(
+                f"Captura AEMET parcial: {len(resumen['errores'])} incidencias"
+            )
+        return resumen
+
+    def retry_forecast_capture(self):
+        """Reintento del mismo día si la captura de madrugada no cubrió el día (CA-1.5)."""
+        from ..services import forecast_db
+
+        ultima = forecast_db.last_capture()
+        hoy = datetime.now().date()
+        if (
+            ultima
+            and ultima["estado"] == "ok"
+            and ultima["desde_pendiente"] is None
+            and ultima["ejecutada_en"] is not None
+            and ultima["ejecutada_en"].date() == hoy
+        ):
+            logger.info("Captura AEMET ya completa hoy — sin reintento")
+            return
+
+        logger.info("Reintentando la captura de previsiones del día")
+        try:
+            self.capture_aemet_forecast()
+        except Exception as e:
+            logger.error(f"Reintento de captura AEMET fallido: {e}")
 
     def backfill_aemet_diario(self, days: int = 35):
         """Descarga los últimos `days` días de AEMET si faltan en aemet_diario."""
