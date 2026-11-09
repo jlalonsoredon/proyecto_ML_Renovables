@@ -5,20 +5,23 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 ## Estado actual
 - Modelo de producción **en la web**: **LinearRegression + StandardScaler** de **16 variables**
   (`modelos/lr_eolica.joblib`, dict `{modelo, scaler, features}`), sin tocar desde 2026-10-29.
-- **Modelo del notebook (18 variables, 2026-11-02)**: `src/data/modelos/lr_eolica.joblib`, test
-  2025-11-12 → 2026-10-29 (352 días): **RMSE 39.387,9 MWh · MAE 29.533,6 · R² 0,8046**. Es el que
-  ganó el walk-forward; **aún no se ha copiado a producción** (pendiente de revisión del notebook).
+- **Modelo del notebook (18 variables, ejecutado 2026-11-07)**: `src/data/modelos/lr_eolica.joblib`,
+  test 2025-11-16 → 2026-11-03 (353 días): **RMSE 39.703,3 MWh · MAE 29.950,0 · R² 0,7914**. SHA-256
+  `6c341836…` sin cambios; **aún no se ha copiado a producción** (pendiente de autorización).
+- **Spec 004 — REE integrada (2026-11-08)**: tablas `prediccion_diaria` y `prediccion_propia` en
+  `src/data/ree_generacion.db`. AEMET: 210 filas. REE (ESIOS 1777): **1.774 filas**, 1.773
+  reconstruidas (`2022-01-01 → 2026-11-08`) + 1 en vivo (`2026-11-09`), **0 huecos**; relleno por
+  bloques anuales verificados con `values_updated_at` y segunda pasada con 0 nuevas. El mapa usa la
+  previsión en `eolica_lag2/3/7` y `eolica_ma7` cuando falta observación (`permitir_prev_gen=True`).
+  **378 tests Python + 16 Node en verde.** T-12 cerrada; T-17 solo pendiente de D-4-4/D-4-5.
+  Detalle en `specs/004-predicciones-en-src/` (Anexo B).
 - Backend FastAPI en Render; frontend Astro en Vercel; scheduler diario a las 3:00 (Europe/Madrid).
-- Datos: eólica diaria peninsular 2021-12-31 → 2026-10-30 (etiqueta REE); AEMET 14 estaciones
-  2022-01-01 → 2026-10-29, 30.420 filas (las 5 solares con 1.762 días).
+- Datos: eólica diaria peninsular 2021-12-31 → 2026-11-08 (día local; 10.633 filas en `generacion`);
+  AEMET 18 estaciones 2022-01-01 → 2026-11-04, **30.478 filas** (las 5 solares con cobertura verificada).
 - El scheduler descarga datos y predice, pero **no reentrena** el modelo.
-- **Spec 003 en marcha (2026-11-02)**: archivo propio de previsiones AEMET en marcha. La captura diaria
-  (3:00, reintento a las 9:00) archiva el parte diario y horario de las 12 ubicaciones en
-  `prediccion_aemet` (clave `elaborado, objetivo, ubicacion`) y deja una fila por ejecución en
-  `captura_estado`. Verificado contra la API real: 84 filas, 7 días, 0 duplicados y ningún día sin viento
-  ni sin sol (la racha solo llega en los 3 días del parte horario: CE-7). **T-12 y T-15 hechas** el
-  2026-11-02: notebook en **91 celdas** (4 nuevas entre la 64 y el split), 258 tests Python + 16 Node
-  en verde; los retardos de mañana se anclan en la última generación publicada **completa**.
+- **Spec 003**: archivo AEMET en backend (`prediccion_aemet`, clave `elaborado, objetivo, ubicacion`),
+  captura 3:00/9:00; T-12 y T-15 hechas el 2026-11-02. La spec 004 lo sustituye en `src/` con
+  `prediccion_diaria`; la captura del backend queda dormida hasta que se decida D-4-4.
 - **Spec 002 ejecutada el 2026-10-31**: notebook de 87 celdas corrido de arriba abajo (115 s) y
   **criterio ACEPTADO 3 de 4 folds**. 116 tests de Python + 16 de `node --test` en verde.
 - Serie solar diaria verificada contra la BD: 1.761 días continuos (2022-01-01 → 2026-10-28), sin
@@ -75,14 +78,31 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 - **Siete horas de temperatura no son la media del día**: por debajo de 12 horas se usa `(tmax+tmin)/2`.
 - **AEMET devuelve 429 con facilidad** (2 en una captura de 24 peticiones): el reintento con espera de
   60 s lo resuelve; sin él se perdían ubicaciones.
+- **La frontera con pandas convierte SQL NULL en `NaN`, no en `None`**: `choose_forecast`/`national_series`
+  lo propagaban y la predicción de mañana acababa con un valor que no era ni observación ni previsión
+  (medido 2026-11-07). El notebook normaliza a `None` al leer y `prevision._es_ausente` rechaza `NaN`.
+- **Los kernels Jupyter conservan módulos en `sys.modules`**: si cambia un `src/pipeline/*.py` después del
+  `import`, hay que recargarlo con `importlib.reload()` o reiniciar el kernel antes de ejecutar celdas que
+  usan funciones nuevas. Las celdas de relleno REE y del mapa recargan `prevision_db`/`prevision` si falta
+  la función nueva; para el resto de módulos, reiniciar el kernel.
 - **Ningún módulo carga `.env`**: el backend depende de las variables de entorno inyectadas (Render).
   Para una prueba local hay que pasar la clave explícitamente.
 - **REE publica los 1-2 últimos días incompletos** (2026-11-02: 2026-10-30 al 39 % y 2026-10-29 al 34 %
   de la mediana de los 7 anteriores). No sirven de retardo: `forecast.generation_lags` los señala y
   descarta, y el ancla retrocede al último día completo (el modelo antes los usaba en silencio).
+- **ESIOS 1777 devuelve un día más que `end_date`** y un único `values_updated_at`, que corresponde a la
+  última actualización anterior a `end_date` (el día previo al último objetivo). Sin acotar la ventana se
+  archiva un día de más; sin comprobar el sello se etiqueta una revisión posterior como si fuera la
+  original. El relleno usa `bloque_verificable(indicador, hasta)` y `hasta − 1 día`.
+- **La previsión D+1 de REE es mejor que el modelo**: MAE 13.194 / RMSE 19.969 MWh (2022-2026) frente a
+  29.950 / 39.703 en test. El MAE sube a 52.098 si se alinea por día UTC; con `fechas.fecha_madrid` baja
+  a 13.194. El sesgo de 2026 es +13.120 MWh (sobreestima).
 
 ## Próximos pasos
-- **Spec 003: T-01 a T-10, T-12 y T-15 hechas y en verde** (258 tests de Python tras `gate.test.mjs`).
+- **Spec 004**: T-12 cerrada (relleno histórico + captura REE). Quedan **T-17** solo por D-4-4
+  (captura del backend) y D-4-5 (retención), y la decisión de copiar el modelo de 18 variables a
+  producción. Las celdas REE están tras la descarga AEMET; el mapa y reales, en su sitio.
+- **Spec 003: T-01 a T-10, T-12 y T-15 hechas y en verde** (378 tests de Python tras `gate.test.mjs`).
   Quedan: T-06 (segunda captura en otro día), T-11 (calibración de `sol`, necesita solape), T-13
   integración y T-14 (bloqueadas por D-3-2: cómo entrenar con 2 meses de previsión y 4 años de
   observación). Estado y verificación en `specs/003-archivo-predicciones-aemet/tasks.md`.
@@ -123,6 +143,7 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
   feature por la deriva de capacidad (+130 % en 4 años).
 - Unificar feature engineering notebook ↔ `model_loader` y añadir reentrenamiento programado.
 - Corregir duplicado `9299X` y métricas hardcodeadas.
-- Integrar previsiones ESIOS (541 eólica, 542/543/10034 solar, PBF 12/13, 460 demanda).
+- Integrar previsiones ESIOS **1777** (eólica D+1): hecho en la spec 004. El 541 queda descartado
+  (potencia intradiaria, no energía diaria); 1779 (fotovoltaica) no se incluye para no cambiar el esquema.
 - Usar la eólica mensual por CCAA como pesos/estructura (no como target).
 - Actualizar README y memoria; mover claves a `.env`.
