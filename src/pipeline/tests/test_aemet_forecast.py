@@ -110,15 +110,33 @@ class TestDescarga(BaseSinEsperas):
         self.assertTrue(error.startswith("red:"))
 
 
+class RelojFalso:
+    """Reloj controlado: fecha cada ejecución en el `hoy` simulado.
+
+    Sin esto, `capturado_en` usa la fecha real y una captura simulada en el
+    pasado queda registrada como posterior a `hoy`, de modo que el archivo no
+    exige ningún día pendiente y el resumen miente (CA-6.6).
+    """
+
+    hoy = HOY
+
+    @classmethod
+    def now(cls):
+        return datetime.combine(cls.hoy, datetime.min.time()).replace(hour=12)
+
+
 class BaseCaptura(unittest.TestCase):
     def setUp(self):
         self._dormir = aemet_forecast.time.sleep
         aemet_forecast.time.sleep = lambda segundos: None
+        self._reloj = aemet_forecast.datetime
+        aemet_forecast.datetime = RelojFalso
         self.conn = forecast_db.connect(":memory:")
         forecast_db.ensure_schema(self.conn)
 
     def tearDown(self):
         aemet_forecast.time.sleep = self._dormir
+        aemet_forecast.datetime = self._reloj
         self.conn.close()
 
     @staticmethod
@@ -136,6 +154,7 @@ class BaseCaptura(unittest.TestCase):
             "conn": self.conn,
         }
         argumentos.update(cambios)
+        RelojFalso.hoy = argumentos["hoy"]
         return aemet_forecast.capture_forecast(**argumentos)
 
 

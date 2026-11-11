@@ -31,10 +31,10 @@ variable**.
 
 **Lo que NO cambia respecto a las specs anteriores:**
 
-- **No se interpola** y **no se mezcla observación con previsión en la misma serie.** Las
-  tablas de observación (`generacion`, `aemet_diario`) jamás se rellenan con previsión.
-  El "relleno de huecos" se hace en el vector de entrada del modelo, variable a
-  variable, con origen declarado.
+- **No se interpola** y las tablas de observación (`generacion`, `aemet_diario`)
+  jamás se rellenan con previsión. Desde D-4-8, una media móvil del vector de
+  entrada puede completar sus días sin observación con previsión oficial: cada
+  día conserva su origen y la variable se declara `mixta` con el desglose.
 - Un valor estimado siempre se identifica como tal; un hueco nunca se oculta tras un
   valor por defecto.
 
@@ -97,7 +97,7 @@ Una tabla que registre cada predicción que el modelo emite al final del noteboo
 
 - **CA-2.1** Una fila por `(fecha_objetivo, emitida_en)` con: `prediccion_mwh`, `modelo`
   (nombre y número de variables), `vector_entrada` (JSON con las variables usadas) y
-  `origenes` (JSON variable → `observacion` | `prevision` | `estimada`).
+  `origenes` (JSON variable → `observacion` | `prevision` | `mixta` | `estimada`).
 - **CA-2.2** Repetir la ejecución el mismo día **sustituye** la predicción del mismo
   objetivo emitida ese día (es la misma información recalculada); nunca duplica.
 - **CA-2.3** Cuando REE publica el dato real del día objetivo, la columna `real_mwh` se
@@ -134,20 +134,28 @@ que archivan las previsiones vigentes.
 El vector de mañana se construye con observación donde existe y con previsión donde
 falta, declarando el origen de cada variable.
 
-- **CA-4.1** `velmedia`, `racha`, `vel_ma3/7/14`, `racha_ma3/7/14`: observación AEMET si
-  está; si no, previsión elegida con la regla única de la spec 003 (elaboración declarada
-  ≤ objetivo, la más reciente), marcadas `prevision`. Nunca una mezcla dentro de la misma
-  media móvil: la ventana es íntegra de un solo origen.
+- **CA-4.1** `velmedia` y `racha` salen de la previsión del día objetivo.
+  `vel_ma3/7/14` y `racha_ma3/7/14` se calculan día a día sobre la ventana que
+  termina en el objetivo: observación AEMET si ya existe (nunca posterior a
+  `hoy`); si no, previsión elegida con la regla única de la spec 003 (elaboración
+  declarada ≤ objetivo, la más reciente). El origen es `observacion` o
+  `prevision` si todos los días comparten fuente y `mixta` si participan ambas;
+  en este último caso se guardan `dias_observados` y `dias_previstos`. Si un día
+  no está en ninguna fuente, la ventana queda `NO_DISPONIBLE`: no se interpola,
+  no se acorta y no se desplaza. La predicción no usa el antiguo respaldo de una
+  ventana observada desfasada (D-4-8).
 - **CA-4.2** `sol_lag1`, `tmed_lag1`: observación si existe el día anterior; si no,
   estimación de previsión, marcada `estimada` (el `sol` previsto ya es un proxy de horas
   de luz por estado del cielo).
 - **CA-4.3** `eolica_lag1/2/3/7`, `eolica_ma7`: última generación **publicada completa**
   (RF-12 de la spec 003, ya hecho). Si faltan días dentro de la ventana y REE publica
-  previsión para ellos, se completa **solo** con la previsión de REE, marcada
-  `prevision`, nunca con interpolación. Activo desde D-4-3: la previsión de REE tiene
+  previsión para ellos, se completan con la previsión de REE, nunca con interpolación.
+  Desde D-4-8 la media `eolica_ma7` usa la misma regla por día y declara `mixta`
+  si combina observación y previsión. Activo desde D-4-3: la previsión de REE tiene
   MAE 13 194 MWh (Anexo B), mejor que el modelo (29 950 MWh en test).
 - **CA-4.4** El diccionario `origenes` se imprime en la ejecución y se guarda con la
-  predicción (CA-2.1): qué variables venían de observación y cuáles de previsión.
+  predicción (CA-2.1): qué variables venían de observación, previsión o mezcla. Las
+  ventanas `mixta` imprimen el desglose `N obs + M prev`.
 - **CA-4.5** Las variables de calendario (`mes`, `dia_semana`, `dia_año`) son siempre
   `observacion`: pertenecen al día objetivo, no se estiman.
 
@@ -185,8 +193,10 @@ reconstruye la previsión de REE desde el primer día de observación.
 - **RNF-1 — Alcance `src/` estricto.** No se toca `backend/`, `frontend/`, `render.yaml`
   ni ninguna copia de producción del `.joblib`. La BD afectada es solo
   `src/data/ree_generacion.db`, con copia previa obligatoria.
-- **RNF-2 — Honestidad.** Sin mezcla de orígenes en una misma serie, sin interpolación,
-  sin valores por defecto que oculten huecos; lo estimado va siempre marcado.
+- **RNF-2 — Honestidad.** Sin interpolación ni valores por defecto que oculten
+  huecos. La mezcla solo se permite dentro de una media móvil del vector de
+  entrada, día a día y con origen `mixta` y desglose; las tablas de observación
+  permanecen puras. Lo estimado va siempre marcado.
 - **RNF-3 — Test primero.** La lógica nueva (esquema, upsert, elección de origen,
   actualización de `real_mwh`) vive en `src/pipeline/` con sus tests; la puerta
   `node --test "src/pipeline/tests/*.test.mjs"` debe quedar en verde al cerrar cada
@@ -209,8 +219,9 @@ reconstruye la previsión de REE desde el primer día de observación.
 - **CE-3.** El parte diario de AEMET llega sin racha (situación ya observada): respaldo
   del parte horario; si tampoco la trae, la racha queda no disponible y sus medias no se
   construyen.
-- **CE-4.** Día con observación a medias (una fuente sí y otra no): cada variable toma el
-  origen disponible; el diccionario `origenes` lo muestra mezclado y así se audita.
+- **CE-4.** Ventana con observación a medias: cada día toma observación si existe
+  y previsión si no. La variable queda `mixta`, con `dias_observados` y
+  `dias_previstos`; si falta un día en ambas fuentes queda no disponible.
 - **CE-5.** Previsión de REE para un día que ya tiene generación publicada: se archiva
   igualmente (sirve para calibrar su error), pero el origen usado es `observacion`.
 - **CE-6.** El modelo emite predicción para un objetivo que ya tiene predicción ese día:
@@ -236,8 +247,9 @@ reconstruye la previsión de REE desde el primer día de observación.
 2. La captura archiva el día en curso y el horizonte de las dos fuentes, con resumen e
    incidencias visibles.
 3. Cada ejecución guarda la predicción emitida con su vector y el origen por variable.
-4. El vector de mañana usa previsión solo donde falta observación, con ventanas íntegras
-   de un solo origen, y lo declara.
+4. El vector de mañana usa observación donde existe y previsión solo en los días
+   que faltan; las ventanas completas declaran `observacion`, `prevision` o
+   `mixta`, con el desglose por día en el último caso.
 5. Las tablas de observación quedan intactas (verificado por recuento y huella).
 6. `real_mwh` se actualiza cuando REE publica y el error es consultable.
 7. Puerta `node --test` en verde con los tests nuevos; notebook completo ejecutado.
@@ -265,6 +277,14 @@ reconstruye la previsión de REE desde el primer día de observación.
 - **[RESUELTA] D-4-7 — Tamaño del parte reconstruido.** En el relleno, `parte_json` se
   reduce a valor, ventana, sello y `reconstruido: true` (~388 B de media frente a los
   ~50 KB de la respuesta completa); en vivo se conserva la respuesta entera.
+- **[RESUELTA] D-4-8 — Ventana mixta con origen declarado (2026-11-11).** Se
+  sustituye la exigencia de ventana íntegra de un solo origen por la resolución
+  día a día: observación si existe y previsión oficial en los huecos. Una ventana
+  con ambas fuentes se marca `mixta` y declara cuántos días aporta cada una;
+  sigue prohibido interpolar, acortar la ventana o rellenar las tablas de
+  observación. La regla se aplica también a `eolica_ma7`. Si una ventana no se
+  puede completar, la predicción se detiene en vez de usar el respaldo
+  desfasado. Comparación inicial en el Anexo C.
 - **[NECESITA ACLARACIÓN] D-4-4 — ¿Sustituye esto a la captura del backend?** Se asume
   que sí hasta la fase backend (el scheduler de la spec 003 queda dormido); entonces se
   decidirá si el backend lee esta tabla o replica la captura.
@@ -354,6 +374,52 @@ importa: con el día UTC (`SUBSTR(datetime,1,10)`) el MAE sube a 52 098 MWh; con
 `fechas.fecha_madrid`, baja a 13 194. Todo el archivo usa el día natural peninsular.
 
 **Efecto en el mapa:** `serie_prevision_generacion` elige por día la elaboración declarada
-más reciente y no posterior al objetivo. Con la generación observada parada en
-2026-11-06, `eolica_lag2/3/7` y `eolica_ma7` salen con origen `prevision` y `eolica_lag1`
-sigue siendo `observacion`; la ventana de `eolica_ma7` es íntegra de un solo origen.
+más reciente y no posterior al objetivo. La observación conserva prioridad; si falta un
+día de generación se completa con REE. Desde D-4-8, `eolica_ma7` también declara
+`mixta` cuando su ventana reparte días entre observación y previsión.
+
+## Anexo C — Ventana mixta (D-4-8, 2026-11-11)
+
+**Motivo medido:** para objetivo 2026-11-12, `aemet_diario` terminaba el 11-07 y
+el archivo AEMET cubría 11-07→11-17. La ventana `ma7` necesitaba 11-06→11-12:
+faltaba solo el 11-06 en previsión, mientras 11-08→11-12 no eran observables.
+La ventana `ma14` necesitaba 10-30→11-12. La antigua regla no podía aprovechar
+juntos los dos orígenes y el respaldo dejaba fuera 11-07→11-11.
+
+**Regla nueva:** cada día toma observación si ya está disponible y previsión si
+no; si faltan ambas, la ventana es `NO_DISPONIBLE`. Una ventana con dos fuentes
+se marca `mixta` y guarda el desglose. Se aplica a las seis medias de viento y
+racha y a `eolica_ma7`.
+
+**Comparación inicial sobre el vector guardado**, cambiando solo las medias que
+antes usaban el respaldo desfasado. El valor «respaldo» es la predicción
+archivada en `prediccion_propia` con la regla anterior; el notebook vuelve a
+imprimir esta comparación en cada ejecución con su propio respaldo:
+
+| Objetivo | Variable | Respaldo | Mixta | Días obs + prev |
+|---|---|---:|---:|---:|
+| 2026-11-11 | `vel_ma7` | 2,794 | 3,161 | 2 + 5 |
+| 2026-11-11 | `racha_ma7` | 8,767 | 8,968 | 2 + 5 |
+| 2026-11-11 | `vel_ma14` | 2,628 | 2,906 | 9 + 5 |
+| 2026-11-12 | `vel_ma7` | 2,582 | 3,671 | 2 + 5 |
+| 2026-11-12 | `racha_ma7` | 8,197 | 9,686 | 2 + 5 |
+| 2026-11-12 | `vel_ma14` | 2,603 | 3,162 | 9 + 5 |
+
+| Objetivo | Predicción con respaldo | Predicción con ventana mixta | Real |
+|---|---:|---:|---:|
+| 2026-11-11 | 343.909 MWh | 341.541 MWh | Pendiente |
+| 2026-11-12 | 305.294 MWh | 294.843 MWh | Pendiente |
+
+La fila del 11-12 es la ejecución real del notebook del 2026-11-11: `prediccion_propia`
+guarda **294.843 MWh** con `vel_ma7`, `vel_ma14`, `racha_ma7` y `racha_ma14` como `mixta`,
+`vel_ma3`/`racha_ma3` como `prevision`, ocho variables `observacion` y `sol_lag1`
+`estimada`. Con el archivo de hoy, el notebook recalcula el respaldo antiguo en
+305.789 MWh; los 305.294 MWh eran la emisión archivada con la regla anterior.
+
+Estas diferencias **no demuestran todavía una mejora**: el real llega después y
+los coeficientes de las medias compiten con los del viento del día objetivo. La
+evaluación debe comparar el error absoluto de ambas variantes contra el real y,
+cuando AEMET publique los días, contrastar la ventana mixta con la ventana
+íntegramente observada. No se concluye mejora con menos de 5 días.
+
+

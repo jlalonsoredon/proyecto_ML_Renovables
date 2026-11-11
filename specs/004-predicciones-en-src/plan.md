@@ -12,9 +12,9 @@ Ningún RF se implementa sin su CA; las dudas abiertas se resuelven aquí como
 | Archivo | Acción | Responsabilidad | RF |
 |---|---|---|---|
 | `src/pipeline/prevision_db.py` | **crear** | Esquema y E/S de `prediccion_diaria` y `prediccion_propia`. Solo stdlib (`sqlite3`, `json`), sin pandas: testable en la puerta. Sin `DELETE` en `prediccion_diaria`. | RF-1, RF-2 |
-| `src/pipeline/prevision.py` | **crear** | Lógica pura: mapa de orígenes por variable, ventanas de un solo origen, actualización de `real_mwh`. Recibe `hoy` como parámetro; sin reloj, sin red, sin pandas. | RF-4, CA-2.3, CA-2.4 |
+| `src/pipeline/prevision.py` | **crear** | Lógica pura: mapa de orígenes por variable, ventanas mixtas con desglose por día, actualización de `real_mwh`. Recibe `hoy` como parámetro; sin reloj, sin red, sin pandas. | RF-4, CA-2.3, CA-2.4 |
 | `src/pipeline/tests/test_prevision_db.py` | **crear** | Esquema idempotente, upsert sin duplicar, elaboración nueva se añade, sin elaboración marcada y no elegible, sustitución mismo día, histórico entre días, `real_mwh` y `error_mwh`. | RF-1, RF-2 |
-| `src/pipeline/tests/test_prevision.py` | **crear** | Mapa de orígenes: calendario siempre `observacion`, `velmedia`/`racha` siempre `prevision`, ventana íntegra, ventana imposible → no disponible, lag con hueco, `real` solo desde `generacion`. | RF-4, RF-5 |
+| `src/pipeline/tests/test_prevision.py` | **crear** | Mapa de orígenes: calendario siempre `observacion`, `velmedia`/`racha` siempre `prevision`, ventana mixta con desglose, ventana imposible → no disponible, lag con hueco, `real` solo desde `generacion`. | RF-4, RF-5 |
 | `src/notebooks/main.ipynb` | **modificar** | Celdas nuevas insertadas (RNF-4): captura (RF-3), mapa de orígenes y vector de mañana (RF-4), guardado de la predicción propia (RF-2), actualización de `real_mwh` tras la descarga REE (CA-2.3). Sin reordenar ni renombrar etapas. | RF-2, RF-3, RF-4 |
 | `src/data/ree_generacion.db` | **modificar** | Dos tablas nuevas; las de observación no cambian de esquema. Copia previa obligatoria antes de la primera migración (RNF-1). | RF-1, RF-2 |
 | `specs/004-predicciones-en-src/tasks.md` | **crear** (siguiente paso) | Tareas con ciclo test-rojo → verde. | — |
@@ -33,8 +33,8 @@ En `src/pipeline/prevision.py` (reutiliza sin tocar `forecast.py`:
 | Función | Firma | Qué devuelve | RF |
 |---|---|---|---|
 | `resolver_origenes` | `(obs_meteo, obs_solar, obs_gen, prev, objetivo, hoy, permitir_prev_gen) -> dict` | El "mapa": variable → `{valor, origen}` o `None` si no disponible. Núcleo de RF-4. | RF-4 |
-| `ventana_mono_origen` | `(serie_obs, serie_prev, objetivo, dias, hoy) -> (valores, origen) \| None` | Ventana de `dias` terminada en `objetivo` íntegra de observación o íntegra de previsión; `None` si ninguna de las dos la cubre entera (CA-4.1). | RF-4 |
-| `origen_variable` | `(nombre, valor_obs, valor_prev) -> str` | `observacion` si hay dato observado; `prevision`/`estimada` si no; nunca mezcla (CA-4.4, CA-4.5). | RF-4 |
+| `ventana_mixta` | `(serie_obs, serie_prev, objetivo, dias, hoy) -> (valor, origen) \| None` | Ventana de `dias` terminada en `objetivo`: observación donde existe y previsión en los huecos; `mixta` si participan ambas. `None` si algún día no está en ninguna fuente (CA-4.1, D-4-8). | RF-4 |
+| `origen_variable` | `(nombre, valor_obs, valor_prev) -> str` | `observacion` si hay dato observado; `prevision`/`estimada` si no. Las ventanas con ambas fuentes se declaran `mixta` (CA-4.4, CA-4.5). | RF-4 |
 | `reales_pendientes` | `(predicciones, generacion, hoy) -> list` | Predicciones cuyo objetivo ya tiene generación publicada completa y `real_mwh` vacío (CA-2.3). El real sale **solo** de `generacion` (observación), nunca de `prediccion_diaria`. | RF-2, RF-5 |
 | `con_error` | `(prediccion_mwh, real_mwh) -> float` | `error_mwh = real - prediccion`; sin real no se rellena (CE-7). | RF-2 |
 
@@ -76,15 +76,15 @@ MAPA_ORIGENES(objetivo, hoy, permitir_prev_gen):              # RF-4, CA-4.1–C
     si no:
         mapa["velmedia"], mapa["racha"] ← NO_DISPONIBLE     # sin respaldo (CE-3)
 
-    # Medias móviles: ventana íntegra de UN solo origen (CA-4.1)
+    # Medias móviles: cada día observación si existe, previsión si no (CA-4.1, D-4-8)
     para cada (nombre, serie_obs, serie_prev, dias) en [
         ("vel_ma3", obs_viento, prev_viento, 3), …, ("racha_ma14", obs_racha, prev_racha, 14)]:
-        si ventana(dias, objetivo) completa en serie_obs:
-            mapa[nombre] ← media(serie_obs), "observacion"
-        si no, si ventana(dias, objetivo) completa en serie_prev:
-            mapa[nombre] ← media(serie_prev), "prevision"
-        si no:
-            mapa[nombre] ← NO_DISPONIBLE                     # nunca mezclada, nunca acortada
+        para cada día de la ventana(dias, objetivo):
+            si día <= hoy y en serie_obs: valor ← serie_obs[día]      # días_observados += 1
+            si no, si en serie_prev:     valor ← serie_prev[día]      # días_previstos += 1
+            si no:                       mapa[nombre] ← NO_DISPONIBLE  # sin interpolar ni acortar
+        origen ← observacion | prevision | mixta según las fuentes usadas
+        mapa[nombre] ← media(valores), origen (+ desglose si mixta)
 
     # Sol y temperatura del día anterior (CA-4.2)
     si (objetivo - 1) in obs_solar:
@@ -175,7 +175,7 @@ módulos nuevos usan solo stdlib, así que corren con el Python del sistema (sin
 | Suite | Cubre | RF/CA |
 |---|---|---|
 | `test_prevision_db.py` | Esquema idempotente (2×), upsert sin duplicar, elaboración nueva se añade y conserva la anterior, fila sin elaboración marcada y no elegible, sustitución mismo día, histórico entre días, `update_real` calcula `error_mwh` y no toca `prediccion_mwh`, real nunca se rellena a mano | CA-1.2–1.4, CA-2.2–2.4, CE-6, CE-7, CE-8 |
-| `test_prevision.py` | Calendario siempre `observacion`; `velmedia`/`racha` siempre `prevision`; ventana íntegra de observación; ventana mezclada cae a previsión completa; ventana imposible → no disponible sin acortar; lag con hueco sin REE → no disponible; con previsión REE (D-4-3) → `prevision`; `reales_pendientes` solo mira `generacion`; día incompleto descartado por RF-12 no sirve de ancla | CA-4.1–4.5, CA-5.1, CE-1–CE-5 |
+| `test_prevision.py` | Calendario siempre `observacion`; `velmedia`/`racha` siempre `prevision`; ventana íntegra de observación; ventana con huecos completada con previsión y marcada `mixta` con su desglose; nunca usa observación posterior a `hoy`; ventana imposible → no disponible sin acortar; lag con hueco sin REE → no disponible; con previsión REE (D-4-3) → `prevision`/`mixta`; `reales_pendientes` solo mira `generacion`; día incompleto descartado por RF-12 no sirve de ancla | CA-4.1–4.5, CA-5.1, CE-1–CE-5 |
 | Verificación manual (como en spec 003) | Descarga real AEMET (y REE tras P-1), dos ejecuciones el mismo día sin duplicar, notebook completo, integridad de `generacion`/`aemet_diario` por recuento de escritores | RF-3, RF-5, criterios §8 |
 
 ## 7. Puntos de parada (principio 2)

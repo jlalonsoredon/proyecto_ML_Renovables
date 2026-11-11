@@ -5,19 +5,28 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 ## Estado actual
 - Modelo de producción **en la web**: **LinearRegression + StandardScaler** de **16 variables**
   (`modelos/lr_eolica.joblib`, dict `{modelo, scaler, features}`), sin tocar desde 2026-10-29.
-- **Modelo del notebook (18 variables, ejecutado 2026-11-07)**: `src/data/modelos/lr_eolica.joblib`,
-  test 2025-11-16 → 2026-11-03 (353 días): **RMSE 39.703,3 MWh · MAE 29.950,0 · R² 0,7914**. SHA-256
-  `6c341836…` sin cambios; **aún no se ha copiado a producción** (pendiente de autorización).
+- **Modelo del notebook (18 variables, ejecutado 2026-11-11)**: `src/data/modelos/lr_eolica.joblib`,
+  test 2025-11-20 → 2026-11-07 (353 días): **RMSE 39.932,5 MWh · MAE 30.141,8 · R² 0,7919**, decisión
+  `aceptado` (3 de 4 folds). SHA-256 `ff52ce58…`; **aún no se ha copiado a producción** (pendiente de
+  autorización).
 - **Spec 004 — REE integrada (2026-11-08)**: tablas `prediccion_diaria` y `prediccion_propia` en
-  `src/data/ree_generacion.db`. AEMET: 210 filas. REE (ESIOS 1777): **1.774 filas**, 1.773
-  reconstruidas (`2022-01-01 → 2026-11-08`) + 1 en vivo (`2026-11-09`), **0 huecos**; relleno por
+  `src/data/ree_generacion.db`. AEMET: 574 filas (2 elaboraciones, horizonte 2026-11-07 → 11-17).
+  REE (ESIOS 1777): **1.777 filas**, 1.773 reconstruidas (`2022-01-01 → 2026-11-08`) + 4 en vivo
+  (`2026-11-09 → 11-12`), **0 huecos**; relleno por
   bloques anuales verificados con `values_updated_at` y segunda pasada con 0 nuevas. El mapa usa la
   previsión en `eolica_lag2/3/7` y `eolica_ma7` cuando falta observación (`permitir_prev_gen=True`).
-  **378 tests Python + 16 Node en verde.** T-12 cerrada; T-17 solo pendiente de D-4-4/D-4-5.
-  Detalle en `specs/004-predicciones-en-src/` (Anexo B).
+  **380 tests Python + 16 Node en verde.** T-12 y T-19/T-20 cerradas; T-17 solo pendiente de
+  D-4-4/D-4-5. Detalle en `specs/004-predicciones-en-src/` (Anexos B y C).
+- **Ventana mixta (D-4-8, 2026-11-11)**: las seis medias `vel_ma*`/`racha_ma*` y `eolica_ma7` se
+  resuelven día a día: observación si existe (nunca posterior a `hoy`), previsión oficial en los
+  huecos. Origen `mixta` con `dias_observados`/`dias_previstos`; un día sin ninguna fuente deja la
+  variable `NO_DISPONIBLE` y el notebook aborta en vez de usar el respaldo desfasado. Para 2026-11-12
+  el mapa resuelve las 18 variables con `ma7` = 2 obs + 5 prev y `ma14` = 9 obs + 5 prev, y
+  `prediccion_propia` guarda **294.843 MWh** (notebook ejecutado el 11-11; el modelo se reentrenó
+  con RMSE 39.932 y decisión aceptada).
 - Backend FastAPI en Render; frontend Astro en Vercel; scheduler diario a las 3:00 (Europe/Madrid).
-- Datos: eólica diaria peninsular 2021-12-31 → 2026-11-08 (día local; 10.633 filas en `generacion`);
-  AEMET 18 estaciones 2022-01-01 → 2026-11-04, **30.478 filas** (las 5 solares con cobertura verificada).
+- Datos: eólica diaria peninsular 2021-12-31 → 2026-11-10 (día local; 10.651 filas en `generacion`);
+  AEMET 18 estaciones 2022-01-01 → 2026-11-07, **30.511 filas** (las 5 solares con cobertura verificada).
 - El scheduler descarga datos y predice, pero **no reentrena** el modelo.
 - **Spec 003**: archivo AEMET en backend (`prediccion_aemet`, clave `elaborado, objetivo, ubicacion`),
   captura 3:00/9:00; T-12 y T-15 hechas el 2026-11-02. La spec 004 lo sustituye en `src/` con
@@ -39,6 +48,12 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 - **Spec 002**: solo `sol_lag1` y `tmed_lag1` (día natural anterior), sin medias móviles ni generación
   solar en MWh. Se comparan 16 vs 18 variables en walk-forward y solo se guarda el modelo si mejora
   el RMSE de forma estricta en ≥3 de los 4 folds.
+- **Ventana mixta mejor que ventana mono-origen** (D-4-8, 2026-11-11): la regla anterior exigía la
+  media entera de observación o entera de previsión, así que con `aemet_diario` parado en 11-07 la
+  media de 7 días caía al respaldo desfasado. La nueva regla completa cada día y declara el desglose.
+  Sin medir todavía contra el real: 11-11 343.909 → 341.541 MWh y 11-12 305.294 → 294.843 MWh. Los
+  coeficientes de las medias son negativos por colinealidad con `velmedia`/`racha`, así que el signo
+  del delta no demuestra mejora; hará falta ≥5 días de reales (Anexo C de la spec 004).
 
 ## Aprendizajes y errores a evitar
 - `9299X` está duplicado (Borja y La Muela) y `"9299"` es inválido → se duplica Tarazona en la media.
@@ -99,10 +114,11 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
   a 13.194. El sesgo de 2026 es +13.120 MWh (sobreestima).
 
 ## Próximos pasos
-- **Spec 004**: T-12 cerrada (relleno histórico + captura REE). Quedan **T-17** solo por D-4-4
-  (captura del backend) y D-4-5 (retención), y la decisión de copiar el modelo de 18 variables a
-  producción. Las celdas REE están tras la descarga AEMET; el mapa y reales, en su sitio.
-- **Spec 003: T-01 a T-10, T-12 y T-15 hechas y en verde** (378 tests de Python tras `gate.test.mjs`).
+- **Spec 004**: T-12, T-19 y T-20 cerradas (relleno histórico + captura REE + ventana mixta). Quedan
+  **T-17** solo por D-4-4 (captura del backend) y D-4-5 (retención), medir la ventana mixta contra el
+  real (≥5 días) y la decisión de copiar el modelo de 18 variables a producción. Las celdas REE están
+  tras la descarga AEMET; el mapa y reales, en su sitio.
+- **Spec 003: T-01 a T-10, T-12 y T-15 hechas y en verde** (380 tests de Python tras `gate.test.mjs`).
   Quedan: T-06 (segunda captura en otro día), T-11 (calibración de `sol`, necesita solape), T-13
   integración y T-14 (bloqueadas por D-3-2: cómo entrenar con 2 meses de previsión y 4 años de
   observación). Estado y verificación en `specs/003-archivo-predicciones-aemet/tasks.md`.

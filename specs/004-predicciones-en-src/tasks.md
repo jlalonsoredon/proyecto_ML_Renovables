@@ -43,14 +43,16 @@ tarea se cierra con la puerta en rojo (constitución, principio 5).
 
 ## Fase 2 — Lógica pura (`prevision.py`, con `hoy` como parámetro)
 
-- [x] **T-06 — Ventana de un solo origen** · RF-4 (CA-4.1, CE-12 de la 003)
-  `ventana_mono_origen(serie_obs, serie_prev, objetivo, dias, hoy)`: íntegra de
-  observación → `observacion`; si no, íntegra de previsión → `prevision`; si no, `None`.
-  **Hecho cuando:** tests en verde — nunca mezcla, nunca acorta, hueco en ambas → `None`.
+- [x] **T-06 — Ventana con origen declarado por día** · RF-4 (CA-4.1, D-4-8)
+  `ventana_mixta(serie_obs, serie_prev, objetivo, dias, hoy)`: observación si el
+  día ya está disponible, previsión en los huecos y `mixta` si participan ambas;
+  hueco en ambas fuentes → `None`.
+  **Hecho cuando:** tests en verde — mezcla declarada, nunca acorta, no usa
+  observación futura y hueco en ambas fuentes → `None`.
 
 - [x] **T-07 — Origen por variable y calendario** · RF-4 (CA-4.4, CA-4.5)
   `origen_variable(nombre, valor_obs, valor_prev)`: vocabulario
-  `observacion`/`prevision`/`estimada`; calendario siempre `observacion`; `sol` previsto
+  `observacion`/`prevision`/`mixta`/`estimada`; calendario siempre `observacion`; `sol` previsto
   es `estimada` y `tmed` previsto es `prevision`.
   **Hecho cuando:** tests en verde del vocabulario completo y del calendario.
 
@@ -145,6 +147,43 @@ tarea se cierra con la puerta en rojo (constitución, principio 5).
   **Hecho cuando:** ejecución end-to-end sin errores, `node --test` en verde con las
   suites nuevas, y `MEMORY.md` actualizado.
 
+## Enmienda D-4-8 — Ventana mixta (2026-11-11)
+
+- [x] **T-19 — Sustituir la ventana mono-origen** · RF-4 (CA-4.1, CA-4.3, CA-4.4)
+  Tests primero para observación, previsión y mezcla; `ventana_mixta` y desglose
+  `dias_observados`/`dias_previstos` en el mapa; misma regla para `eolica_ma7`.
+  **Hecho cuando:** 48 tests de `test_prevision.py` en verde, mapa con `mixta`
+  y hueco en ambas fuentes declarado no disponible.
+- [x] **T-20 — Integrar la regla en el notebook y en la spec** · RF-4, RNF-2
+  Celda del mapa con símbolo y desglose; vector de predicción sin el respaldo
+  desfasado; comparación impresa del respaldo anterior y la variante mixta;
+  CA-4.1, RNF-2, criterio 4, CE-4 y Anexo C actualizados.
+  **Hecho cuando:** las celdas compilan y la spec ya no exige ventana de un
+  solo origen. La mejora frente al real queda pendiente de medir (Anexo C).
+
+**Verificación de la enmienda (2026-11-11)**
+
+- **Puerta:** `node --test "src/pipeline/tests/*.test.mjs"` → 16/16;
+  `unittest discover` → **380 tests Python, OK** (48 de `test_prevision.py`).
+- **Reloj de las capturas:** `test_aemet_forecast` fechaba las ejecuciones con la
+  fecha real, así que una captura simulada en el pasado quedaba registrada
+  después de `hoy` y el resumen daba 0 días pendientes. Se sustituye
+  `aemet_forecast.datetime` por un reloj controlado en `BaseCaptura` (sin tocar
+  `backend/`). Era un fallo del test, no de la captura.
+- **Simulación con la BD real** para objetivo 2026-11-12: las 18 variables se
+  resuelven sin `NO_DISPONIBLE`; `vel_ma7` = 2 obs + 5 prev (3,671),
+  `racha_ma7` = 9,686, `vel_ma14` = 3,162, `racha_ma14` = 8,931.
+- **Notebook ejecutado el 2026-11-11** (70 celdas, sin errores): el mapa imprime
+  4 `mixta`, 5 `prevision`, 8 `observacion` y 1 `estimada`; la comparación da
+  305.789 → **294.843 MWh** y `prediccion_propia` guarda esa predicción para
+  2026-11-12 con su vector de 18 variables y los orígenes. El modelo se reentrenó
+  (test 2025-11-20 → 2026-11-07, RMSE 39.932, decisión `aceptado`).
+- **Celda 95:** el «respaldo» solo reutiliza el mapa si su origen no es `mixta`;
+  si no, reconstruye el valor histórico, que es lo que hacía la regla anterior.
+- **Copia previa:** `C:/Users/jlalo/AppData/Local/Temp/opencode/backup-ejecucion-20261111/`.
+- **Pendiente:** medir el error de las dos variantes contra el real (≥5 días).
+
+
 ## Dependencias
 
 ```
@@ -183,7 +222,7 @@ P-2 se activa con D-4-3 (`permitir_prev_gen=True`); P-3 solo condiciona D-4-4 y 
 - **Mapa:** con la generación observada parada en 2026-11-06, `eolica_lag2/3/7` y
   `eolica_ma7` salen `prevision`; `eolica_lag1` sigue `observacion`.
 - **Puerta:** `node --test "src/pipeline/tests/*.test.mjs"` → 16/16 Node;
-  **378 tests Python**, `OK`.
+  **380 tests Python**, `OK` (2026-11-11, incluye la ventana mixta de D-4-8).
 - **Verificación de las celdas:** ejecutadas directamente contra
   `src/data/ree_generacion.db` (dos pasadas). No se reejecutó el notebook completo para no
   reescribir sus 104 celdas de salida; la estructura y las prohibiciones de escritura las

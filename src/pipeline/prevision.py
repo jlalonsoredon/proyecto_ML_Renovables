@@ -5,10 +5,11 @@ principio 4). Solo biblioteca estándar para que la puerta `node --test` se ejec
 sin instalar nada.
 
 La idea central es que el vector de mañana nunca miente sobre su procedencia:
-cada variable lleva su origen (`observacion`, `prevision` o `estimada`), una
-ventana se construye entera con un solo origen y un hueco queda declarado como
-no disponible. La observación y la previsión no se mezclan dentro de la misma
-media móvil.
+cada variable lleva su origen (`observacion`, `prevision`, `mixta` o
+`estimada`). Una media móvil toma cada día de la observación cuando existe y
+lo completa con previsión oficial cuando falta, declarando el desglose. Un día
+sin ninguna de las dos fuentes deja la ventana no disponible: no se interpola,
+no se acorta y no se desplaza.
 """
 
 from __future__ import annotations
@@ -71,39 +72,70 @@ def _es_ausente(valor) -> bool:
 
 
 # ─────────────────────────────────────────────
-# RF-4 — Ventanas de un solo origen
+# RF-4 — Ventanas con origen declarado por día
 # ─────────────────────────────────────────────
 
-def ventana_mono_origen(serie_obs, serie_prev, objetivo, dias: int, hoy):
-    """Media de `dias` días terminada en `objetivo`, con un único origen.
-
-    Primero se intenta la ventana entera de observación. Si falta un solo día
-    (o alguno es posterior a `hoy`, que aún no se puede observar), se intenta la
-    ventana entera de previsión. Si ninguna está completa, devuelve `None`: no
-    se acorta, no se desplaza y no se mezcla (CA-4.1).
-    """
-    if dias <= 0:
-        raise ValueError(f"la ventana debe ser positiva: {dias}")
-
+def _ventana_detallada(serie_obs, serie_prev, objetivo, dias: int, hoy):
+    """Resuelve la ventana día a día y devuelve su desglose de orígenes."""
     objetivo = _fecha(objetivo)
     hoy = _fecha(hoy)
     obs = _normalizar(serie_obs)
     prev = _normalizar(serie_prev)
-
     dias_ventana = [
         objetivo - timedelta(days=atras) for atras in range(dias - 1, -1, -1)
     ]
 
-    if all(
-        dia in obs and not _es_ausente(obs[dia]) and dia <= hoy
-        for dia in dias_ventana
-    ):
-        return (_media(obs[dia] for dia in dias_ventana), "observacion")
+    valores = []
+    observados = 0
+    previstos = 0
+    for dia in dias_ventana:
+        # Una observación posterior a hoy no puede existir todavía aunque la
+        # serie recibida la contenga: esa celda debe resolverse con previsión.
+        if dia <= hoy and dia in obs and not _es_ausente(obs[dia]):
+            valores.append(float(obs[dia]))
+            observados += 1
+        elif dia in prev and not _es_ausente(prev[dia]):
+            valores.append(float(prev[dia]))
+            previstos += 1
+        else:
+            return None
 
-    if all(dia in prev and not _es_ausente(prev[dia]) for dia in dias_ventana):
-        return (_media(prev[dia] for dia in dias_ventana), "prevision")
+    origen = (
+        "observacion" if previstos == 0
+        else "prevision" if observados == 0
+        else "mixta"
+    )
+    return {
+        "valor": _media(valores),
+        "origen": origen,
+        "dias_observados": observados,
+        "dias_previstos": previstos,
+    }
 
-    return None
+
+def ventana_mixta(serie_obs, serie_prev, objetivo, dias: int, hoy):
+    """Media de `dias` días terminada en `objetivo`, completada sin inventar.
+
+    Cada día usa observación si ya está disponible; si no, previsión oficial.
+    Solo si no existe ninguna de las dos la ventana devuelve `None`: nunca se
+    interpola, se acorta ni se desplaza. Si participan ambas fuentes el origen
+    es `mixta` (CA-4.1).
+    """
+    if dias <= 0:
+        raise ValueError(f"la ventana debe ser positiva: {dias}")
+    detalle = _ventana_detallada(serie_obs, serie_prev, objetivo, dias, hoy)
+    if detalle is None:
+        return None
+    return detalle["valor"], detalle["origen"]
+
+
+def _entrada_ventana(detalle: dict) -> dict:
+    """Entrada del mapa; el desglose solo aparece si realmente hay mezcla."""
+    entrada = _entrada(detalle["valor"], detalle["origen"])
+    if detalle["origen"] == "mixta":
+        entrada["dias_observados"] = detalle["dias_observados"]
+        entrada["dias_previstos"] = detalle["dias_previstos"]
+    return entrada
 
 
 # ─────────────────────────────────────────────
@@ -183,7 +215,8 @@ def resolver_origenes(obs_meteo, obs_solar, obs_gen, prev, objetivo, hoy,
         valor_racha, "prevision" if not _es_ausente(valor_racha) else None
     )
 
-    # Medias móviles: ventana entera de un solo origen (CA-4.1).
+    # Medias móviles: observación donde existe y previsión en los huecos; el
+    # desglose acredita cuántos días aporta cada origen (CA-4.1).
     for nombre, obs_serie, prev_serie, dias in (
         ("vel_ma3", _serie_variable(obs_meteo, "velmedia"), prev_viento, 3),
         ("vel_ma7", _serie_variable(obs_meteo, "velmedia"), prev_viento, 7),
@@ -192,8 +225,10 @@ def resolver_origenes(obs_meteo, obs_solar, obs_gen, prev, objetivo, hoy,
         ("racha_ma7", _serie_variable(obs_meteo, "racha"), prev_racha, 7),
         ("racha_ma14", _serie_variable(obs_meteo, "racha"), prev_racha, 14),
     ):
-        ventana = ventana_mono_origen(obs_serie, prev_serie, objetivo, dias, hoy)
-        mapa[nombre] = _entrada(*ventana) if ventana else dict(NO_DISPONIBLE)
+        ventana = _ventana_detallada(obs_serie, prev_serie, objetivo, dias, hoy)
+        mapa[nombre] = (
+            _entrada_ventana(ventana) if ventana else dict(NO_DISPONIBLE)
+        )
 
     # Sol y temperatura del día anterior (CA-4.2).
     ayer = objetivo - timedelta(days=1)
@@ -213,7 +248,8 @@ def resolver_origenes(obs_meteo, obs_solar, obs_gen, prev, objetivo, hoy,
     )
 
     # Generación: última publicada completa (RF-12 de la spec 003) y, si se
-    # permite, huecos completados solo con la previsión de REE (CA-4.3).
+    # permite, huecos completados con la previsión de REE (CA-4.3), declarando
+    # también el origen mixto si la ventana reparte días entre ambas fuentes.
     diagnostico = forecast.generation_lags(obs_gen, objetivo)
     ancla = diagnostico["ancla"]
 
@@ -227,13 +263,16 @@ def resolver_origenes(obs_meteo, obs_solar, obs_gen, prev, objetivo, hoy,
         mapa[nombre] = _entrada(valor, origen)
 
     valor_ma7 = diagnostico["eolica_ma7"]
-    origen_ma7 = "observacion" if not _es_ausente(valor_ma7) else None
+    entrada_ma7 = _entrada(
+        valor_ma7,
+        "observacion" if not _es_ausente(valor_ma7) else None,
+    )
     if _es_ausente(valor_ma7) and permitir_prev_gen and ancla is not None:
-        ventana = ventana_mono_origen(
+        ventana = _ventana_detallada(
             obs_gen, prev_gen, ancla, VENTANA_GENERACION, hoy)
         if ventana:
-            valor_ma7, origen_ma7 = ventana
-    mapa["eolica_ma7"] = _entrada(valor_ma7, origen_ma7)
+            entrada_ma7 = _entrada_ventana(ventana)
+    mapa["eolica_ma7"] = entrada_ma7
 
     return mapa
 

@@ -3,10 +3,11 @@
 Sin red, sin pandas y sin reloj: `hoy` entra siempre como parámetro. La puerta
 `node --test` descubre esta suite a través de `gate.test.mjs`.
 
-Lo que se protege aquí es la honestidad del vector de mañana: una ventana se
-construye entera con observación o entera con previsión, nunca mezclada; sin
-dato la variable queda no disponible y no se rellena; el valor real solo puede
-salir de `generacion`, jamás de una previsión archivada.
+Lo que se protege aquí es la honestidad del vector de mañana: una ventana
+toma cada día de la observación si existe y de la previsión si no, declarando
+cuántos días aporta cada origen; sin dato la variable queda no disponible y no
+se rellena; el valor real solo puede salir de `generacion`, jamás de una
+previsión archivada.
 """
 
 import sys
@@ -54,66 +55,72 @@ def mapa_completo():
     return obs_meteo, obs_solar, obs_gen, prev
 
 
-class TestVentanaMonoOrigen(unittest.TestCase):
+class TestVentanaMixta(unittest.TestCase):
     def test_una_ventana_completa_de_observacion(self):
         obs = {date(2026, 1, 1): 10.0, date(2026, 1, 2): 20.0,
                date(2026, 1, 3): 30.0}
-        resultado = prevision.ventana_mono_origen(
+        resultado = prevision.ventana_mixta(
             obs, {}, date(2026, 1, 3), 3, date(2026, 1, 3))
         self.assertEqual(resultado, (20.0, "observacion"))
 
-    def test_si_falta_observacion_usa_la_prevision_completa(self):
-        obs = {date(2026, 1, 1): 10.0, date(2026, 1, 3): 30.0}
+    def test_una_ventana_completa_de_prevision(self):
         prev = {date(2026, 1, 1): 100.0, date(2026, 1, 2): 200.0,
                 date(2026, 1, 3): 300.0}
-        resultado = prevision.ventana_mono_origen(
-            obs, prev, date(2026, 1, 3), 3, date(2026, 1, 3))
+        resultado = prevision.ventana_mixta(
+            {}, prev, date(2026, 1, 3), 3, date(2026, 1, 3))
         self.assertEqual(resultado, (200.0, "prevision"))
 
-    def test_nunca_mezcla_observacion_y_prevision(self):
-        # La observación tiene 2 de 3 días: no se completa con previsión.
+    def test_cada_hueco_se_completa_con_la_prevision_oficial(self):
         obs = {date(2026, 1, 2): 20.0, date(2026, 1, 3): 30.0}
         prev = {date(2026, 1, 1): 100.0, date(2026, 1, 2): 200.0,
                 date(2026, 1, 3): 300.0}
         self.assertEqual(
-            prevision.ventana_mono_origen(obs, prev, date(2026, 1, 3), 3,
-                                          date(2026, 1, 3)),
-            (200.0, "prevision"),
+            prevision.ventana_mixta(obs, prev, date(2026, 1, 3), 3,
+                                    date(2026, 1, 3)),
+            (50.0, "mixta"),
         )
 
     def test_una_ventana_incompleta_en_las_dos_series_es_no_disponible(self):
         obs = {date(2026, 1, 3): 30.0}
         prev = {date(2026, 1, 1): 100.0, date(2026, 1, 3): 300.0}
         self.assertIsNone(
-            prevision.ventana_mono_origen(obs, prev, date(2026, 1, 3), 3,
-                                          date(2026, 1, 3))
+            prevision.ventana_mixta(obs, prev, date(2026, 1, 3), 3,
+                                    date(2026, 1, 3))
         )
 
     def test_la_ventana_no_se_acorta(self):
         obs = serie(date(2026, 1, 1), date(2026, 1, 13), 5.0)   # 13 días
         self.assertIsNone(
-            prevision.ventana_mono_origen(obs, {}, date(2026, 1, 14), 14,
-                                          date(2026, 1, 14))
+            prevision.ventana_mixta(obs, {}, date(2026, 1, 14), 14,
+                                    date(2026, 1, 14))
         )
 
     def test_la_observacion_no_puede_venir_de_despues_de_hoy(self):
         obs = serie(date(2026, 1, 1), date(2026, 1, 3), 5.0)
         prev = serie(date(2026, 1, 1), date(2026, 1, 3), 9.0)
-        # La ventana termina en el 3, pero hoy es el 2: la observación del 3 no
-        # existe todavía y la ventana de observación no es utilizable.
+        # Aunque la serie traiga una observación del 3, hoy es el 2: esa celda
+        # no se puede leer y se toma la previsión del 3.
         self.assertEqual(
-            prevision.ventana_mono_origen(obs, prev, date(2026, 1, 3), 3,
-                                          date(2026, 1, 2)),
-            (9.0, "prevision"),
+            prevision.ventana_mixta(obs, prev, date(2026, 1, 3), 3,
+                                    date(2026, 1, 2)),
+            ((5.0 + 5.0 + 9.0) / 3, "mixta"),
         )
 
     def test_la_prevision_si_puede_cubrir_dias_futuros(self):
         prev = serie(date(2026, 1, 1), date(2026, 1, 3), 9.0)
         self.assertEqual(
-            prevision.ventana_mono_origen({}, prev, date(2026, 1, 3), 3,
-                                          date(2026, 1, 2)),
+            prevision.ventana_mixta({}, prev, date(2026, 1, 3), 3,
+                                    date(2026, 1, 2)),
             (9.0, "prevision"),
         )
+
+    def test_el_caso_real_toma_dos_dias_observados_y_cinco_previstos(self):
+        obs = serie(date(2026, 11, 1), date(2026, 11, 7), 5.0)
+        prev = serie(date(2026, 11, 7), date(2026, 11, 17), 9.0)
+        valor, origen = prevision.ventana_mixta(
+            obs, prev, date(2026, 11, 12), 7, date(2026, 11, 11))
+        self.assertAlmostEqual(valor, (2 * 5.0 + 5 * 9.0) / 7)
+        self.assertEqual(origen, "mixta")
 
 
 class TestOrigenVariable(unittest.TestCase):
@@ -180,12 +187,23 @@ class TestMapaOrigenes(unittest.TestCase):
         self.assertEqual(mapa["velmedia"], {"valor": 6.0, "origen": "prevision"})
         self.assertEqual(mapa["racha"], {"valor": 12.0, "origen": "prevision"})
 
-    def test_las_medias_moviles_usan_la_ventana_de_prevision_completa(self):
+    def test_las_medias_moviles_declaran_su_desglose_mixto(self):
         mapa = prevision.resolver_origenes(*mapa_completo(), OBJETIVO, HOY)
-        for nombre in ("vel_ma3", "vel_ma7", "vel_ma14",
-                       "racha_ma3", "racha_ma7", "racha_ma14"):
-            self.assertEqual(mapa[nombre]["origen"], "prevision", nombre)
+        desgloses = {
+            "vel_ma3": (2, 1), "vel_ma7": (6, 1), "vel_ma14": (13, 1),
+            "racha_ma3": (2, 1), "racha_ma7": (6, 1), "racha_ma14": (13, 1),
+        }
+        for nombre, (observados, previstos) in desgloses.items():
+            self.assertEqual(mapa[nombre]["origen"], "mixta", nombre)
+            self.assertEqual(mapa[nombre]["dias_observados"], observados, nombre)
+            self.assertEqual(mapa[nombre]["dias_previstos"], previstos, nombre)
             self.assertIsNotNone(mapa[nombre]["valor"], nombre)
+
+    def test_una_ventana_entera_no_declara_desglose_mixto(self):
+        obs_meteo, obs_solar, obs_gen, prev = mapa_completo()
+        mapa = prevision.resolver_origenes(
+            obs_meteo, obs_solar, obs_gen, prev, HOY, HOY)
+        self.assertEqual(mapa["vel_ma3"], {"valor": 5.0, "origen": "observacion"})
 
     def test_sin_prevision_para_manana_las_variables_quedan_no_disponibles(self):
         obs_meteo, obs_solar, obs_gen, prev = mapa_completo()
@@ -241,7 +259,9 @@ class TestMapaOrigenes(unittest.TestCase):
         )
         self.assertEqual(
             mapa["eolica_lag3"], {"valor": 2000.0, "origen": "prevision"})
-        self.assertEqual(mapa["eolica_ma7"]["origen"], "prevision")
+        self.assertEqual(mapa["eolica_ma7"]["origen"], "mixta")
+        self.assertEqual(mapa["eolica_ma7"]["dias_observados"], 6)
+        self.assertEqual(mapa["eolica_ma7"]["dias_previstos"], 1)
 
 
 class TestRealesPendientes(unittest.TestCase):
@@ -329,9 +349,9 @@ class TestNanDePandas(unittest.TestCase):
         prev = {date(2026, 1, 1): 100.0, date(2026, 1, 2): 200.0,
                 date(2026, 1, 3): 300.0}
         self.assertEqual(
-            prevision.ventana_mono_origen(
+            prevision.ventana_mixta(
                 obs, prev, date(2026, 1, 3), 3, date(2026, 1, 3)),
-            (200.0, "prevision"),
+            (110.0, "mixta"),
         )
 
     def test_un_nan_en_la_prevision_del_dia_es_no_disponible(self):
