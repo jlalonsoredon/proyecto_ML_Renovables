@@ -14,6 +14,7 @@ no se acorta y no se desplaza.
 
 from __future__ import annotations
 
+import copy
 import math
 from datetime import date, datetime, timedelta
 
@@ -30,10 +31,21 @@ VARIABLES_MODELO = (
     "sol_lag1", "tmed_lag1",
     "eolica_lag1", "eolica_lag2", "eolica_lag3", "eolica_lag7",
     "eolica_ma7",
+    "eolica_prev",
 )
 
 RETARDOS_GENERACION = (1, 2, 3, 7)
 VENTANA_GENERACION = 7
+
+# Spec 005: la previsión del día objetivo se rellena con los 7 días anteriores.
+DIAS_RELLENO = 7
+
+# Cota física: 30 GW de potencia instalada durante 24 h. Por encima no es una
+# previsión, es un error de la fuente (CE-5).
+MAXIMO_PREVISION_MWH = 720_000.0
+
+ORIGEN_PREVISION = "prevision"
+ORIGEN_ESTIMADA = "estimada"
 
 NO_DISPONIBLE = {"valor": None, "origen": None}
 
@@ -174,12 +186,19 @@ def _entrada(valor, origen) -> dict:
 # ─────────────────────────────────────────────
 
 def resolver_origenes(obs_meteo, obs_solar, obs_gen, prev, objetivo, hoy,
-                      permitir_prev_gen: bool = False) -> dict:
+                      permitir_prev_gen: bool = False,
+                      prevision_objetivo=None) -> dict:
     """Construye el vector de mañana declarando el origen de cada variable.
 
     `obs_meteo` es fecha → {velmedia, racha}; `obs_solar`, fecha → {sol, tmed};
     `obs_gen`, fecha → MWh (solo observación). `prev` agrupa las series de
     previsión con las claves `viento`, `racha`, `sol`, `tmed` y `generacion`.
+
+    `prevision_objetivo` es la entrada ya resuelta de la previsión de REE para
+    el propio día objetivo (spec 005): `{valor, origen, [dias_media]}`. Solo se
+    admiten los orígenes `prevision` y `estimada`; sin entrada, la variable
+    queda no disponible. El mapa siempre declara `eolica_prev` para que la
+    ejecución pueda rastrearla aunque el modelo la rechace.
 
     `permitir_prev_gen` queda en `False` por defecto (parada P-2): la previsión
     de REE solo completa los retardos de generación cuando el usuario lo decida.
@@ -204,6 +223,19 @@ def resolver_origenes(obs_meteo, obs_solar, obs_gen, prev, objetivo, hoy,
     mapa["mes"] = _entrada(objetivo.month, "observacion")
     mapa["dia_semana"] = _entrada(objetivo.weekday(), "observacion")
     mapa["dia_año"] = _entrada(objetivo.timetuple().tm_yday, "observacion")
+
+    # Previsión de REE del propio día objetivo (spec 005, RF-1, CA-3.4).
+    entrada_objetivo = prevision_objetivo or {}
+    valor_objetivo = entrada_objetivo.get("valor")
+    origen_objetivo = entrada_objetivo.get("origen")
+    if origen_objetivo not in (ORIGEN_PREVISION, ORIGEN_ESTIMADA) \
+            or not valor_prevision_valido(valor_objetivo):
+        mapa["eolica_prev"] = dict(NO_DISPONIBLE)
+    else:
+        mapa["eolica_prev"] = _entrada(valor_objetivo, origen_objetivo)
+        if origen_objetivo == ORIGEN_ESTIMADA:
+            mapa["eolica_prev"]["dias_media"] = int(
+                entrada_objetivo.get("dias_media") or 0)
 
     # Viento y racha del día objetivo: mañana no se puede observar.
     valor_viento = prev_viento.get(objetivo)
@@ -346,6 +378,253 @@ def serie_prevision_generacion(filas, ubicacion: str = "peninsula") -> dict:
     return {
         fecha: valor for fecha, (_, valor) in sorted(elegidas.items())
     }
+
+
+# ─────────────────────────────────────────────
+# Spec 005 — Previsión de REE del día objetivo
+# ─────────────────────────────────────────────
+
+def valor_prevision_valido(valor) -> bool:
+    """Un valor utilizable: finito, no negativo y bajo la cota física.
+
+    El cero es un dato (no hay viento previsto, CA-2.4); un negativo o un
+    imposible no se recorta en silencio, se descarta (CE-5).
+    """
+    if _es_ausente(valor):
+        return False
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return False
+    return 0.0 <= numero <= MAXIMO_PREVISION_MWH
+
+
+def _instante_captura(fila):
+    """Sello de captura para desempatar dos filas con la misma elaboración."""
+    return instante_elaboracion(fila.get("capturado_en"))
+
+
+def prevision_elegible(filas, objetivo, hoy, ubicacion: str = "peninsula"):
+    """Previsión del día objetivo con elaboración anterior al propio día.
+
+    El tope es `min(objetivo - 1, hoy)`: ni una revisión del día que se predice
+    (usaría información que no existía, CE-3) ni una elaboración futura. De las
+    elegibles gana la más reciente (CA-1.3); el empate, por captura.
+    """
+    objetivo = _fecha(objetivo)
+    tope = min(objetivo - timedelta(days=1), _fecha(hoy))
+
+    candidatas = []
+    for fila in filas or []:
+        if fila.get("objetivo") is None or fila.get("ubicacion") != ubicacion:
+            continue
+        if _fecha(fila["objetivo"]) != objetivo:
+            continue
+        elaborado = instante_elaboracion(fila.get("elaborado"))
+        if elaborado is None or elaborado.date() > tope:
+            continue
+        if not valor_prevision_valido(fila.get("eolica_mwh")):
+            continue
+        candidatas.append((
+            elaborado,
+            _instante_captura(fila) or elaborado,
+            float(fila["eolica_mwh"]),
+        ))
+
+    if not candidatas:
+        return None
+
+    elaborado, _, valor = max(candidatas, key=lambda fila: (fila[0], fila[1]))
+    return {
+        "valor": valor,
+        "elaborado": elaborado,
+        "antiguedad_dias": (objetivo - elaborado.date()).days,
+    }
+
+
+def serie_prevision_objetivo(filas, hoy, ubicacion: str = "peninsula") -> dict:
+    """Una previsión por día: la elegible más reciente (CA-1.1, CA-1.3).
+
+    Devuelve `{fecha: {valor, elaborado}}`. Un día sin elaboración elegible no
+    aparece: el relleno decide después si se puede reconstruir.
+    """
+    por_dia = {}
+    for fila in filas or []:
+        if fila.get("objetivo") is None or fila.get("ubicacion") != ubicacion:
+            continue
+        por_dia.setdefault(_fecha(fila["objetivo"]), []).append(fila)
+
+    serie = {}
+    for fecha in sorted(por_dia):
+        elegida = prevision_elegible(por_dia[fecha], fecha, hoy, ubicacion)
+        if elegida is not None:
+            serie[fecha] = {
+                "valor": elegida["valor"],
+                "elaborado": elegida["elaborado"],
+            }
+    return serie
+
+
+def _valor_previsto(entrada):
+    """Valor de una entrada de la serie (dict o número); None si no vale.
+
+    Una entrada marcada `estimada` no es una previsión real: si el llamador
+    pasa una serie ya rellenada, el relleno se reconstruye desde las reales y
+    nunca se apoya en otro relleno (CE-6).
+    """
+    if isinstance(entrada, dict):
+        if entrada.get("origen") == ORIGEN_ESTIMADA:
+            return None
+        valor = entrada.get("valor")
+    else:
+        valor = entrada
+    return float(valor) if valor_prevision_valido(valor) else None
+
+
+def rellenar_prevision(serie, objetivo, hoy):
+    """Valor del día objetivo: previsión real o media de los 7 días anteriores.
+
+    Solo alimentan la media las previsiones reales (la serie de entrada no
+    contiene rellenos), así que un relleno nunca se apoya en otro (CE-6). La
+    ventana termina en `min(objetivo - 1, hoy)` y devuelve `None` si no hay
+    ninguna previsión real (CE-1, CA-3.3).
+    """
+    objetivo = _fecha(objetivo)
+    normalizada = {
+        _fecha(fecha): entrada for fecha, entrada in (serie or {}).items()
+    }
+
+    real = _valor_previsto(normalizada.get(objetivo))
+    if real is not None:
+        return {"valor": real, "origen": ORIGEN_PREVISION, "dias_media": 0}
+
+    fin = min(objetivo - timedelta(days=1), _fecha(hoy))
+    ventana = [
+        fin - timedelta(days=atras) for atras in range(DIAS_RELLENO - 1, -1, -1)
+    ]
+    valores = [
+        valor
+        for valor in (_valor_previsto(normalizada.get(dia)) for dia in ventana)
+        if valor is not None
+    ]
+    if not valores:
+        return None
+
+    return {
+        "valor": sum(valores) / len(valores),
+        "origen": ORIGEN_ESTIMADA,
+        "dias_media": len(valores),
+        "desde": ventana[0],
+        "hasta": fin,
+    }
+
+
+def serie_prevision_rellenada(serie, fechas, hoy) -> dict:
+    """Serie por fecha con su origen; los días sin relleno honesto no aparecen."""
+    resultado = {}
+    for fecha in sorted({_fecha(fecha) for fecha in fechas or []}):
+        entrada = rellenar_prevision(serie, fecha, hoy)
+        if entrada is not None:
+            resultado[fecha] = entrada
+    return resultado
+
+
+def resumen_prevision(rellenada, fechas) -> dict:
+    """Recuento de orígenes y lista de huecos rellenos (CA-5.1, CA-5.2)."""
+    dias = sorted({_fecha(fecha) for fecha in fechas or []})
+    entradas = rellenada or {}
+    reales = estimadas = 0
+    huecos = []
+    for fecha in dias:
+        entrada = entradas.get(fecha)
+        if entrada is None:
+            continue
+        if entrada.get("origen") == ORIGEN_PREVISION:
+            reales += 1
+        elif entrada.get("origen") == ORIGEN_ESTIMADA:
+            estimadas += 1
+            huecos.append({
+                "fecha": fecha.isoformat(),
+                "dias_media": int(entrada.get("dias_media") or 0),
+            })
+    return {
+        "dias": len(dias),
+        "reales": reales,
+        "estimadas": estimadas,
+        "sin_dato": len(dias) - reales - estimadas,
+        "huecos": huecos,
+    }
+
+
+def metricas(predicciones, reales) -> dict:
+    """RMSE, MAE y R² de dos series alineadas; los huecos no cuentan.
+
+    Se usa para el modelo y para la previsión sola, de modo que la comparación
+    de CA-4.6 se mide con la misma fórmula que el resto del proyecto.
+    """
+    # Sin `or`: un array de numpy no se puede evaluar como booleano.
+    predicciones = [] if predicciones is None else list(predicciones)
+    reales = [] if reales is None else list(reales)
+    if len(predicciones) != len(reales):
+        raise ValueError(
+            f"series de distinto tamaño: {len(predicciones)} y {len(reales)}"
+        )
+
+    pares = [
+        (float(prediccion), float(real))
+        for prediccion, real in zip(predicciones, reales)
+        if not _es_ausente(prediccion) and not _es_ausente(real)
+    ]
+    if not pares:
+        return {"n": 0, "rmse": None, "mae": None, "r2": None}
+
+    errores = [prediccion - real for prediccion, real in pares]
+    total = len(pares)
+    rmse = math.sqrt(sum(error * error for error in errores) / total)
+    mae = sum(abs(error) for error in errores) / total
+
+    media = sum(real for _, real in pares) / total
+    variacion = sum((real - media) ** 2 for _, real in pares)
+    r2 = None if variacion == 0 else 1 - sum(
+        error * error for error in errores) / variacion
+    return {"n": total, "rmse": rmse, "mae": mae, "r2": r2}
+
+
+def referencia_prevision(serie, generacion, fechas) -> dict:
+    """Error de la previsión de REE sola sobre las fechas pedidas (CA-4.6)."""
+    previsiones = {
+        _fecha(fecha): entrada for fecha, entrada in (serie or {}).items()
+    }
+    reales = {
+        _fecha(fecha): valor for fecha, valor in (generacion or {}).items()
+    }
+
+    pares = []
+    for fecha in sorted({_fecha(fecha) for fecha in fechas or []}):
+        prevision_dia = _valor_previsto(previsiones.get(fecha))
+        real_dia = reales.get(fecha)
+        if prevision_dia is None or _es_ausente(real_dia):
+            continue
+        pares.append((fecha, prevision_dia, float(real_dia)))
+
+    resultado = metricas(
+        [prevision_dia for _, prevision_dia, _ in pares],
+        [real_dia for _, _, real_dia in pares],
+    )
+    resultado["desde"] = pares[0][0].isoformat() if pares else None
+    resultado["hasta"] = pares[-1][0].isoformat() if pares else None
+    return resultado
+
+
+def informe_prevision_ree(informe, modelo, globales, referencia,
+                          cobertura) -> dict:
+    """Acta de la comparación 18→19, sin mutar el informe de folds (CA-5.3)."""
+    copia = copy.deepcopy(informe)
+    copia["modelo"] = modelo
+    copia["metricas_globales"] = globales
+    copia["referencia_prevision_sola"] = referencia
+    copia["cobertura_prevision"] = cobertura
+    return copia
 
 
 # ─────────────────────────────────────────────

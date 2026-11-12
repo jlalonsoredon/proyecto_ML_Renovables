@@ -10,6 +10,8 @@ se rellena; el valor real solo puede salir de `generacion`, jamás de una
 previsión archivada.
 """
 
+import json
+import math
 import sys
 import unittest
 from datetime import date, timedelta
@@ -158,9 +160,9 @@ class TestOrigenVariable(unittest.TestCase):
 
 
 class TestMapaOrigenes(unittest.TestCase):
-    def test_el_mapa_tiene_las_18_variables_del_modelo(self):
+    def test_el_mapa_tiene_las_19_variables_del_modelo(self):
         mapa = prevision.resolver_origenes(*mapa_completo(), OBJETIVO, HOY)
-        self.assertEqual(len(mapa), 18)
+        self.assertEqual(len(mapa), 19)
         self.assertEqual(
             set(mapa),
             {
@@ -170,7 +172,7 @@ class TestMapaOrigenes(unittest.TestCase):
                 "racha_ma3", "racha_ma7", "racha_ma14",
                 "sol_lag1", "tmed_lag1",
                 "eolica_lag1", "eolica_lag2", "eolica_lag3",
-                "eolica_lag7", "eolica_ma7",
+                "eolica_lag7", "eolica_ma7", "eolica_prev",
             },
         )
 
@@ -262,6 +264,35 @@ class TestMapaOrigenes(unittest.TestCase):
         self.assertEqual(mapa["eolica_ma7"]["origen"], "mixta")
         self.assertEqual(mapa["eolica_ma7"]["dias_observados"], 6)
         self.assertEqual(mapa["eolica_ma7"]["dias_previstos"], 1)
+
+    def test_la_prevision_del_dia_objetivo_entra_en_el_mapa(self):
+        mapa = prevision.resolver_origenes(
+            *mapa_completo(), OBJETIVO, HOY,
+            prevision_objetivo={"valor": 349580.4, "origen": "prevision"})
+        self.assertEqual(
+            mapa["eolica_prev"],
+            {"valor": 349580.4, "origen": "prevision"},
+        )
+
+    def test_un_relleno_se_declara_estimado_con_su_desglose(self):
+        mapa = prevision.resolver_origenes(
+            *mapa_completo(), OBJETIVO, HOY,
+            prevision_objetivo={"valor": 100.0, "origen": "estimada",
+                                "dias_media": 3})
+        self.assertEqual(
+            mapa["eolica_prev"],
+            {"valor": 100.0, "origen": "estimada", "dias_media": 3},
+        )
+
+    def test_sin_prevision_del_objetivo_queda_no_disponible(self):
+        mapa = prevision.resolver_origenes(*mapa_completo(), OBJETIVO, HOY)
+        self.assertEqual(mapa["eolica_prev"], {"valor": None, "origen": None})
+
+    def test_un_origen_que_no_es_prevision_ni_estimada_no_entra(self):
+        mapa = prevision.resolver_origenes(
+            *mapa_completo(), OBJETIVO, HOY,
+            prevision_objetivo={"valor": 100.0, "origen": "observacion"})
+        self.assertEqual(mapa["eolica_prev"], {"valor": None, "origen": None})
 
 
 class TestRealesPendientes(unittest.TestCase):
@@ -477,6 +508,339 @@ class TestSeriePrevisionGeneracion(unittest.TestCase):
             self.fila(date(2026, 11, 8), 200.0, "2026-11-07T18:00:00+01:00"),
         ])
         self.assertEqual(serie, {date(2026, 11, 8): 200.0})
+
+
+# ─────────────────────────────────────────────
+# Spec 005 — Previsión de REE del día objetivo
+# ─────────────────────────────────────────────
+
+class TestPrevisionElegible(unittest.TestCase):
+    """RF-1: solo la elaboración anterior al día objetivo, y la más reciente.
+
+    La regla es más estricta que la de la spec 004: una revisión del propio día
+    objetivo usaría información que no existía al predecir (CA-1.2, CE-3).
+    """
+
+    def fila(self, objetivo, valor, elaborado, ubicacion="peninsula",
+             capturado=None):
+        return {
+            "objetivo": objetivo,
+            "ubicacion": ubicacion,
+            "uso": "generacion",
+            "eolica_mwh": valor,
+            "elaborado": elaborado,
+            "capturado_en": capturado,
+        }
+
+    def test_la_elaboracion_del_dia_anterior_es_elegible(self):
+        elegida = prevision.prevision_elegible(
+            [self.fila(date(2026, 11, 7), 349580.4,
+                       "2026-11-06T10:50:18+01:00")],
+            date(2026, 11, 7), date(2026, 11, 6))
+        self.assertEqual(elegida["valor"], 349580.4)
+        self.assertEqual(elegida["antiguedad_dias"], 1)
+
+    def test_la_elaboracion_del_propio_objetivo_no_es_elegible(self):
+        self.assertIsNone(prevision.prevision_elegible(
+            [self.fila(date(2026, 11, 7), 100.0, "2026-11-07T00:00:00")],
+            date(2026, 11, 7), date(2026, 11, 7)))
+
+    def test_una_elaboracion_posterior_no_es_elegible(self):
+        self.assertIsNone(prevision.prevision_elegible(
+            [self.fila(date(2026, 11, 7), 100.0, "2026-11-08T10:00:00")],
+            date(2026, 11, 7), date(2026, 11, 8)))
+
+    def test_gana_la_elaboracion_elegible_mas_reciente(self):
+        elegida = prevision.prevision_elegible([
+            self.fila(date(2026, 11, 7), 100.0, "2026-11-05T10:00:00"),
+            self.fila(date(2026, 11, 7), 200.0, "2026-11-06T18:00:00"),
+        ], date(2026, 11, 7), date(2026, 11, 7))
+        self.assertEqual(elegida["valor"], 200.0)
+
+    def test_una_elaboracion_posterior_a_hoy_no_entra(self):
+        # El objetivo está en el futuro: hoy manda aunque la elaboración sea
+        # anterior al objetivo.
+        filas = [self.fila(date(2026, 11, 20), 100.0, "2026-11-11T10:00:00")]
+        self.assertIsNone(prevision.prevision_elegible(
+            filas, date(2026, 11, 20), date(2026, 11, 10)))
+        self.assertEqual(
+            prevision.prevision_elegible(
+                filas, date(2026, 11, 20), date(2026, 11, 11))["valor"],
+            100.0,
+        )
+
+    def test_otra_ubicacion_no_es_la_peninsula(self):
+        self.assertIsNone(prevision.prevision_elegible(
+            [self.fila(date(2026, 11, 7), 100.0, "2026-11-06T10:00:00",
+                       "canarias")],
+            date(2026, 11, 7), date(2026, 11, 7)))
+
+    def test_sin_elaboracion_declarada_no_es_elegible(self):
+        for elaborado in ("", None):
+            with self.subTest(elaborado=elaborado):
+                self.assertIsNone(prevision.prevision_elegible(
+                    [self.fila(date(2026, 11, 7), 100.0, elaborado)],
+                    date(2026, 11, 7), date(2026, 11, 7)))
+
+    def test_un_valor_imposible_no_es_elegible(self):
+        for valor in (None, float("nan"), -1.0, 720001.0):
+            with self.subTest(valor=valor):
+                self.assertIsNone(prevision.prevision_elegible(
+                    [self.fila(date(2026, 11, 7), valor,
+                               "2026-11-06T10:00:00")],
+                    date(2026, 11, 7), date(2026, 11, 7)))
+
+    def test_el_cero_es_un_valor_valido(self):
+        elegida = prevision.prevision_elegible(
+            [self.fila(date(2026, 11, 7), 0.0, "2026-11-06T10:00:00")],
+            date(2026, 11, 7), date(2026, 11, 7))
+        self.assertEqual(elegida["valor"], 0.0)
+
+    def test_el_desempate_usa_la_captura_mas_reciente(self):
+        elegida = prevision.prevision_elegible([
+            self.fila(date(2026, 11, 7), 100.0, "2026-11-06T10:00:00",
+                      capturado="2026-11-06T11:00:00"),
+            self.fila(date(2026, 11, 7), 200.0, "2026-11-06T10:00:00",
+                      capturado="2026-11-06T12:00:00"),
+        ], date(2026, 11, 7), date(2026, 11, 7))
+        self.assertEqual(elegida["valor"], 200.0)
+
+
+class TestSeriePrevisionObjetivo(unittest.TestCase):
+    """Una sola previsión por día: la elegible más reciente (CA-1.3, CE-2)."""
+
+    def fila(self, objetivo, valor, elaborado):
+        return {
+            "objetivo": objetivo,
+            "ubicacion": "peninsula",
+            "eolica_mwh": valor,
+            "elaborado": elaborado,
+        }
+
+    def test_una_entrada_por_dia_con_la_ultima_elegible(self):
+        serie = prevision.serie_prevision_objetivo([
+            self.fila(date(2026, 11, 7), 100.0, "2026-11-06T10:00:00"),
+            self.fila(date(2026, 11, 7), 200.0, "2026-11-06T18:00:00"),
+            self.fila(date(2026, 11, 8), 300.0, "2026-11-07T10:00:00"),
+        ], date(2026, 11, 11))
+        self.assertEqual(
+            {fecha: entrada["valor"] for fecha, entrada in serie.items()},
+            {date(2026, 11, 7): 200.0, date(2026, 11, 8): 300.0},
+        )
+
+    def test_un_dia_sin_elegible_no_aparece(self):
+        serie = prevision.serie_prevision_objetivo([
+            self.fila(date(2026, 11, 7), 100.0, "2026-11-07T10:00:00"),
+        ], date(2026, 11, 11))
+        self.assertEqual(serie, {})
+
+    def test_devuelve_los_dias_en_orden(self):
+        serie = prevision.serie_prevision_objetivo([
+            self.fila(date(2026, 11, 8), 2.0, "2026-11-07T10:00:00"),
+            self.fila(date(2026, 11, 7), 1.0, "2026-11-06T10:00:00"),
+        ], date(2026, 11, 11))
+        self.assertEqual(list(serie), [date(2026, 11, 7), date(2026, 11, 8)])
+
+    def test_sin_filas_devuelve_vacio(self):
+        for filas in (None, []):
+            self.assertEqual(
+                prevision.serie_prevision_objetivo(filas, date(2026, 11, 11)),
+                {})
+
+
+class TestRelleno(unittest.TestCase):
+    """RF-2 y RF-3: el hueco se rellena sin inventar y sin encadenar rellenos."""
+
+    def serie(self, desde, hasta, valor):
+        return {
+            fecha: {"valor": dato}
+            for fecha, dato in serie(desde, hasta, valor).items()
+        }
+
+    def test_un_dia_con_prevision_real_no_se_rellena(self):
+        self.assertEqual(
+            prevision.rellenar_prevision(
+                self.serie(date(2026, 11, 1), date(2026, 11, 7), 100.0),
+                date(2026, 11, 7), date(2026, 11, 7)),
+            {"valor": 100.0, "origen": "prevision", "dias_media": 0},
+        )
+
+    def test_un_hueco_usa_los_siete_dias_anteriores(self):
+        datos = self.serie(date(2026, 11, 1), date(2026, 11, 7), 100.0)
+        datos[date(2026, 11, 3)] = {"valor": 200.0}
+        relleno = prevision.rellenar_prevision(
+            datos, date(2026, 11, 8), date(2026, 11, 8))
+        self.assertEqual(relleno["origen"], "estimada")
+        self.assertEqual(relleno["dias_media"], 7)
+        self.assertAlmostEqual(relleno["valor"], (6 * 100.0 + 200.0) / 7)
+
+    def test_un_hueco_con_menos_dias_usa_los_que_hay(self):
+        relleno = prevision.rellenar_prevision(
+            self.serie(date(2026, 11, 5), date(2026, 11, 7), 100.0),
+            date(2026, 11, 8), date(2026, 11, 8))
+        self.assertEqual(relleno["dias_media"], 3)
+        self.assertEqual(relleno["valor"], 100.0)
+
+    def test_sin_previsiones_anteriores_no_hay_relleno(self):
+        self.assertIsNone(prevision.rellenar_prevision(
+            {}, date(2026, 11, 8), date(2026, 11, 8)))
+
+    def test_un_relleno_no_alimenta_a_otro_relleno(self):
+        solo_real = {date(2026, 11, 6): {"valor": 100.0}}
+        dia_uno = prevision.rellenar_prevision(
+            solo_real, date(2026, 11, 7), date(2026, 11, 7))
+        self.assertEqual(dia_uno["origen"], "estimada")
+
+        # Si el relleno del 7 se colara en la serie, el 8 tendría dos valores.
+        datos = dict(solo_real)
+        datos[date(2026, 11, 7)] = dia_uno
+        dia_dos = prevision.rellenar_prevision(
+            datos, date(2026, 11, 8), date(2026, 11, 8))
+        self.assertEqual(dia_dos["dias_media"], 1)
+        self.assertEqual(dia_dos["valor"], 100.0)
+
+    def test_la_ventana_de_relleno_se_corta_en_hoy(self):
+        relleno = prevision.rellenar_prevision(
+            self.serie(date(2026, 11, 4), date(2026, 11, 10), 50.0),
+            date(2026, 11, 15), date(2026, 11, 10))
+        self.assertEqual(relleno["dias_media"], 7)
+        self.assertEqual(relleno["hasta"], date(2026, 11, 10))
+
+    def test_un_cero_real_entra_en_la_media(self):
+        relleno = prevision.rellenar_prevision(
+            {date(2026, 11, 6): {"valor": 0.0},
+             date(2026, 11, 7): {"valor": 100.0}},
+            date(2026, 11, 8), date(2026, 11, 8))
+        self.assertEqual(relleno["dias_media"], 2)
+        self.assertEqual(relleno["valor"], 50.0)
+
+
+class TestSerieRellenada(unittest.TestCase):
+    """RF-5: la ejecución deja constancia de cómo se construyó la variable."""
+
+    def test_cuenta_reales_estimadas_y_sin_dato(self):
+        datos = {
+            date(2026, 11, 1): {"valor": 100.0},
+            date(2026, 11, 2): {"valor": 200.0},
+        }
+        fechas = [date(2026, 11, 1), date(2026, 11, 2),
+                  date(2026, 11, 3), date(2026, 11, 4)]
+        rellenada = prevision.serie_prevision_rellenada(
+            datos, fechas, date(2026, 11, 4))
+        resumen = prevision.resumen_prevision(rellenada, fechas)
+        self.assertEqual(resumen["dias"], 4)
+        self.assertEqual(resumen["reales"], 2)
+        self.assertEqual(resumen["estimadas"], 2)
+        self.assertEqual(resumen["sin_dato"], 0)
+        self.assertEqual(
+            [hueco["fecha"] for hueco in resumen["huecos"]],
+            ["2026-11-03", "2026-11-04"],
+        )
+        self.assertEqual(
+            [hueco["dias_media"] for hueco in resumen["huecos"]], [2, 2])
+
+    def test_los_dias_sin_dato_se_cuentan(self):
+        resumen = prevision.resumen_prevision(
+            {}, [date(2026, 10, 1), date(2026, 10, 2)])
+        self.assertEqual(resumen["sin_dato"], 2)
+        self.assertEqual(resumen["reales"], 0)
+        self.assertEqual(resumen["huecos"], [])
+
+    def test_es_determinista_y_no_depende_del_orden(self):
+        datos = {date(2026, 11, 1): {"valor": 100.0}}
+        fechas = [date(2026, 11, 3), date(2026, 11, 1), date(2026, 11, 2)]
+        primera = prevision.serie_prevision_rellenada(
+            datos, fechas, date(2026, 11, 3))
+        segunda = prevision.serie_prevision_rellenada(
+            datos, list(reversed(fechas)), date(2026, 11, 3))
+        self.assertEqual(primera, segunda)
+        self.assertEqual(
+            list(primera),
+            [date(2026, 11, 1), date(2026, 11, 2), date(2026, 11, 3)],
+        )
+
+
+class TestMetricasYReferencia(unittest.TestCase):
+    """RF-4: la comparación se mide con el mismo error y sobre los mismos días."""
+
+    def test_rmse_mae_y_r2(self):
+        resultado = prevision.metricas([1.0, 2.0, 3.0], [1.0, 2.0, 4.0])
+        self.assertEqual(resultado["n"], 3)
+        self.assertAlmostEqual(resultado["rmse"], math.sqrt(1 / 3))
+        self.assertAlmostEqual(resultado["mae"], 1 / 3)
+        self.assertAlmostEqual(resultado["r2"], 11 / 14)
+
+    def test_los_dias_incompletos_se_ignoran(self):
+        resultado = prevision.metricas(
+            [1.0, None, 3.0, float("nan")], [1.0, 2.0, 4.0, 5.0])
+        self.assertEqual(resultado["n"], 2)
+        self.assertAlmostEqual(resultado["mae"], 0.5)
+        self.assertAlmostEqual(resultado["rmse"], math.sqrt(0.5))
+
+    def test_conjunto_vacio_sin_metricas(self):
+        self.assertEqual(
+            prevision.metricas([], []),
+            {"n": 0, "rmse": None, "mae": None, "r2": None},
+        )
+
+    def test_longitudes_distintas_fallan(self):
+        with self.assertRaises(ValueError):
+            prevision.metricas([1.0], [1.0, 2.0])
+
+    def test_la_referencia_solo_usa_los_dias_con_las_dos_fuentes(self):
+        referencia = prevision.referencia_prevision(
+            {date(2026, 11, 1): {"valor": 100.0},
+             date(2026, 11, 2): {"valor": 300.0}},
+            {date(2026, 11, 1): 110.0, date(2026, 11, 3): 400.0},
+            [date(2026, 11, 1), date(2026, 11, 2), date(2026, 11, 3)],
+        )
+        self.assertEqual(referencia["n"], 1)
+        self.assertEqual(referencia["mae"], 10.0)
+        self.assertEqual(referencia["desde"], "2026-11-01")
+        self.assertEqual(referencia["hasta"], "2026-11-01")
+
+    def test_una_serie_vacia_no_tiene_metricas(self):
+        referencia = prevision.referencia_prevision(
+            {}, {}, [date(2026, 11, 1)])
+        self.assertEqual(referencia["n"], 0)
+        self.assertIsNone(referencia["rmse"])
+
+
+class TestInformePrevision(unittest.TestCase):
+    """CA-4.5, CA-4.6 y CA-5.3: el acta declara todo lo necesario."""
+
+    def base(self):
+        return {
+            "fecha_ejecucion": "2026-11-11",
+            "folds": [{"año": 2026}],
+            "criterio": {"aceptado": True},
+            "cobertura": {},
+            "decision": "aceptado",
+        }
+
+    def test_anade_los_bloques_de_la_spec_005(self):
+        informe = prevision.informe_prevision_ree(
+            self.base(),
+            {"features_base": ["a"],
+             "features_variante": ["a", "eolica_prev"],
+             "features_produccion": ["a", "eolica_prev"],
+             "decision": "aceptado", "guardado": True},
+            {"vigente": {"n": 1, "rmse": 2.0, "mae": 1.0, "r2": 0.0},
+             "prevision": {"n": 1, "rmse": 1.0, "mae": 0.5, "r2": 0.5}},
+            {"n": 1, "rmse": 1.0, "mae": 0.5, "r2": None,
+             "desde": "2026-11-01", "hasta": "2026-11-01"},
+            {"dias": 1, "reales": 1, "estimadas": 0, "sin_dato": 0,
+             "huecos": []},
+        )
+        for clave in ("modelo", "metricas_globales",
+                      "referencia_prevision_sola", "cobertura_prevision"):
+            self.assertIn(clave, informe)
+        json.dumps(informe)
+
+    def test_no_muta_el_informe_de_entrada(self):
+        original = self.base()
+        prevision.informe_prevision_ree(original, {}, {}, {}, {})
+        self.assertEqual(original, self.base())
 
 
 if __name__ == "__main__":

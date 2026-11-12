@@ -222,6 +222,37 @@ class TestResumenFolds(unittest.TestCase):
             evaluacion.resumen_folds(self.folds, metricas, self.decision,
                                      self.cobertura, date(2026, 10, 31))
 
+    def test_el_mae_por_fold_se_incluye_si_se_aporta(self):
+        metricas = {
+            "base": {"rmse": [10.0, 20.0, 30.0, 40.0],
+                     "mae": [8.0, 18.0, 28.0, 38.0],
+                     "r2": [0.7, 0.7, 0.7, 0.7]},
+            "variante": {"rmse": [9.0, 19.0, 29.0, 45.0],
+                         "mae": [7.0, 17.0, 27.0, 43.0],
+                         "r2": [0.8, 0.8, 0.8, 0.6]},
+        }
+        informe = evaluacion.resumen_folds(
+            self.folds, metricas, self.decision, self.cobertura,
+            date(2026, 10, 31))
+        self.assertEqual(informe["folds"][0]["base"]["mae"], 8.0)
+        self.assertEqual(informe["folds"][1]["variante"]["mae"], 17.0)
+
+    def test_sin_mae_el_informe_conserva_su_forma(self):
+        informe = evaluacion.resumen_folds(
+            self.folds, self.metricas, self.decision, self.cobertura,
+            date(2026, 10, 31))
+        self.assertNotIn("mae", informe["folds"][0]["base"])
+
+    def test_un_mae_con_longitud_incorrecta_falla(self):
+        metricas = {
+            "base": {"rmse": [10.0] * 4, "mae": [1.0], "r2": [0.7] * 4},
+            "variante": {"rmse": [9.0] * 4, "r2": [0.8] * 4},
+        }
+        with self.assertRaises(ValueError):
+            evaluacion.resumen_folds(
+                self.folds, metricas, self.decision, self.cobertura,
+                date(2026, 10, 31))
+
 
 if __name__ == "__main__":
     unittest.main()

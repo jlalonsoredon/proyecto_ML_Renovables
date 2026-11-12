@@ -5,10 +5,10 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 ## Estado actual
 - Modelo de producción **en la web**: **LinearRegression + StandardScaler** de **16 variables**
   (`modelos/lr_eolica.joblib`, dict `{modelo, scaler, features}`), sin tocar desde 2026-10-29.
-- **Modelo del notebook (18 variables, ejecutado 2026-11-11)**: `src/data/modelos/lr_eolica.joblib`,
-  test 2025-11-20 → 2026-11-07 (353 días): **RMSE 39.932,5 MWh · MAE 30.141,8 · R² 0,7919**, decisión
-  `aceptado` (3 de 4 folds). SHA-256 `ff52ce58…`; **aún no se ha copiado a producción** (pendiente de
-  autorización).
+- **Modelo del notebook (19 variables, ejecutado 2026-11-12)**: `src/data/modelos/lr_eolica.joblib`,
+  test 2025-11-20 → 2026-11-08 (354 días): **RMSE 23.038,3 MWh · MAE 15.470,3 · R² 0,9306**, decisión
+  `aceptado` de la spec 005 (4 de 4 folds). SHA-256 `fd01ac9b…`; **aún no se ha copiado a producción**
+  (pendiente de autorización, parada P-1).
 - **Spec 004 — REE integrada (2026-11-08)**: tablas `prediccion_diaria` y `prediccion_propia` en
   `src/data/ree_generacion.db`. AEMET: 574 filas (2 elaboraciones, horizonte 2026-11-07 → 11-17).
   REE (ESIOS 1777): **1.777 filas**, 1.773 reconstruidas (`2022-01-01 → 2026-11-08`) + 4 en vivo
@@ -17,16 +17,35 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
   previsión en `eolica_lag2/3/7` y `eolica_ma7` cuando falta observación (`permitir_prev_gen=True`).
   **380 tests Python + 16 Node en verde.** T-12 y T-19/T-20 cerradas; T-17 solo pendiente de
   D-4-4/D-4-5. Detalle en `specs/004-predicciones-en-src/` (Anexos B y C).
+- **Spec 005 — previsión de REE del día objetivo (2026-11-11)**: `eolica_prev` como 19.ª variable.
+  Walk-forward 16/18/19: RMSE global **39.462 (18) → 19.945 (19)**; aceptada en 4 de 4 folds
+  (19.591/19.176/17.216/23.847 frente a 39.524/39.997/39.085/39.195). La previsión sola da
+  RMSE 21.175 · MAE 13.832 sobre los 1.407 días de test: el modelo aún la mejora. Cobertura del
+  dataset: **1.765 días con previsión real, 0 rellenos, 0 sin dato**. Actas:
+  `src/data/modelos/sol_como_feature.json` (16→18) y `prevision_ree_como_feature.json` (18→19),
+  ambas con producción de 19. Observación intacta (10.651/30.511 filas, misma huella).
+  **430 tests Python + 16 Node en verde.**
+- **Spec 006 — EDA y familia del modelo (cerrada 2026-11-12)**: dentro de
+  `### FEATURE ENGINEERING`, el EDA de `eolica_prev` aparece después del estudio solar; guarda tres
+  gráficas (incluido el heatmap) y Pearson **+0,974** (n=1.766). El split muestra
+  `X_train (1412, 19)` / `X_test (354, 19)` y el ranking usa las mismas 19 columnas. LightGBM da
+  RMSE 19.756 en el ranking, pero se rechaza en el walk-forward de familia (mejora estricta en 1/4
+  folds: 21.174/21.102/17.331/20.546 vs LR 19.591/19.176/17.216/23.851); la familia seleccionada
+  por el notebook sigue LinearRegression, 19 features: test 2025-11-20 → 2026-11-08, **RMSE
+  23.038,3 · MAE 15.470,3 · R² 0,9306**. `.joblib` SHA `fd01ac9b…`; acta
+  `src/data/modelos/familia_como_modelo.json`. Predicción 2026-11-13: **215.030,776 MWh** en dos
+  ejecuciones, una fila. Salidas del `.ipynb` regeneradas y sin credenciales. **460 tests Python +
+  16 Node en verde.** La web sigue con 16 variables; copiar el modelo está bloqueado (P-1).
 - **Ventana mixta (D-4-8, 2026-11-11)**: las seis medias `vel_ma*`/`racha_ma*` y `eolica_ma7` se
   resuelven día a día: observación si existe (nunca posterior a `hoy`), previsión oficial en los
   huecos. Origen `mixta` con `dias_observados`/`dias_previstos`; un día sin ninguna fuente deja la
   variable `NO_DISPONIBLE` y el notebook aborta en vez de usar el respaldo desfasado. Para 2026-11-12
-  el mapa resuelve las 18 variables con `ma7` = 2 obs + 5 prev y `ma14` = 9 obs + 5 prev, y
-  `prediccion_propia` guarda **294.843 MWh** (notebook ejecutado el 11-11; el modelo se reentrenó
-  con RMSE 39.932 y decisión aceptada).
+  el mapa resuelve las variables con `ma7` = 2 obs + 5 prev y `ma14` = 9 obs + 5 prev. Con 18
+  variables `prediccion_propia` guardó **294.843 MWh**; tras la spec 005, el mismo día con 19
+  variables guarda **341.667 MWh** (`eolica_prev` = previsión real de REE).
 - Backend FastAPI en Render; frontend Astro en Vercel; scheduler diario a las 3:00 (Europe/Madrid).
-- Datos: eólica diaria peninsular 2021-12-31 → 2026-11-10 (día local; 10.651 filas en `generacion`);
-  AEMET 18 estaciones 2022-01-01 → 2026-11-07, **30.511 filas** (las 5 solares con cobertura verificada).
+- Datos: eólica diaria peninsular 2021-12-31 → 2026-11-11 (día local; 10.657 filas en `generacion`);
+  AEMET 18 estaciones 2022-01-01 → 2026-11-08, **30.522 filas** (las 5 solares con cobertura verificada).
 - El scheduler descarga datos y predice, pero **no reentrena** el modelo.
 - **Spec 003**: archivo AEMET en backend (`prediccion_aemet`, clave `elaborado, objetivo, ubicacion`),
   captura 3:00/9:00; T-12 y T-15 hechas el 2026-11-02. La spec 004 lo sustituye en `src/` con
@@ -39,6 +58,8 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 ## Decisiones (y por qué)
 - **Target diario** (no semanal): el notebook entrena con serie diaria; `src/memoria.ipynb` aún menciona "semanal" y debe corregirse.
 - **LinearRegression** como modelo de producción por interpretabilidad; boosting y SARIMAX no mejoran.
+  La spec 006 lo comprobó con las 19 columnas: LightGBM gana el split único pero pierde el
+  walk-forward (1 de 4 folds), así que no se cambia de familia.
 - **Interpolación lineal** para huecos de viento (mejor RMSE en la mayoría de estaciones).
 - **Solo eólica** en producción. La solar entra como **variable explicativa** del modelo eólico (spec 002),
   no como modelo propio: `src/pipeline/solar.py` (lógica pura, sin pandas) aporta la serie diaria de
@@ -98,8 +119,10 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
   (medido 2026-11-07). El notebook normaliza a `None` al leer y `prevision._es_ausente` rechaza `NaN`.
 - **Los kernels Jupyter conservan módulos en `sys.modules`**: si cambia un `src/pipeline/*.py` después del
   `import`, hay que recargarlo con `importlib.reload()` o reiniciar el kernel antes de ejecutar celdas que
-  usan funciones nuevas. Las celdas de relleno REE y del mapa recargan `prevision_db`/`prevision` si falta
-  la función nueva; para el resto de módulos, reiniciar el kernel.
+  usan funciones nuevas. La recarga debe ocurrir en la primera celda que las usa: la del mapa no puede
+  corregir un `AttributeError` ocurrido antes en la celda del objetivo. Si una celda productora no se
+  ejecutó, hay que ejecutarla antes que las celdas consumidoras; ejecutar solo la comparación deja
+  `FEATURE_COLS_PREVISION` sin definir.
 - **Ningún módulo carga `.env`**: el backend depende de las variables de entorno inyectadas (Render).
   Para una prueba local hay que pasar la clave explícitamente.
 - **REE publica los 1-2 últimos días incompletos** (2026-11-02: 2026-10-30 al 39 % y 2026-10-29 al 34 %
@@ -112,8 +135,18 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 - **La previsión D+1 de REE es mejor que el modelo**: MAE 13.194 / RMSE 19.969 MWh (2022-2026) frente a
   29.950 / 39.703 en test. El MAE sube a 52.098 si se alinea por día UTC; con `fechas.fecha_madrid` baja
   a 13.194. El sesgo de 2026 es +13.120 MWh (sobreestima).
+- **`valor or []` no vale con `Series`/`array`**: pandas y numpy lanzan al evaluar el booleano de un
+  objeto con varios elementos. `exploracion.correlacion_pearson` y `prevision.metricas` usan
+  `[] if x is None else list(x)`; si aparece otra función que reciba arrays, revisar el patrón.
 
 ## Próximos pasos
+- **Spec 006 cerrada** (T-01 a T-10): la familia sigue siendo LinearRegression y el notebook entrena
+  con las 19 columnas. Falta la misma parada P-1: copiar el `.joblib` a las 3 rutas de producción y
+  llevar al backend `SOL`/`eolica_prev` (sin `prediccion_diaria` en backend no puede construir 19
+  variables).
+- **Spec 005 cerrada** (T-01 a T-12): falta solo decidir si el modelo de 19 variables se copia a
+  producción (misma parada P-1 de la 002/004) y actualizar `FEATURE_COLS` del backend a 19 con
+  `get_solar_lag1` + `get_eolica_prev`. Mientras tanto la web sigue con las 16 variables.
 - **Spec 004**: T-12, T-19 y T-20 cerradas (relleno histórico + captura REE + ventana mixta). Quedan
   **T-17** solo por D-4-4 (captura del backend) y D-4-5 (retención), medir la ventana mixta contra el
   real (≥5 días) y la decisión de copiar el modelo de 18 variables a producción. Las celdas REE están

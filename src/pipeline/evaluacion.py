@@ -129,11 +129,14 @@ def resumen_folds(folds, metricas: dict, decision: dict, cobertura: dict, hoy) -
     for nombre in ("base", "variante"):
         if nombre not in metricas:
             raise ValueError(f"faltan las métricas de la variante {nombre!r}")
-        for clave in ("rmse", "r2"):
-            if len(metricas[nombre].get(clave, [])) != len(folds):
+        for clave in ("rmse", "r2", "mae"):
+            valores = metricas[nombre].get(clave)
+            if valores is None:
+                continue
+            if len(valores) != len(folds):
                 raise ValueError(
                     f"métricas incoherentes: {nombre}.{clave} tiene "
-                    f"{len(metricas[nombre].get(clave, []))} valores para {len(folds)} folds"
+                    f"{len(valores)} valores para {len(folds)} folds"
                 )
 
     informe = {
@@ -145,20 +148,22 @@ def resumen_folds(folds, metricas: dict, decision: dict, cobertura: dict, hoy) -
     }
 
     for indice, fold in enumerate(folds):
-        informe["folds"].append({
+        entrada = {
             "año": fold["año"],
             "omitido": fold["omitido"],
             "motivo": fold["motivo"],
             "dias_train": len(fold["train"]),
             "dias_test": len(fold["test"]),
-            "base": {
-                "rmse": metricas["base"]["rmse"][indice],
-                "r2": metricas["base"]["r2"][indice],
-            },
-            "variante": {
-                "rmse": metricas["variante"]["rmse"][indice],
-                "r2": metricas["variante"]["r2"][indice],
-            },
-        })
+        }
+        for nombre in ("base", "variante"):
+            datos = {
+                "rmse": metricas[nombre]["rmse"][indice],
+                "r2": metricas[nombre]["r2"][indice],
+            }
+            # El MAE es opcional: el acta solar no lo aporta y conserva su forma.
+            if metricas[nombre].get("mae") is not None:
+                datos["mae"] = metricas[nombre]["mae"][indice]
+            entrada[nombre] = datos
+        informe["folds"].append(entrada)
 
     return informe
