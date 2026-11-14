@@ -62,12 +62,13 @@ tests.
 | Modificar | `backend/app/services/model_loader.py` | Cargar/validar el artefacto LR-19, el orden y `usa_scaler`; no usar fallback. | RF-1 |
 | Modificar | `backend/app/services/db_ree.py` | Esquema canónico; lectura de observaciones por día local; persistencia y consulta de predicciones propias y reales. | RF-2, RF-5 |
 | Modificar | `backend/app/services/forecast_db.py` | Guardar/leer AEMET y REE en `prediccion_diaria`; conservar solo el estado operativo de captura que necesite el reintento. | RF-2, RF-3 |
-| Modificar | `backend/app/services/forecast_logic.py` | Parseo y selección de previsión AEMET; lógica temporal pura, sin reloj ni E/S. | RF-3, RF-4 |
+| Mantener | `backend/app/services/forecast_logic.py` | Copia vendorizada de `src/pipeline/forecast.py`; se usa sin editar para preservar la paridad y sin importar `src/` en Render. | RF-3, RF-4 |
 | Modificar | `backend/app/services/aemet_client.py` | Descargar las 6 estaciones eólicas y 5 solares con todos los campos; backfill solo de faltantes. | RF-3 |
 | Modificar | `backend/app/services/aemet_forecast.py` | Capturar el catálogo de 12 ubicaciones y guardar en la tabla común. | RF-3 |
 | Modificar | `backend/app/services/ree_client.py` | Descargar observaciones REE, recuperar huecos recientes y normalizar fechas UTC a día Madrid. | RF-3, RF-4, RF-5 |
-| Crear | `backend/app/services/ree_forecast.py` | Consultar ESIOS 1777 con `REE_API_KEY`, validar `values_updated_at` y archivar D+1. | RF-3 |
-| Crear | `backend/app/services/prediction_features.py` | Funciones puras para las 19 variables, su origen y la lista de faltantes. | RF-4 |
+| Crear | `backend/app/services/ree_forecast_logic.py` | Parseo/validación pura del payload ESIOS 1777 y de sus fechas, portando la lógica de `src/pipeline/esios.py` sin modificar `src/`. | RF-3, RF-4 |
+| Crear | `backend/app/services/ree_forecast.py` | Transporte HTTP de ESIOS 1777 con `REE_API_KEY`; delega parseo y selección al módulo puro. | RF-3 |
+| Crear | `backend/app/services/prediction_features.py` | Funciones puras para las 19 variables, su origen y la lista de faltantes; usa la copia backend de `forecast_logic.py`. | RF-4 |
 | Crear | `backend/app/services/prediction_service.py` | Orquestar fuentes archivadas, vector, modelo y upsert; servicio compartido por API y scheduler. | RF-1, RF-5, RF-6 |
 | Modificar | `backend/app/tasks/scheduler.py` | Secuencia diaria, reintento de las 09:00, actualización de reales y logs. | RF-3, RF-5 |
 | Modificar | `backend/app/main.py` | Inicialización del esquema, tareas, health check y fábrica de app de test sin scheduler/backfill. | RF-2, RF-7 |
@@ -92,8 +93,8 @@ artefactos de modelo ni la BD fuente.
 |---|---|---|
 | RF-1 — Modelo | `model_loader.py`, `prediction_service.py`, `.joblib` | `prediction_contract.test.mjs`: hash, familia, scaler, 19 columnas, fallo sin fallback. |
 | RF-2 — BD canónica y snapshot | `db_ree.py`, `forecast_db.py`, `migrate_render_snapshot.py`, `backend/data/ree_generacion.db` | `persistence_api.test.mjs`: esquema, claves, manifiesto, integridad, upsert y rollback en temporales. |
-| RF-3 — Capturas programadas | `aemet_client.py`, `aemet_forecast.py`, `ree_client.py`, `ree_forecast.py`, `scheduler.py` | `persistence_api.test.mjs`: clientes simulados, `429`, recaptura, huecos recientes y orden de tareas. |
-| RF-4 — Features/orígenes | `prediction_features.py`, `forecast_logic.py` | `prediction_contract.test.mjs`: mapa completo, ventanas mixtas, fecha local, elegibilidad, relleno honesto y vector. |
+| RF-3 — Capturas programadas | `aemet_client.py`, `aemet_forecast.py`, `ree_client.py`, `ree_forecast_logic.py`, `ree_forecast.py`, `scheduler.py` | `persistence_api.test.mjs`: clientes simulados, `429`, recaptura, huecos recientes y orden de tareas. |
+| RF-4 — Features/orígenes | `prediction_features.py`, `forecast_logic.py`, `ree_forecast_logic.py` | `prediction_contract.test.mjs`: mapa completo, ventanas mixtas, fecha local, elegibilidad, relleno honesto y vector. |
 | RF-5 — Emisión/real | `prediction_service.py`, `db_ree.py`, `scheduler.py` | `persistence_api.test.mjs`: upsert mismo día, varias emisiones, real y signo del error. |
 | RF-6 — API | `api/prediction.py`, `api/charts.py`, acta de familia | `persistence_api.test.mjs`: contratos 200/503, vector/orígenes, chart y filas comparativas. |
 | RF-7 — Render/readiness | `main.py`, `render.yaml`, `migrate_render_snapshot.py` | `persistence_api.test.mjs`: `/health`, rutas/env/healthcheck y operación simulada de snapshot. |
@@ -147,6 +148,7 @@ datos ya preparados y, cuando hay una decisión temporal, reciben `hoy`.
 | `aggregate_observations(rows, station_ids, variable, hoy)` | Filas diarias, catálogo y fecha local | Serie diaria de medias válidas; ignora estaciones no incluidas y fechas futuras. | RF-4 |
 | `select_aemet_forecast(rows, objetivo, ubicacion, hoy)` | Archivo AEMET y objetivo | Fila con elaboración más reciente `<= min(objetivo, hoy)`, o ausente. | RF-4 |
 | `aemet_national_series(rows, uso, hoy)` | Filas AEMET elegibles y tipo eólico/solar | Serie diaria por fecha y medias de valores disponibles, sin inventar datos. | RF-4 |
+| `parse_ree_d1(payload, objetivo, hoy, capturado_en)` | JSON ESIOS 1777, objetivo y captura | Fila `fuente=ree` solo si `values_updated_at` existe, objetivo/zona coinciden y la elaboración es elegible; si no, motivo de descarte. | RF-3, RF-4 |
 | `resolve_window(observaciones, previsiones, objetivo, dias, hoy)` | Series por fecha, ventana y objetivo | Media y origen (`observacion`, `prevision`, `mixta`) con conteos; no disponible si falta un día. | RF-4 |
 | `latest_complete_generation(series, hoy)` | Generación eólica por día local | Ancla válida y avisos; descarta últimos días bajo el umbral de frescura. | RF-4, RF-5 |
 | `select_ree_forecast(rows, objetivo, hoy)` | Archivo REE y objetivo de lag | Última previsión válida con elaboración `<= min(objetivo, hoy)`. | RF-4 |
