@@ -7,16 +7,17 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
   (`modelos/lr_eolica.joblib`, dict `{modelo, scaler, features}`), sin tocar desde 2026-10-29.
 - **Modelo del notebook (19 variables, ejecutado 2026-11-14)**: `src/data/modelos/lr_eolica.joblib`,
   test 2025-11-22 → 2026-11-10 (354 días): **RMSE 23.108,4 MWh · MAE 15.588,2 · R² 0,9308**,
-  familia **Linear Regression** (19 features, `usa_scaler=True`). SHA-256 `e915381e…`; **aún no se ha
-  copiado a producción** (pendiente de autorización, parada P-1).
+  familia **Linear Regression** (19 features, `usa_scaler=True`). SHA-256 `e915381e…`; aún no se ha
+  copiado a producción. La migración al backend quedó autorizada en la spec 008; implementación pendiente.
 - **Spec 004 — REE integrada (2026-11-08)**: tablas `prediccion_diaria` y `prediccion_propia` en
   `src/data/ree_generacion.db`. AEMET: 574 filas (2 elaboraciones, horizonte 2026-11-07 → 11-17).
   REE (ESIOS 1777): **1.777 filas**, 1.773 reconstruidas (`2022-01-01 → 2026-11-08`) + 4 en vivo
   (`2026-11-09 → 11-12`), **0 huecos**; relleno por
   bloques anuales verificados con `values_updated_at` y segunda pasada con 0 nuevas. El mapa usa la
   previsión en `eolica_lag2/3/7` y `eolica_ma7` cuando falta observación (`permitir_prev_gen=True`).
-  **380 tests Python + 16 Node en verde.** T-12 y T-19/T-20 cerradas; T-17 solo pendiente de
-  D-4-4/D-4-5. Detalle en `specs/004-predicciones-en-src/` (Anexos B y C).
+  **380 tests Python + 16 Node en verde.** T-12 y T-19/T-20 cerradas; D-4-4 y D-4-5 quedaron
+  resueltas para el backend en la spec 008 (captura propia y retención del archivo). Detalle en
+  `specs/004-predicciones-en-src/` (Anexos B y C).
 - **Spec 005 — previsión de REE del día objetivo (2026-11-11)**: `eolica_prev` como 19.ª variable.
   Walk-forward 16/18/19: RMSE global **39.462 (18) → 19.945 (19)**; aceptada en 4 de 4 folds
   (19.591/19.176/17.216/23.847 frente a 39.524/39.997/39.085/39.195). La previsión sola da
@@ -35,12 +36,21 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
   23.038,3 · MAE 15.470,3 · R² 0,9306**. `.joblib` SHA `fd01ac9b…`; acta
   `src/data/modelos/familia_como_modelo.json`. Predicción 2026-11-13: **215.030,776 MWh** en dos
   ejecuciones, una fila. Salidas del `.ipynb` regeneradas y sin credenciales. **460 tests Python +
-  16 Node en verde.** La web sigue con 16 variables; copiar el modelo está bloqueado (P-1).
+  16 Node en verde.** La web sigue con 16 variables; la migración a 19 quedó autorizada en la
+  spec 008, pero aún no se ha implementado.
 - **Spec 007 — consistencia de la familia (cerrada 2026-11-14)**: la gráfica del último año usa
   `predecir_produccion(test[COLUMNAS_MODELO])` y `FAMILIA_MODELO`; `pipeline_lr`/`pred_lr_*` pasan a
   `pipeline_prod`/`pred_prod_*`; PASO 7 documenta que AEMET solo aporta `velmedia`/`racha`. Ejecución
   completa: predicción **287.484,9 MWh** para 2026-11-15, una fila; observación intacta (5 filas nuevas
   de tecnologías que faltaban, 0 modificadas); **463 tests Python + 16 Node en verde**.
+- **Spec 008 — integración backend/Render (2026-11-14, lista para revisión)**: el usuario autorizó
+  migrar el modelo LR de 19 variables, reemplazar la BD activa por la instantánea de `src/data`
+  tras backup recuperable, retirar las tablas heredadas, integrar capturas AEMET/REE y
+  `prediccion_propia`, ampliar la API de predicción (503 si no hay datos válidos; comparación API
+  conserva histórico 16 y añade LR-19/LightGBM-19) y corregir las rutas persistentes de `render.yaml`.
+  `plan.md` detalla archivos/RF, funciones puras con `hoy`, pseudocódigo del mapa, impacto UI y
+  tests `node --test`. Solo backend y `render.yaml`; sin cambios en `src/` ni frontend.
+  **No implementada ni desplegada.**
 - **Ventana mixta (D-4-8, 2026-11-11)**: las seis medias `vel_ma*`/`racha_ma*` y `eolica_ma7` se
   resuelven día a día: observación si existe (nunca posterior a `hoy`), previsión oficial en los
   huecos. Origen `mixta` con `dias_observados`/`dias_previstos`; un día sin ninguna fuente deja la
@@ -54,7 +64,7 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 - El scheduler descarga datos y predice, pero **no reentrena** el modelo.
 - **Spec 003**: archivo AEMET en backend (`prediccion_aemet`, clave `elaborado, objetivo, ubicacion`),
   captura 3:00/9:00; T-12 y T-15 hechas el 2026-11-02. La spec 004 lo sustituye en `src/` con
-  `prediccion_diaria`; la captura del backend queda dormida hasta que se decida D-4-4.
+  `prediccion_diaria`; la decisión de retomarlo en backend queda incluida en la spec 008.
 - **Spec 002 ejecutada el 2026-10-31**: notebook de 87 celdas corrido de arriba abajo (115 s) y
   **criterio ACEPTADO 3 de 4 folds**. 116 tests de Python + 16 de `node --test` en verde.
 - Serie solar diaria verificada contra la BD: 1.761 días continuos (2022-01-01 → 2026-10-28), sin
@@ -145,19 +155,14 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
   `[] if x is None else list(x)`; si aparece otra función que reciba arrays, revisar el patrón.
 
 ## Próximos pasos
-- **Spec 006 cerrada** (T-01 a T-10): la familia sigue siendo LinearRegression y el notebook entrena
-  con las 19 columnas. Falta la misma parada P-1: copiar el `.joblib` a las 3 rutas de producción y
-  llevar al backend `SOL`/`eolica_prev` (sin `prediccion_diaria` en backend no puede construir 19
-  variables).
-- **Spec 007 cerrada** (T-01 a T-07): gráficas y trazabilidad siguen a `FAMILIA_MODELO`; no cambia el
-  modelo ni las 19 variables. Persiste la parada P-1 para llevar el modelo de 19 variables al backend.
-- **Spec 005 cerrada** (T-01 a T-12): falta solo decidir si el modelo de 19 variables se copia a
-  producción (misma parada P-1 de la 002/004) y actualizar `FEATURE_COLS` del backend a 19 con
-  `get_solar_lag1` + `get_eolica_prev`. Mientras tanto la web sigue con las 16 variables.
-- **Spec 004**: T-12, T-19 y T-20 cerradas (relleno histórico + captura REE + ventana mixta). Quedan
-  **T-17** solo por D-4-4 (captura del backend) y D-4-5 (retención), medir la ventana mixta contra el
-  real (≥5 días) y la decisión de copiar el modelo de 18 variables a producción. Las celdas REE están
-  tras la descarga AEMET; el mapa y reales, en su sitio.
+- **Spec 008**: revisar y después implementar en backend. La BD de Render se reemplazará por la
+  instantánea de `src/data` (no merge); antes se guardará backup recuperable y los registros
+  exclusivos de Render quedarán solo en ese backup. No desplegar ni modificar la BD viva hasta
+  ejecutar las validaciones y el procedimiento de rollback de la spec.
+- **Specs 004–007**: los contratos de datos, previsiones, 19 variables y familia están implementados
+  en `src/`. La spec 008 los porta al backend sin modificar `src/`; resuelve D-4-4 replicando la
+  captura y D-4-5 conservando el archivo sin purgas. Medir la ventana mixta contra nuevos reales
+  sigue siendo una evaluación independiente.
 - **Spec 003: T-01 a T-10, T-12 y T-15 hechas y en verde** (380 tests de Python tras `gate.test.mjs`).
   Quedan: T-06 (segunda captura en otro día), T-11 (calibración de `sol`, necesita solape), T-13
   integración y T-14 (bloqueadas por D-3-2: cómo entrenar con 2 meses de previsión y 4 años de
@@ -180,13 +185,11 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
   2023–2026 con mejora estricta en 3 de 4 folds (RMSE 41.291→39.524 / 39.958→39.997 / 40.095→39.085 /
   39.324→38.697). El bloque solar autónomo (antiguas celdas 85–90) se eliminó; el notebook quedó en
   87 celdas. Informe: `src/data/modelos/sol_como_feature.json` (folds, cobertura, decisión, rutas).
-- **Pendiente de autorización del usuario: T-17**. Copiar `src/data/modelos/lr_eolica.joblib` a
-  `modelos/`, `backend/modelos/` y `src/model/production/`, y poner `FEATURE_COLS` a 18 en
-  `backend/app/services/model_loader.py` (+ `get_solar_lag1` en `db_ree.py`). El informe ya registra
-  las 4 rutas y marca las 3 de producción como `sincronizada: false`.
-- **No se toca backend ni frontend sin preguntar**: el 2026-10-31 se revirtieron cambios de backend
-  hechos sin consultar (`git checkout` de `model_loader.py`, `db_ree.py` y las 3 copias del `.joblib`,
-  que volvieron a la huella `3704300d…` de 16 variables).
+- **P-1/T-17**: la autorización para actualizar el backend a 19 variables llegó con la spec 008.
+  La implementación se limita a `backend/` y `render.yaml`; no se actualizan `modelos/` ni
+  `src/model/production/`, y frontend permanece intacto.
+- **Cambios de backend**: no hacerlos fuera de la spec activa. La autorización actual permite
+  preparar el backend según la spec 008, pero no implica que ya se haya ejecutado el despliegue.
 - **La celda 21 llama a `descargar_aemet`** (celda 19), no a una descarga paralela. `fechas.ventana_descarga`
   solo decide el rango; el troceo, la omisión de días ya guardados y las pausas siguen siendo de la
   función existente. Corregido el 2026-10-31 tras duplicarla con `aemet_backfill.rellenar`.
@@ -197,7 +200,8 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 - Medido (2026-10-29): `sol`/`tmed` del día anterior mejoran el R² entre +0,001 y +0,013 en 4/4 folds;
   la solar del mismo día y las medias móviles no aportan más. Generación solar (MWh) descartada como
   feature por la deriva de capacidad (+130 % en 4 años).
-- Unificar feature engineering notebook ↔ `model_loader` y añadir reentrenamiento programado.
+- Unificar el feature engineering del pipeline con `model_loader`: incluido en la spec 008.
+  El scheduler seguirá sin reentrenar.
 - Corregir duplicado `9299X` y métricas hardcodeadas.
 - Integrar previsiones ESIOS **1777** (eólica D+1): hecho en la spec 004. El 541 queda descartado
   (potencia intradiaria, no energía diaria); 1779 (fotovoltaica) no se incluye para no cambiar el esquema.

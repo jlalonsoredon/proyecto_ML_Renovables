@@ -18,6 +18,7 @@ __pycache__/
 
 # Variables de entorno
 .env
+.render_api_key
 
 
 # Archivos temporales / wheels descargados manualmente
