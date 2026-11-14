@@ -1,5 +1,5 @@
 {
-  "fecha_ejecucion": "2026-11-12",
+  "fecha_ejecucion": "2026-11-14",
   "criterio": {
     "aceptado": true,
     "mejoras": 3,
@@ -26,8 +26,8 @@
       },
       {
         "fold": 3,
-        "base": 39780.49499686292,
-        "variante": 39154.442557607006,
+        "base": 39691.36335160644,
+        "variante": 39053.69416981474,
         "mejora": true
       }
     ]
@@ -35,70 +35,70 @@
   "cobertura": {
     "3469A": {
       "sol": {
-        "days": 1773,
-        "with_data": 1769,
+        "days": 1775,
+        "with_data": 1771,
         "missing_pct": 0.2,
         "max_gap_days": 3
       },
       "tmed": {
-        "days": 1773,
-        "with_data": 1770,
+        "days": 1775,
+        "with_data": 1772,
         "missing_pct": 0.2,
         "max_gap_days": 3
       }
     },
     "4452": {
       "sol": {
-        "days": 1773,
-        "with_data": 1770,
+        "days": 1775,
+        "with_data": 1772,
         "missing_pct": 0.2,
         "max_gap_days": 1
       },
       "tmed": {
-        "days": 1773,
-        "with_data": 1773,
+        "days": 1775,
+        "with_data": 1775,
         "missing_pct": 0.0,
         "max_gap_days": 0
       }
     },
     "7228": {
       "sol": {
-        "days": 1773,
-        "with_data": 1745,
+        "days": 1775,
+        "with_data": 1747,
         "missing_pct": 1.6,
         "max_gap_days": 3
       },
       "tmed": {
-        "days": 1773,
-        "with_data": 1773,
+        "days": 1775,
+        "with_data": 1775,
         "missing_pct": 0.0,
         "max_gap_days": 0
       }
     },
     "5783": {
       "sol": {
-        "days": 1773,
-        "with_data": 1660,
+        "days": 1775,
+        "with_data": 1661,
         "missing_pct": 6.4,
         "max_gap_days": 3
       },
       "tmed": {
-        "days": 1773,
-        "with_data": 1761,
+        "days": 1775,
+        "with_data": 1763,
         "missing_pct": 0.7,
         "max_gap_days": 4
       }
     },
     "9434": {
       "sol": {
-        "days": 1773,
-        "with_data": 1770,
+        "days": 1775,
+        "with_data": 1772,
         "missing_pct": 0.2,
         "max_gap_days": 1
       },
       "tmed": {
-        "days": 1773,
-        "with_data": 1773,
+        "days": 1775,
+        "with_data": 1775,
         "missing_pct": 0.0,
         "max_gap_days": 0
       }
@@ -162,16 +162,16 @@
       "omitido": false,
       "motivo": null,
       "dias_train": 1454,
-      "dias_test": 312,
+      "dias_test": 314,
       "base": {
-        "rmse": 39780.49499686292,
-        "r2": 0.7837429015785495,
-        "mae": 29259.862112939747
+        "rmse": 39691.36335160644,
+        "r2": 0.7874524469047683,
+        "mae": 29209.790863684142
       },
       "variante": {
-        "rmse": 39154.442557607006,
-        "r2": 0.7904961074239695,
-        "mae": 29107.962017759943
+        "rmse": 39053.69416981474,
+        "r2": 0.7942270336665497,
+        "mae": 29031.739912274625
       }
     }
   ],
@@ -246,17 +246,17 @@
     "motivo": "rachaMax disponible en el pronóstico de AEMET"
   },
   "metricas_test": {
-    "rmse": 23038.326153323487,
-    "mae": 15470.270749357622,
-    "r2": 0.930565094288891,
+    "rmse": 23108.355669990713,
+    "mae": 15588.230196537219,
+    "r2": 0.9307591979859493,
     "dias": 354,
-    "desde": "2025-11-20",
-    "hasta": "2026-11-08"
+    "desde": "2025-11-22",
+    "hasta": "2026-11-10"
   },
   "rutas": {
     "notebook": {
       "ruta": "src/data/modelos/lr_eolica.joblib",
-      "sha256": "fd01ac9b196ea4d57732c0981b8411dbe661e7683d9cb8b633cd66b797410938",
+      "sha256": "e915381e2c24fcfbc2a81ab6eca2fdede7c7729f1abe2f79e58491cf9647c702",
       "sincronizada": true
     },
     "modelos": {

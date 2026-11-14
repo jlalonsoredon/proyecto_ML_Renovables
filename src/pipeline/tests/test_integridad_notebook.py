@@ -300,6 +300,58 @@ class TestIntegridadNotebook(unittest.TestCase):
             with self.subTest(marca=marca):
                 self.assertIn(marca, self.codigo)
 
+    # ── Spec 007: la familia elegida manda en gráficas y trazabilidad ────────
+    def test_la_grafica_del_ultimo_ano_usa_el_modelo_de_produccion(self):
+        grafica = next(
+            (
+                "".join(celda["source"])
+                for celda in self.notebook["cells"]
+                if celda["cell_type"] == "code"
+                and "Previsión del modelo de producción" in "".join(celda["source"])
+            ),
+            None,
+        )
+        self.assertIsNotNone(
+            grafica, "falta la gráfica del modelo de producción")
+        self.assertIn("predecir_produccion(test[COLUMNAS_MODELO])", grafica)
+        self.assertNotIn('predicciones["Linear Regression"]', grafica)
+        self.assertNotIn("Linear Regression", grafica)
+        self.assertRegex(
+            grafica, r'set_title\(f"\{FAMILIA_MODELO\}',
+            "el título debe declarar la familia elegida",
+        )
+        self.assertIn('label=f"{FAMILIA_MODELO}"', grafica)
+
+    def test_las_variables_de_produccion_no_presuponen_linear_regression(self):
+        celdas = self.notebook["cells"]
+        inicio = next(
+            indice for indice, celda in enumerate(celdas)
+            if celda["cell_type"] == "code"
+            and "# FAMILIA DEL MODELO (spec 006)" in "".join(celda["source"])
+        )
+        despues = "\n\n".join(
+            "".join(celda["source"])
+            for celda in celdas[inicio:]
+            if celda["cell_type"] == "code"
+        )
+        for nombre in (
+            "pipeline_lr", "pred_lr_cargado", "pred_lr_manana", "pred_lr",
+        ):
+            with self.subTest(nombre=nombre):
+                self.assertNotIn(nombre, despues)
+
+    def test_el_comentario_de_la_prediccion_propia_no_fija_lr(self):
+        celda = next(
+            celda for celda in self.notebook["cells"]
+            if celda["cell_type"] == "code"
+            and MARCADORES["prediccion"] in "".join(celda["source"])
+        )
+        codigo = "".join(celda["source"])
+        self.assertNotIn(
+            "LinearRegression con las variables aceptadas", codigo)
+        self.assertIn(
+            "la familia elegida con las variables aceptadas", codigo)
+
     def test_el_token_de_esios_se_lee_del_entorno(self):
         self.assertIn('os.getenv("ESIOS_TOKEN")', self.codigo)
         self.assertEqual(
