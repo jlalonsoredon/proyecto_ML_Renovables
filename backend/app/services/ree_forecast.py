@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 from . import forecast_db
+from .redaction import redact_secrets
 from .ree_forecast_logic import parse_ree_d1
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ def capture_ree_forecast(hoy=None, session=requests, api_key=None,
     try:
         response = session.get(ESIOS_URL, params=params, headers=headers, timeout=ESIOS_TIMEOUT)
     except requests.exceptions.RequestException as error:
-        motivo = f"fallo de red ESIOS: {error}"
+        motivo = f"fallo de red ESIOS: {redact_secrets(error, token)}"
         logger.error("Captura REE: %s", motivo)
         return {
             "estado": "fallo",

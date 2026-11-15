@@ -3,6 +3,8 @@ import time
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from ..services.redaction import redact_secrets
+
 logger = logging.getLogger(__name__)
 MADRID = ZoneInfo("Europe/Madrid")
 
@@ -28,7 +30,11 @@ class SchedulerService:
                 resultados[nombre] = accion()
             except Exception as error:
                 resultados[nombre] = None
-                logger.exception("Fallo en paso programado (%s): %s", nombre, error)
+                logger.error(
+                    "Fallo en paso programado (%s): %s",
+                    nombre,
+                    redact_secrets(error),
+                )
         fallidos = [
             nombre for nombre, resultado in resultados.items()
             if resultado is None
@@ -91,9 +97,15 @@ class SchedulerService:
                 try:
                     prediction_service.refresh_prediction(hoy)
                 except Exception as error:
-                    logger.warning("Reintento sin predicción válida: %s", error)
+                    logger.warning(
+                        "Reintento sin predicción válida: %s",
+                        redact_secrets(error),
+                    )
         except Exception as e:
-            logger.error(f"Reintento de captura AEMET fallido: {e}")
+            logger.error(
+                "Reintento de captura AEMET fallido: %s",
+                redact_secrets(e),
+            )
 
     def backfill_aemet_diario(self, days: int = 35, hoy: date | None = None):
         """Rellena faltantes estación/día de la ventana local, sin recapturar lo completo."""
@@ -134,7 +146,11 @@ class SchedulerService:
                     save_aemet_diario(records)
                     logger.info(f"Backfill AEMET {fecha}: {len(records)} registros")
             except Exception as e:
-                logger.error(f"Backfill AEMET error [{fecha}]: {e}")
+                logger.error(
+                    "Backfill AEMET error [%s]: %s",
+                    fecha,
+                    redact_secrets(e),
+                )
             time.sleep(1.0)
         return {"estado": "ok", "dias_pendientes": len(pendientes)}
 

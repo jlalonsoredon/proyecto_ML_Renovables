@@ -6,6 +6,8 @@ import os
 import time
 import numpy as np
 
+from .redaction import redact_secrets
+
 logger = logging.getLogger(__name__)
 
 AEMET_API_KEY = os.environ.get("AEMET_API_KEY", "")
@@ -129,7 +131,11 @@ def get_daily_forecast(municipio_id: str, nombre: str) -> Optional[Dict]:
         return None
 
     except Exception as e:
-        logger.error(f"Error consultando AEMET [{nombre}]: {e}")
+        logger.error(
+            "Error consultando AEMET [%s]: %s",
+            nombre,
+            redact_secrets(e, AEMET_API_KEY),
+        )
         return None
 
 
@@ -201,7 +207,11 @@ def download_aemet_diario(fecha: str, session=requests, sleeper=time.sleep) -> l
                 else:
                     logger.error(f"AEMET timeout definitivo [{station_id}]")
             except requests.exceptions.RequestException as e:
-                logger.error(f"AEMET error de red [{station_id}]: {e}")
+                logger.error(
+                    "AEMET error de red [%s]: %s",
+                    station_id,
+                    redact_secrets(e, AEMET_API_KEY),
+                )
                 break
 
         if r1 is None:
@@ -215,7 +225,11 @@ def download_aemet_diario(fecha: str, session=requests, sleeper=time.sleep) -> l
                 r1 = session.get(url, params={"api_key": AEMET_API_KEY},
                                  headers=HEADERS, timeout=15)
             except Exception as e:
-                logger.error(f"AEMET fallo tras rate limit [{station_id}]: {e}")
+                logger.error(
+                    "AEMET fallo tras rate limit [%s]: %s",
+                    station_id,
+                    redact_secrets(e, AEMET_API_KEY),
+                )
                 sleeper(0.5)
                 continue
 
@@ -227,7 +241,11 @@ def download_aemet_diario(fecha: str, session=requests, sleeper=time.sleep) -> l
         try:
             datos_url = r1.json().get("datos")
         except Exception as e:
-            logger.error(f"AEMET [{station_id}] JSON inválido paso 1: {e}")
+            logger.error(
+                "AEMET [%s] JSON inválido paso 1: %s",
+                station_id,
+                redact_secrets(e, AEMET_API_KEY),
+            )
             sleeper(0.5)
             continue
 
@@ -241,7 +259,11 @@ def download_aemet_diario(fecha: str, session=requests, sleeper=time.sleep) -> l
         try:
             r2 = session.get(datos_url, headers=HEADERS, timeout=15)
         except requests.exceptions.RequestException as e:
-            logger.error(f"AEMET [{station_id}] error descargando datos: {e}")
+            logger.error(
+                "AEMET [%s] error descargando datos: %s",
+                station_id,
+                redact_secrets(e, AEMET_API_KEY),
+            )
             sleeper(0.5)
             continue
 
@@ -253,7 +275,11 @@ def download_aemet_diario(fecha: str, session=requests, sleeper=time.sleep) -> l
         try:
             registros = r2.json()
         except Exception as e:
-            logger.error(f"AEMET [{station_id}] JSON inválido paso 2: {e}")
+            logger.error(
+                "AEMET [%s] JSON inválido paso 2: %s",
+                station_id,
+                redact_secrets(e, AEMET_API_KEY),
+            )
             sleeper(0.5)
             continue
 

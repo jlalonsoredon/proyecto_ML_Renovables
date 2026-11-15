@@ -6,6 +6,8 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional, Tuple
 from zoneinfo import ZoneInfo
 
+from .redaction import redact_secrets
+
 logger = logging.getLogger(__name__)
 
 REE_URL = "https://apidatos.ree.es/es/datos/generacion/estructura-generacion"
@@ -82,7 +84,7 @@ def fetch_generation(fecha_inicio: str, fecha_fin: str, session=requests) -> pd.
     try:
         r = session.get(url, headers=REE_HEADERS, timeout=30)
     except requests.exceptions.RequestException as e:
-        logger.warning(f"REE error de red: {e}")
+        logger.warning("REE error de red: %s", redact_secrets(e))
         return pd.DataFrame()
 
     if r.status_code != 200:

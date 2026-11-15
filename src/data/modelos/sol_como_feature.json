@@ -1,5 +1,5 @@
 {
-  "fecha_ejecucion": "2026-11-14",
+  "fecha_ejecucion": "2026-11-15",
   "criterio": {
     "aceptado": true,
     "mejoras": 3,
@@ -26,8 +26,8 @@
       },
       {
         "fold": 3,
-        "base": 39691.36335160644,
-        "variante": 39053.69416981474,
+        "base": 39758.329795867474,
+        "variante": 39140.15207221138,
         "mejora": true
       }
     ]
@@ -35,70 +35,70 @@
   "cobertura": {
     "3469A": {
       "sol": {
-        "days": 1775,
-        "with_data": 1771,
+        "days": 1776,
+        "with_data": 1772,
         "missing_pct": 0.2,
         "max_gap_days": 3
       },
       "tmed": {
-        "days": 1775,
-        "with_data": 1772,
+        "days": 1776,
+        "with_data": 1773,
         "missing_pct": 0.2,
         "max_gap_days": 3
       }
     },
     "4452": {
       "sol": {
-        "days": 1775,
-        "with_data": 1772,
+        "days": 1776,
+        "with_data": 1773,
         "missing_pct": 0.2,
         "max_gap_days": 1
       },
       "tmed": {
-        "days": 1775,
-        "with_data": 1775,
+        "days": 1776,
+        "with_data": 1776,
         "missing_pct": 0.0,
         "max_gap_days": 0
       }
     },
     "7228": {
       "sol": {
-        "days": 1775,
-        "with_data": 1747,
+        "days": 1776,
+        "with_data": 1748,
         "missing_pct": 1.6,
         "max_gap_days": 3
       },
       "tmed": {
-        "days": 1775,
-        "with_data": 1775,
+        "days": 1776,
+        "with_data": 1776,
         "missing_pct": 0.0,
         "max_gap_days": 0
       }
     },
     "5783": {
       "sol": {
-        "days": 1775,
-        "with_data": 1661,
+        "days": 1776,
+        "with_data": 1662,
         "missing_pct": 6.4,
         "max_gap_days": 3
       },
       "tmed": {
-        "days": 1775,
-        "with_data": 1763,
+        "days": 1776,
+        "with_data": 1764,
         "missing_pct": 0.7,
         "max_gap_days": 4
       }
     },
     "9434": {
       "sol": {
-        "days": 1775,
-        "with_data": 1772,
+        "days": 1776,
+        "with_data": 1773,
         "missing_pct": 0.2,
         "max_gap_days": 1
       },
       "tmed": {
-        "days": 1775,
-        "with_data": 1775,
+        "days": 1776,
+        "with_data": 1776,
         "missing_pct": 0.0,
         "max_gap_days": 0
       }
@@ -162,16 +162,16 @@
       "omitido": false,
       "motivo": null,
       "dias_train": 1454,
-      "dias_test": 314,
+      "dias_test": 315,
       "base": {
-        "rmse": 39691.36335160644,
-        "r2": 0.7874524469047683,
-        "mae": 29209.790863684142
+        "rmse": 39758.329795867474,
+        "r2": 0.7866912172317899,
+        "mae": 29298.07918803343
       },
       "variante": {
-        "rmse": 39053.69416981474,
-        "r2": 0.7942270336665497,
-        "mae": 29031.739912274625
+        "rmse": 39140.15207221138,
+        "r2": 0.7932728625015872,
+        "mae": 29131.494558509905
       }
     }
   ],
@@ -239,24 +239,24 @@
     "guardado": true
   },
   "racha": {
-    "usado": false,
-    "dias_estimados": 0,
-    "desde": null,
-    "hasta": null,
-    "motivo": "rachaMax disponible en el pronóstico de AEMET"
+    "usado": true,
+    "dias_estimados": 7,
+    "desde": "2026-11-05",
+    "hasta": "2026-11-11",
+    "motivo": "AEMET no devolvió rachaMax en el pronóstico municipal"
   },
   "metricas_test": {
-    "rmse": 23108.355669990713,
-    "mae": 15588.230196537219,
-    "r2": 0.9307591979859493,
+    "rmse": 23215.112572771897,
+    "mae": 15655.763324562202,
+    "r2": 0.9300558442830096,
     "dias": 354,
-    "desde": "2025-11-22",
-    "hasta": "2026-11-10"
+    "desde": "2025-11-23",
+    "hasta": "2026-11-11"
   },
   "rutas": {
     "notebook": {
       "ruta": "src/data/modelos/lr_eolica.joblib",
-      "sha256": "e915381e2c24fcfbc2a81ab6eca2fdede7c7729f1abe2f79e58491cf9647c702",
+      "sha256": "cf7d9f6554cb103b901323c0f298822b88f4799053f70f701699d82f5af162fe",
       "sincronizada": true
     },
     "modelos": {
@@ -266,7 +266,7 @@
     },
     "backend/modelos": {
       "ruta": "backend/modelos/lr_eolica.joblib",
-      "sha256": "3704300d879a1650e383d2c051b0bfc309f24b151a2ed07fc885037a6ebd33f6",
+      "sha256": "e915381e2c24fcfbc2a81ab6eca2fdede7c7729f1abe2f79e58491cf9647c702",
       "sincronizada": false
     },
     "src/model/production": {

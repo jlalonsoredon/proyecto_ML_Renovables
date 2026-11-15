@@ -26,6 +26,7 @@ from .forecast_logic import (
     parse_daily_parte,
     parse_hourly_parte,
 )
+from .redaction import redact_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ def _pedir_json(url: str, clave: str, sesion=requests):
                 continue
             return None, "timeout"
         except requests.exceptions.RequestException as error:
-            return None, f"red: {error}"
+            return None, f"red: {redact_secrets(error, clave)}"
 
         if respuesta.status_code == 429:
             logger.warning(f"AEMET límite de peticiones (429) — esperando {ESPERA_TRAS_LIMITE}s")
@@ -110,6 +111,7 @@ def descargar_partes(ubicacion: dict, clave: str, sesion=requests) -> dict:
     for ruta in RUTAS:
         parte, error = descargar_parte(ubicacion["municipio"], ruta, clave, sesion)
         if parte is None:
+            error = redact_secrets(error, clave)
             partes["errores"].append(f"{ruta}: {error}")
             logger.warning(f"AEMET [{ubicacion['clave']}] {ruta}: {error}")
         else:
@@ -159,12 +161,13 @@ def capture_forecast(hoy: date | None = None, descargador=None, conn=None,
         try:
             partes = descargador(ubicacion) or {}
         except Exception as error:  # una ubicación no puede tumbar la captura
+            error = redact_secrets(error, clave)
             errores.append(f"{ubicacion['clave']}: {error}")
             logger.error(f"Captura [{ubicacion['clave']}]: {error}")
             continue
 
         for error in partes.get("errores") or []:
-            errores.append(f"{ubicacion['clave']} {error}")
+            errores.append(f"{ubicacion['clave']} {redact_secrets(error, clave)}")
 
         diario = partes.get("diaria")
         if not diario:

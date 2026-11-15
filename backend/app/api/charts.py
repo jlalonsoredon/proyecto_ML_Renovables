@@ -11,6 +11,7 @@ from fastapi import HTTPException
 
 from ..services import db_ree
 from ..services.model_loader import model_service
+from ..services.redaction import redact_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,10 @@ def get_historical(days: int = 30):
         if updated:
             logger.info(f"Datos REE actualizados: {msg}")
     except Exception as e:
-        logger.warning(f"No se pudo actualizar datos REE: {e}")
+        logger.warning(
+            "No se pudo actualizar datos REE: %s",
+            redact_secrets(e),
+        )
 
     data = db_ree.get_historical_data(days)
     if not data:

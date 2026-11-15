@@ -12,10 +12,12 @@ Memoria del proyecto entre sesiones; mantenerla en torno a 50 líneas.
 - Backups externos conservados en `C:/Users/jlalo/AppData/Local/Temp/opencode/backup-008/`: estado previo (incluye LR-16 y sidecars) y `final-backend/` (BD previa a la sustitución, LR-19/acta y manifiesto). No borrar sin autorización.
 - `render.yaml` usa rutas persistentes absolutas y `/health`; no se ejecutó migración al arrancar ni se hizo deploy.
 - API: sin fallback de predicción; falta de datos/modelo produce 503. Gráfica de solo lectura, alineada a emisiones guardadas y sin valor de relleno.
-- Suite dirigida backend: 33/33 tests pasan. Smoke HTTP local: health 200; prediction/refresh 503 con BD vacía; forecast/chart/comparison 200.
-- `node --test` global: 48/49 pasan; falla el gate Python preexistente de `src/pipeline/tests/gate.test.mjs` (`ENOBUFS`). Se mantuvo `src/notebooks/main.ipynb` intacto; una clave AEMET en salidas requiere rotación/limpieza autorizada aparte.
+- Suite dirigida backend: 33/33 en la pasada final. Hubo un fallo transitorio del migrador mientras un kernel de Jupyter escribía en `src/data/ree_generacion.db`; el mismo test pasó aislado. Smoke HTTP local: health 200; prediction/refresh 503 con BD vacía; forecast/chart/comparison 200.
+- `node --test` global: 48/49 pasan; falla el gate Python preexistente de `src/pipeline/tests/gate.test.mjs` (`ENOBUFS`).
+- Seguridad: `backend/app/services/redaction.py` sanea claves en logs/errores AEMET/REE; la celda 98 del notebook ya no imprime la URL con `api_key` y sus 9 salidas filtradas se sustituyeron por `[REDACTADO]`. El test `test_las_salidas_del_notebook_no_exponen_claves_de_api` pasa.
+- La clave AEMET antigua sigue en el historial Git (no en el árbol de trabajo); hay que rotarla y, con autorización, purgar el historial. `.render_api_key` está ignorado y no versionado.
 - El artefacto avisa que se serializó con scikit-learn 1.8 frente al pin 1.5.0 de `backend/requirements.txt`; cargó en pruebas locales, pero confirmar compatibilidad antes del release. No se cambió ninguna dependencia.
-- No se reentrenó el modelo ni se modificó `src/`, frontend o `backend/requirements.txt`.
+- No se reentrenó el modelo ni se modificó frontend, `backend/requirements.txt` o la lógica de predicción. En `src/` solo se tocó la celda 98 del notebook para redactar la salida y sanear el mensaje de error.
 
 ## Contrato de dominio
 - Objetivo: generación eólica diaria peninsular (MWh), predicción D+1. Orden LR-19 en `backend/app/services/model_loader.py` y `prediction_features.py`.
@@ -28,4 +30,5 @@ Memoria del proyecto entre sesiones; mantenerla en torno a 50 líneas.
 ## Próximos pasos
 - Con autorización operativa, pausar escritores de Render, ejecutar migrador con backup externo, verificar hashes/health/API y conservar backup hasta confirmar rollback.
 - Resolver con el usuario la compatibilidad de scikit-learn antes de desplegar; no actualizar dependencias por cuenta propia.
-- Rotar la clave AEMET y retirar cualquier salida sensible en una tarea autorizada; no editar `main.ipynb` sin permiso.
+- Rotar la clave AEMET expuesta y, con autorización, purgar el historial Git; la redacción ya está aplicada, pero el notebook abierto en Jupyter puede sobrescribirla si se guarda desde el navegador.
+- Coordinar el kernel de Jupyter que mantiene abierto `src/data/ree_generacion.db` (WAL/SHM modificados) y escribe artefactos en `src/data/modelos` (incluido `lr_eolica-previo-20261115.joblib`); no revertir esos datos sin autorización.
