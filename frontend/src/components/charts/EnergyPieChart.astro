@@ -11,9 +11,15 @@ const RENOVABLES = [
 ];
 const PCT_RENOVABLE   = 58.33;
 const PCT_NO_RENOVABLE = 41.67;
+
+import series from "../../data/reference-series.json";
+const { mix } = series;
 ---
 
 <div class="space-y-8">
+  <p class="text-xs text-gray-500 dark:text-gray-400">
+    Periodo: {mix.periodo}. Fuente: {mix.fuente}
+  </p>
   <!-- Fila de tartas -->
   <div class="grid md:grid-cols-2 gap-6">
     <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md flex flex-col items-center">
@@ -21,7 +27,7 @@ const PCT_NO_RENOVABLE = 41.67;
         Renovables vs No Renovables
       </h3>
       <div class="w-full max-w-xs">
-        <canvas id="energyPieChart"></canvas>
+        <canvas id="energyPieChart" role="img" aria-label={`Gráfica circular: ${PCT_RENOVABLE} % renovable y ${PCT_NO_RENOVABLE} % no renovable`}></canvas>
       </div>
     </div>
 
@@ -30,7 +36,7 @@ const PCT_NO_RENOVABLE = 41.67;
         Desglose de Energías Renovables
       </h3>
       <div class="w-full max-w-xs">
-        <canvas id="renewablePieChart"></canvas>
+        <canvas id="renewablePieChart" role="img" aria-label="Gráfica circular con el reparto entre tecnologías renovables; los valores están en la tabla siguiente"></canvas>
       </div>
     </div>
   </div>

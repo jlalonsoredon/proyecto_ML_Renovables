@@ -239,11 +239,11 @@
     "guardado": true
   },
   "racha": {
-    "usado": true,
-    "dias_estimados": 7,
-    "desde": "2026-11-05",
-    "hasta": "2026-11-11",
-    "motivo": "AEMET no devolvió rachaMax en el pronóstico municipal"
+    "usado": false,
+    "dias_estimados": 0,
+    "desde": null,
+    "hasta": null,
+    "motivo": "rachaMax disponible en el pronóstico de AEMET"
   },
   "metricas_test": {
     "rmse": 23215.112572771897,

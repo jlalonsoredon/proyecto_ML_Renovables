@@ -1,0 +1,135 @@
+---
+import metrics from "../../data/model-metrics.json";
+import { STATUS, formatMetric, formatDateEs, formatNumber, metricDelta, rowStatus } from "../../utils/evolution.mjs";
+
+export interface Props {
+  /** "full": comparación principal + tabla; "table": solo la tabla. */
+  variant?: "full" | "table";
+}
+
+const { variant = "full" } = Astro.props;
+const { lineaBase, referencia, filas, fuentes } = metrics;
+
+const STATUS_CLASSES: Record<string, string> = {
+  [STATUS.CURRENT]: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+  [STATUS.HISTORICAL]: "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+  [STATUS.UNAVAILABLE]: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+};
+
+type Protocolo = { variables: number; desde: string | null; hasta: string | null; dias: number | null };
+
+function windowText(p: Protocolo) {
+  if (!p.desde || !p.hasta) return "Ventana no documentada";
+  return `${formatDateEs(p.desde)} – ${formatDateEs(p.hasta)} (${p.dias} días)`;
+}
+
+// Única diferencia permitida: dos filas con el mismo protocolo (D-9-8).
+const vigente = filas.find((f) => rowStatus(f) === STATUS.CURRENT);
+const rechazada = filas.find((f) => f.decision === "rechazado");
+const delta = vigente && rechazada ? metricDelta(vigente, rechazada, "rmse") : null;
+
+const mainCards = [lineaBase, referencia];
+---
+
+<div class="space-y-8">
+  {variant === "full" && (
+    <div class="space-y-4">
+      <div class="grid gap-4 md:grid-cols-2">
+        {mainCards.map((card) => (
+          <article class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-700">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <h3 class="text-lg font-bold text-gray-900 dark:text-white">{card.etiqueta}</h3>
+              <span class={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_CLASSES[rowStatus(card)]}`}>
+                {rowStatus(card)}
+              </span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {card.modelo} · {card.protocolo.variables} variables · {card.protocolo.descripcion}
+            </p>
+            <dl class="grid grid-cols-2 gap-3 text-sm">
+              <div><dt class="text-gray-500 dark:text-gray-400">RMSE</dt><dd class="text-xl font-bold text-gray-900 dark:text-white">{formatMetric(card.rmse, "rmse")}</dd></div>
+              <div><dt class="text-gray-500 dark:text-gray-400">R²</dt><dd class="text-xl font-bold text-gray-900 dark:text-white">{formatMetric(card.r2, "r2")}</dd></div>
+              <div><dt class="text-gray-500 dark:text-gray-400">MAE</dt><dd class="font-semibold text-gray-900 dark:text-white">{formatMetric(card.mae, "mae")}</dd></div>
+              <div><dt class="text-gray-500 dark:text-gray-400">MAPE</dt><dd class="font-semibold text-gray-900 dark:text-white">{formatMetric(card.mape, "mape")}</dd></div>
+            </dl>
+          </article>
+        ))}
+      </div>
+
+      <div class="rounded-xl border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-gray-800 dark:text-gray-200" role="note">
+        <p class="font-semibold mb-1">Por qué no restamos estas dos cifras</p>
+        <p>
+          Se midieron de forma distinta: la primera con 16 variables y un periodo de prueba que no quedó
+          documentado; la segunda con 19 variables durante 354 días concretos. Al cambiar los días evaluados
+          cambia también la dificultad, así que la diferencia no equivale a la mejora del modelo. Por eso se
+          muestran juntas, sin calcular un porcentaje.
+        </p>
+      </div>
+    </div>
+  )}
+
+  <div>
+    {variant === "full" && (
+      <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Todos los modelos evaluados</h3>
+    )}
+    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700" tabindex="0" aria-label="Tabla de modelos, desplazable en horizontal">
+      <table class="w-full text-sm text-left">
+        <caption class="sr-only">Métricas de los modelos: estado, variables, ventana de evaluación y errores</caption>
+        <thead class="bg-gray-100 dark:bg-gray-700">
+          <tr>
+            <th scope="col" class="px-3 py-2">Modelo</th>
+            <th scope="col" class="px-3 py-2">Estado</th>
+            <th scope="col" class="px-3 py-2">Variables</th>
+            <th scope="col" class="px-3 py-2">Ventana</th>
+            <th scope="col" class="px-3 py-2 text-right">RMSE</th>
+            <th scope="col" class="px-3 py-2 text-right">MAE</th>
+            <th scope="col" class="px-3 py-2 text-right">R²</th>
+            <th scope="col" class="px-3 py-2 text-right">MAPE</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((fila) => {
+            const estado = rowStatus(fila);
+            const isCurrent = estado === STATUS.CURRENT;
+            return (
+              <tr class={`border-t border-gray-200 dark:border-gray-700 ${isCurrent ? "bg-green-50 dark:bg-green-900/20 font-semibold" : ""}`}>
+                <th scope="row" class="px-3 py-2 whitespace-nowrap font-medium">
+                  {fila.modelo}
+                  {fila.decision === "rechazado" && <span class="block text-xs font-normal text-gray-600 dark:text-gray-400">Rechazado</span>}
+                </th>
+                <td class="px-3 py-2">
+                  <span class={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${STATUS_CLASSES[estado]}`}>{estado}</span>
+                </td>
+                <td class="px-3 py-2">{fila.protocolo.variables}</td>
+                <td class="px-3 py-2 min-w-[11rem]">{windowText(fila.protocolo)}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">{formatMetric(fila.rmse, "rmse")}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">{formatMetric(fila.mae, "mae")}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">{formatMetric(fila.r2, "r2")}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">{formatMetric(fila.mape, "mape")}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+      Solo las filas con las mismas variables y la misma ventana se pueden comparar entre sí.
+      «{STATUS.UNAVAILABLE}» indica que la métrica no se registró en esa evaluación.
+    </p>
+  </div>
+
+  {variant === "full" && vigente && rechazada && (
+    <div class="bg-gray-100 dark:bg-gray-800 rounded-xl p-5 text-sm text-gray-700 dark:text-gray-300 space-y-2">
+      <h3 class="text-base font-bold text-gray-900 dark:text-white">¿Por qué no se usa LightGBM?</h3>
+      {delta !== null && (
+        <p>
+          Con las mismas 19 variables y los mismos 354 días, LightGBM tiene un RMSE
+          {" "}{formatNumber(Math.abs(delta), 1)} MWh {delta < 0 ? "menor" : "mayor"} que Linear Regression.
+          Esta comparación sí es válida, porque ambos se midieron igual.
+        </p>
+      )}
+      <p>{rechazada.motivo}</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400">Criterio de adopción: {fuentes.criterio}</p>
+    </div>
+  )}
+</div>

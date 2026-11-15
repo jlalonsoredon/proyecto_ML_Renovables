@@ -1,0 +1,234 @@
+{
+  "fuentes": {
+    "lineaBase": "Tabla de modelos mostrada en la página de proceso antes de la spec 009 (registro de métricas iniciales, 2026-11-15).",
+    "historicas": "Siete filas de 16 variables publicadas por el sistema de referencia como históricas.",
+    "vigentes": "Acta de selección de familia de la spec 007, integrada en el backend por la spec 008 (ejecución 2026-11-14).",
+    "criterio": "Una familia sustituye a la vigente solo si mejora el RMSE de forma estricta en al menos 3 de las 4 ventanas anuales del walk-forward.",
+    "mape19": "MAPE de los modelos de 19 variables: ranking del PASO 6 del notebook, mismo test de 354 días."
+  },
+  "lineaBase": {
+    "modelo": "Linear Regression",
+    "etiqueta": "Antes: modelo de 16 variables",
+    "protocolo": {
+      "variables": 16,
+      "desde": null,
+      "hasta": null,
+      "dias": null,
+      "descripcion": "Conjunto de test del notebook original. Ventana no documentada."
+    },
+    "rmse": 60433,
+    "mae": null,
+    "r2": 0.579,
+    "mape": 41.73,
+    "estado": "histórico"
+  },
+  "referencia": {
+    "modelo": "Linear Regression",
+    "etiqueta": "Ahora: modelo de 19 variables",
+    "protocolo": {
+      "variables": 19,
+      "desde": "2025-11-22",
+      "hasta": "2026-11-10",
+      "dias": 354,
+      "descripcion": "Test del 22 de noviembre de 2025 al 10 de noviembre de 2026 (354 días)."
+    },
+    "rmse": 23108.355669990728,
+    "mae": 15588.230196537208,
+    "r2": 0.9307591979859493,
+    "mape": 12.0,
+    "estado": "vigente"
+  },
+  "filas": [
+    {
+      "modelo": "Linear Regression",
+      "protocolo": {
+        "variables": 16,
+        "desde": null,
+        "hasta": null,
+        "dias": null
+      },
+      "rmse": 60432.9,
+      "mae": null,
+      "r2": 0.579,
+      "mape": 41.73,
+      "estado": "histórico",
+      "nota": "Misma medición que la línea base, con un decimal más."
+    },
+    {
+      "modelo": "Lasso",
+      "protocolo": {
+        "variables": 16,
+        "desde": null,
+        "hasta": null,
+        "dias": null
+      },
+      "rmse": 60433.1,
+      "mae": null,
+      "r2": 0.579,
+      "mape": 41.73,
+      "estado": "histórico"
+    },
+    {
+      "modelo": "Random Forest",
+      "protocolo": {
+        "variables": 16,
+        "desde": null,
+        "hasta": null,
+        "dias": null
+      },
+      "rmse": 60437.6,
+      "mae": null,
+      "r2": 0.5789,
+      "mape": 44.3,
+      "estado": "histórico"
+    },
+    {
+      "modelo": "Ridge",
+      "protocolo": {
+        "variables": 16,
+        "desde": null,
+        "hasta": null,
+        "dias": null
+      },
+      "rmse": 60498.1,
+      "mae": null,
+      "r2": 0.5781,
+      "mape": 41.95,
+      "estado": "histórico"
+    },
+    {
+      "modelo": "LightGBM",
+      "protocolo": {
+        "variables": 16,
+        "desde": null,
+        "hasta": null,
+        "dias": null
+      },
+      "rmse": 61872.5,
+      "mae": null,
+      "r2": 0.5587,
+      "mape": 44.46,
+      "estado": "histórico"
+    },
+    {
+      "modelo": "XGBoost",
+      "protocolo": {
+        "variables": 16,
+        "desde": null,
+        "hasta": null,
+        "dias": null
+      },
+      "rmse": 63346.3,
+      "mae": null,
+      "r2": 0.5374,
+      "mape": 45.87,
+      "estado": "histórico"
+    },
+    {
+      "modelo": "Red Neuronal (MLP)",
+      "protocolo": {
+        "variables": 16,
+        "desde": null,
+        "hasta": null,
+        "dias": null
+      },
+      "rmse": 63909.6,
+      "mae": null,
+      "r2": 0.5291,
+      "mape": 43.22,
+      "estado": "histórico"
+    },
+    {
+      "modelo": "Linear Regression",
+      "protocolo": {
+        "variables": 19,
+        "desde": "2025-11-22",
+        "hasta": "2026-11-10",
+        "dias": 354
+      },
+      "rmse": 23108.355669990728,
+      "mae": 15588.230196537208,
+      "r2": 0.9307591979859493,
+      "mape": 12.0,
+      "estado": "vigente",
+      "decision": "vigente",
+      "motivo": "Modelo en producción. LightGBM no lo sustituyó porque solo mejoró en 1 de las 4 ventanas anuales.",
+      "folds": [
+        {
+          "anio": 2023,
+          "dias": 365,
+          "rmse": 19590.51580410044,
+          "mae": 12881.925094728264,
+          "r2": 0.9573972364957065
+        },
+        {
+          "anio": 2024,
+          "dias": 366,
+          "rmse": 19175.759596380383,
+          "mae": 13407.602461829065,
+          "r2": 0.9477615115587563
+        },
+        {
+          "anio": 2025,
+          "dias": 365,
+          "rmse": 17215.647888920896,
+          "mae": 12324.856507486304,
+          "r2": 0.9565976782585232
+        },
+        {
+          "anio": 2026,
+          "dias": 314,
+          "rmse": 23855.737551557173,
+          "mae": 15951.153147401576,
+          "r2": 0.9232197056389602
+        }
+      ]
+    },
+    {
+      "modelo": "LightGBM",
+      "protocolo": {
+        "variables": 19,
+        "desde": "2025-11-22",
+        "hasta": "2026-11-10",
+        "dias": 354
+      },
+      "rmse": 20246.444690433527,
+      "mae": 14446.968395205844,
+      "r2": 0.9468477631740944,
+      "mape": 11.25,
+      "estado": "histórico",
+      "decision": "rechazado",
+      "motivo": "Su RMSE global es menor, pero solo mejoró en 1 de las 4 ventanas anuales y el criterio exige 3.",
+      "folds": [
+        {
+          "anio": 2023,
+          "dias": 365,
+          "rmse": 21174.093941466694,
+          "mae": 14674.28936247494,
+          "r2": 0.9502313682957195
+        },
+        {
+          "anio": 2024,
+          "dias": 366,
+          "rmse": 21102.008994396183,
+          "mae": 14969.740263388278,
+          "r2": 0.9367394364162531
+        },
+        {
+          "anio": 2025,
+          "dias": 365,
+          "rmse": 17331.47225487106,
+          "mae": 12542.03228333163,
+          "r2": 0.9560117047248886
+        },
+        {
+          "anio": 2026,
+          "dias": 314,
+          "rmse": 20563.64957815405,
+          "mae": 14538.941859836084,
+          "r2": 0.9429488418232514
+        }
+      ]
+    }
+  ]
+}

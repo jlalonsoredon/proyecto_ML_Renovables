@@ -11,6 +11,10 @@ import WindMap from "../components/charts/WindMap.astro";
 import EolicaScaledCharts from "../components/charts/EolicaScaledCharts.astro";
 import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
 import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
+import FeatureImportanceChart from "../components/charts/FeatureImportanceChart.astro";
+import SpecTimeline from "../components/evolution/SpecTimeline.astro";
+import MetricsComparison from "../components/evolution/MetricsComparison.astro";
+import LivePredictionStatus from "../components/evolution/LivePredictionStatus.astro";
 ---
 
 <Layout title="Proceso - Predicción Eólica ML">
@@ -21,6 +25,9 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
         <Paragraph>
           Descubre cómo se construye la predicción de generación eólica paso a paso
         </Paragraph>
+        <a href="#evolucion" class="inline-block mt-6 text-primary font-semibold underline underline-offset-4 hover:text-primary-dark">
+          Ver la evolución del proyecto y sus métricas ↓
+        </a>
       </div>
     </Container>
 
@@ -54,7 +61,7 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
               <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
                 <Title3>API AEMET (Meteorología)</Title3>
                 <Paragraph>
-                  Proporciona datos climáticos de 14 estaciones meteorológicas:
+                  Proporciona observaciones diarias de 11 estaciones meteorológicas y previsiones de 12 ubicaciones:
                   <ul class="list-disc list-inside mt-2 space-y-1">
                     <li>Temperatura media, mínima y máxima</li>
                     <li>Velocidad media del viento</li>
@@ -64,7 +71,10 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
                   </ul>
                 </Paragraph>
                 <Paragraph>
-                  <strong>Estaciones:</strong> Albacete, Almería, Burgos, Cádiz, Cuenca, Guadalajara, Huelva, Sevilla, Zaragoza
+                  <strong>Junto a parques eólicos (6):</strong> Alosno (Huelva), Albacete, Molina de Aragón (Guadalajara), Tarazona (Zaragoza), Tarifa (Cádiz) y Briviesca (Burgos).
+                </Paragraph>
+                <Paragraph>
+                  <strong>Junto a plantas solares (5):</strong> Cáceres, Badajoz, Alcantarilla (Murcia), Sevilla y Zaragoza.
                 </Paragraph>
               </div>
             </div>
@@ -91,7 +101,7 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
           </paragraph>
 
           <Paragraph>
-            Como se aprecia en la gráfica, aproximadamente el 58.33% de la generación eléctrica en España proviene de fuentes renovables, siendo la energía eólica la tecnología más representativa con un 23.41% del total, seguida de la solar fotovoltaica con un 19.83% y la hidráulica con un 11.64%.
+            Entre enero de 2022 y mayo de 2026, de media, el 58,33 % de la generación eléctrica en España procedió de fuentes renovables. La eólica fue la tecnología más representativa, con el 23,41 % del total, seguida de la solar fotovoltaica (19,83 %) y la hidráulica (11,64 %).
           </Paragraph>
         </section>
       </Container>
@@ -102,8 +112,8 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
       <section class="mb-12">
         <Title2>Evolución de Generación Renovable</Title2>
         <Paragraph>
-          Evolución temporal de la producción de energía eólica, solar fotovoltaica e hidráulica
-          durante los últimos 30 días.
+          Generación semanal de las seis tecnologías renovables desde enero de 2022 hasta la última
+          semana completa disponible.
         </Paragraph>
         <div class="mt-6">
           <RenewableLineChart />
@@ -152,26 +162,38 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
             </ul>
 
             <Paragraph>
-              Una vez porcesados los datos se han visualizado en diversas gráficas para entender mejor las relaciones entre las variables y detectar posibles patrones o anomalías.
+              Una vez procesados los datos se han visualizado en diversas gráficas para entender mejor las relaciones entre las variables y detectar posibles patrones o anomalías.
             </Paragraph>
 
             <EolicaScaledCharts />
 
             <Paragraph>
-              <strong>Features creadas:</strong>
+              <strong>Las 19 variables del modelo vigente:</strong>
             </Paragraph>
-            <div class="grid md:grid-cols-3 gap-4 mt-4">
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
               <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
-                <strong>Temporales</strong>
-                <p class="text-sm mt-1">mes, día de la semana, día del año, trimestre</p>
+                <strong>Viento previsto (2)</strong>
+                <p class="text-sm mt-1">Velocidad media y racha máxima previstas por AEMET para el día objetivo.</p>
               </div>
               <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
-                <strong>Lags</strong>
-                <p class="text-sm mt-1">eólica_lag1, eólica_lag2, eólica_lag3, eólica_lag7</p>
+                <strong>Calendario (3)</strong>
+                <p class="text-sm mt-1">Mes, día de la semana y día del año.</p>
               </div>
               <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
-                <strong>Medias móviles</strong>
-                <p class="text-sm mt-1">vel_ma3, vel_ma7, vel_ma14, racha_ma7, eolica_ma7</p>
+                <strong>Generación anterior (5)</strong>
+                <p class="text-sm mt-1">Generación eólica de 1, 2, 3 y 7 días antes y su media de 7 días.</p>
+              </div>
+              <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                <strong>Medias de viento (6)</strong>
+                <p class="text-sm mt-1">Velocidad media y racha de 3, 7 y 14 días.</p>
+              </div>
+              <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                <strong>Sol y temperatura (2)</strong>
+                <p class="text-sm mt-1">Horas de sol y temperatura media del día anterior.</p>
+              </div>
+              <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+                <strong>Previsión de REE (1)</strong>
+                <p class="text-sm mt-1">Generación eólica prevista por Red Eléctrica para el día objetivo.</p>
               </div>
             </div>
           </div>
@@ -187,70 +209,23 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
               <strong>Origen de los datos:</strong> Los datos proceden de dos fuentes principales: la API de Red Eléctrica de España (REE) para los datos de generación eléctrica histórica, y la API de AEMET para los datos meteorológicos (temperatura, velocidad del viento, ráfagas, precipitación).
             </Paragraph>
             <Paragraph>
-              Se han probado múltiples modelos de Machine Learning para encontrar el mejor:
+              Se han probado ocho familias de modelos, primero con las 16 variables originales y después con
+              las 19 actuales. Cada gráfica compara la generación real con las dos versiones de un mismo modelo:
             </Paragraph>
-            <div class="overflow-x-auto mt-4">
-              <table class="w-full text-sm text-left">
-                <thead class="bg-gray-100 dark:bg-gray-700">
-                  <tr>
-                    <th class="px-4 py-2 rounded-tl-lg">Modelo</th>
-                    <th class="px-4 py-2">RMSE (MWh)</th>
-                    <th class="px-4 py-2">R²</th>
-                    <th class="px-4 py-2">MAPE (%)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr class="border-b">
-                    <td class="px-4 py-2 font-semibold text-green-600">Linear Regression</td>
-                    <td class="px-4 py-2">60,433</td>
-                    <td class="px-4 py-2">0.579</td>
-                    <td class="px-4 py-2">41.73</td>
-                  </tr>
-                  <tr class="border-b">
-                    <td class="px-4 py-2">Lasso</td>
-                    <td class="px-4 py-2">60,433</td>
-                    <td class="px-4 py-2">0.579</td>
-                    <td class="px-4 py-2">41.73</td>
-                  </tr>
-                  <tr class="border-b">
-                    <td class="px-4 py-2">Random Forest</td>
-                    <td class="px-4 py-2">60,438</td>
-                    <td class="px-4 py-2">0.579</td>
-                    <td class="px-4 py-2">44.30</td>
-                  </tr>
-                  <tr class="border-b">
-                    <td class="px-4 py-2">Ridge</td>
-                    <td class="px-4 py-2">60,498</td>
-                    <td class="px-4 py-2">0.578</td>
-                    <td class="px-4 py-2">41.95</td>
-                  </tr>
-                  <tr class="border-b">
-                    <td class="px-4 py-2">LightGBM</td>
-                    <td class="px-4 py-2">61,873</td>
-                    <td class="px-4 py-2">0.559</td>
-                    <td class="px-4 py-2">44.46</td>
-                  </tr>
-                  <tr class="border-b">
-                    <td class="px-4 py-2">XGBoost</td>
-                    <td class="px-4 py-2">63,346</td>
-                    <td class="px-4 py-2">0.537</td>
-                    <td class="px-4 py-2">45.87</td>
-                  </tr>
-                  <tr>
-                    <td class="px-4 py-2 rounded-bl-lg">Red Neuronal (MLP)</td>
-                    <td class="px-4 py-2">63,910</td>
-                    <td class="px-4 py-2">0.529</td>
-                    <td class="px-4 py-2">43.22</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
             <Paragraph>
-              <strong>Modelo seleccionado:</strong> Linear Regression por obtener el mejor equilibrio entre R² (0.579) y menor RMSE.
+              <strong>Modelo seleccionado:</strong> Linear Regression con 19 variables (R² de 0,9308 en el test de
+              354 días con el que se evaluó el modelo en producción). Otros modelos, como LightGBM o la red neuronal,
+              tienen menos error en una única partición, pero LightGBM, el mejor candidato evaluado, se descartó porque
+              solo mejoraba en 1 de los 4 años del walk-forward. La tabla completa está en el
+              <a href="#evolucion" class="underline text-primary">paso 6</a>.
             </Paragraph>
 
             <div class="mt-6">
               <ModelComparisonChart />
+            </div>
+
+            <div class="mt-6">
+              <FeatureImportanceChart />
             </div>
           </div>
         </section>
@@ -263,24 +238,26 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
             </Paragraph>
             <ol class="list-decimal list-inside space-y-3 text-gray-700 dark:text-gray-300">
               <li>
-                <strong>Descarga de forecast AEMET:</strong> Se obtiene el pronóstico meteorológico para el día siguiente
-                (velocidad media del viento y ráfagas) de las estaciones cercanas a los parques eólicos.
+                <strong>Captura de previsiones:</strong> se guardan la previsión meteorológica de AEMET para las
+                12 ubicaciones y la previsión eólica de REE para el día siguiente.
               </li>
               <li>
-                <strong>Construcción del vector de features:</strong> Se combinan los datos de forecast con los datos
-                históricos (lags, medias móviles) para crear el vector de entrada del modelo.
+                <strong>Actualización de observaciones:</strong> se descargan los datos reales de REE y AEMET. Los días
+                todavía incompletos no se usan.
               </li>
               <li>
-                <strong>Predicción:</strong> El modelo Linear Regression genera la predicción de producción eólica en MWh.
+                <strong>Construcción de las 19 variables:</strong> cada una indica si procede de una observación, de una
+                previsión o de una estimación.
               </li>
               <li>
-                <strong>Guardado:</strong> El resultado se guarda en la base de datos para su visualización en el frontend.
+                <strong>Predicción y registro:</strong> Linear Regression calcula la producción en MWh y se guarda con
+                sus variables. Si falta algún dato, no se publica ninguna cifra en su lugar.
               </li>
             </ol>
 
             <Paragraph>
-              <strong>Programación:</strong> La actualización se realiza automáticamente cada noche a las 3:00 AM
-              mediante un script en el backend (Render).
+              <strong>Programación:</strong> la actualización se ejecuta cada día a las 03:00 (hora peninsular),
+              con un reintento a las 09:00 si la previsión de AEMET llegó incompleta.
             </Paragraph>
           </div>
         </section>
@@ -289,7 +266,8 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
           <Title2>5. Parques Eólicos Monitorizados</Title2>
           <div class="mt-6">
             <Paragraph>
-              El proyecto monitoriza 7 parques eólicos distribuidos por toda España:
+              El proyecto monitoriza 7 parques eólicos distribuidos por toda España. Borja y La Muela comparten la
+              estación de Tarazona, por lo que se usan 6 estaciones de observación:
             </Paragraph>
             <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
               <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
@@ -321,6 +299,27 @@ import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
                 <p class="text-sm text-gray-600 dark:text-gray-400">Zaragoza - Est: Tarazona</p>
               </div>
             </div>
+          </div>
+        </section>
+        <section id="evolucion" class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg scroll-mt-24">
+          <Title2>6. Evolución del proyecto</Title2>
+          <div class="mt-6 space-y-10">
+            <Paragraph>
+              El modelo ha cambiado en nueve specs: nuevas fuentes de datos, nuevas variables, una nueva
+              evaluación de familias de modelos y la integración en el servicio. Así ha llegado hasta aquí.
+            </Paragraph>
+
+            <SpecTimeline />
+
+            <div>
+              <h3 class="text-2xl font-bold leading-tight mb-2 text-gray-900 dark:text-white">Antes y ahora</h3>
+              <p class="text-gray-700 dark:text-gray-300 mb-6">
+                Cada cifra indica con cuántas variables y en qué periodo se midió.
+              </p>
+              <MetricsComparison />
+            </div>
+
+            <LivePredictionStatus />
           </div>
         </section>
       </div>

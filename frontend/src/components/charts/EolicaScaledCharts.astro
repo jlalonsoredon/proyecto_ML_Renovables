@@ -1,4 +1,5 @@
 ---
+import series from "../../data/reference-series.json";
 // ─────────────────────────────────────────────────────────────────────────────
 // Datos reales exportados del notebook api.ipynb (Standard Scaling μ=0, σ=1)
 // Muestra de 120 puntos para scatter; medias semanales para series temporales
@@ -48,6 +49,9 @@ function corrBg(v: number): string {
 <div class="space-y-6 mt-4">
   <p class="text-sm text-gray-500 dark:text-gray-400 italic">
     Variables normalizadas con Standard Scaling (μ=0, σ=1). Valores positivos indican por encima de la media, negativos por debajo.
+  </p>
+  <p class="text-xs text-gray-500 dark:text-gray-400">
+    Periodo: {series.exploracion.periodo}. {series.exploracion.fuente}
   </p>
 
   <!-- Scatter + Heatmap -->

@@ -11,7 +11,7 @@ export const getInvolvedSection = {
     {
       title: "Precisión del Modelo",
       description:
-        "Nuestro modelo Linear Regression alcanza un R² de 0.579, explicando el 57.9% de la varianza en la producción eólica.",
+        "Linear Regression con 19 variables alcanza un R² de 0,9308 en un test de 354 días (nov. 2025 – nov. 2026): explica el 93 % de la variación de la producción eólica.",
       visual: svg2,
     },
     {
@@ -23,7 +23,7 @@ export const getInvolvedSection = {
     {
       title: "Predicción en Tiempo Real",
       description:
-        "El sistema genera predicciones diarias actualizadas automáticamente cada noche basándose en el forecast de AEMET.",
+        "Cada día a las 03:00 se genera la predicción de mañana con la previsión meteorológica de AEMET y la previsión eólica de REE.",
       visual: svg3,
     },
   ],

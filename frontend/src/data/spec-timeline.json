@@ -1,0 +1,135 @@
+{
+  "fuente": "Resumen de las specs 001 a 009 del proyecto. Cada cifra procede de la medición registrada en su propia spec.",
+  "hitos": [
+    {
+      "numero": "001",
+      "titulo": "Incorporar la fotovoltaica al pipeline",
+      "categorias": ["datos"],
+      "resumen": "Se encontraron estaciones meteorológicas con horas de sol junto a las grandes plantas solares y se descargó su histórico.",
+      "partida": "La energía solar se había descartado porque las estaciones de AEMET más próximas a las grandes plantas fotovoltaicas no medían la insolación.",
+      "cambio": "Se localizó para cada planta una estación alternativa que sí la mide, se descargó su histórico y se añadió un control que comprueba si hay datos suficientes. La idea inicial era entrenar un modelo solar independiente.",
+      "resultado": "La spec 002 la sustituyó: un modelo solar aparte no ayudaba a predecir el viento. Los datos descargados sí se reutilizaron. No hubo cambio medible en el modelo eólico.",
+      "detalle": "Cinco pares planta–estación (3469A, 4452, 7228, 5783 y 9434), con cobertura de insolación entre el 94,2 % y el 100 % de los días entre el 1 de enero de 2022 y el 23 de junio de 2026. La tabla de observaciones AEMET pasó de 22.426 a 29.013 filas. El modelo solar no llegó a evaluarse.",
+      "cifras": []
+    },
+    {
+      "numero": "002",
+      "titulo": "La insolación como variable del modelo eólico",
+      "categorias": ["datos", "modelo"],
+      "resumen": "El modelo eólico pasó de 16 a 18 variables al añadir las horas de sol y la temperatura del día anterior.",
+      "partida": "La relación entre sol y viento no se aprovechaba, y el notebook mezclaba dos criterios de fecha: hora peninsular y hora universal.",
+      "cambio": "Se añadieron las horas de sol y la temperatura media del día anterior como variables del modelo eólico. Además, se unificó la fecha en hora peninsular.",
+      "resultado": "Aceptada: el error bajó en 3 de los 4 años evaluados. El modelo de análisis pasó a 18 variables; el de producción siguió con 16.",
+      "detalle": "Evaluación walk-forward con Linear Regression: cada año se entrena solo con los días anteriores. RMSE con 16 → 18 variables: 2023, 41.291 → 39.524; 2024, 39.958 → 39.997; 2025, 40.095 → 39.085; 2026, 39.324 → 38.697 MWh. Variables nuevas: sol_lag1 y tmed_lag1.",
+      "cifras": [
+        {
+          "concepto": "Modelo de 18 variables",
+          "valor": "RMSE 39.273,3 MWh · MAE 29.418,7 MWh · R² 0,8055",
+          "protocolo": "Linear Regression, 18 variables, test del 11 de noviembre de 2025 al 27 de octubre de 2026 (351 días)"
+        }
+      ]
+    },
+    {
+      "numero": "003",
+      "titulo": "Archivo de previsiones meteorológicas",
+      "categorias": ["datos", "produccion"],
+      "resumen": "Se empezaron a guardar a diario las previsiones de AEMET, porque AEMET no conserva un archivo propio.",
+      "partida": "AEMET publica sus observaciones con cuatro días de retraso, así que la mayoría de las variables llegaban al modelo con datos de hace cuatro días.",
+      "cambio": "Se creó un archivo propio de previsiones para 12 ubicaciones (7 eólicas y 5 solares), con una regla que impide usar previsiones elaboradas después del momento de predecir. También se descartan los días de REE todavía incompletos.",
+      "resultado": "La infraestructura quedó lista, pero la comparación con el modelo no llegó a ejecutarse. No hubo cambio medible en el modelo.",
+      "detalle": "La primera captura guardó 84 filas de 12 ubicaciones a 7 días vista, sin errores ni duplicados en tres ejecuciones. Al dejar de usar un día de REE incompleto, la predicción del día siguiente pasó de unos 162 GWh a unos 203 GWh.",
+      "cifras": []
+    },
+    {
+      "numero": "004",
+      "titulo": "Previsión de fuentes y predicción propia",
+      "categorias": ["datos", "modelo"],
+      "resumen": "Se archivó la previsión eólica de REE desde 2022 y cada predicción propia empezó a guardarse con su origen y su error.",
+      "partida": "No existía ninguna tabla de previsiones utilizable, y no quedaba constancia de qué datos había usado cada predicción.",
+      "cambio": "Se reconstruyó el histórico de la previsión eólica de REE desde enero de 2022. Cada predicción guarda sus variables, el origen de cada una (observación, previsión, mixta o estimada) y su error cuando llega el dato real.",
+      "resultado": "Infraestructura implementada. La previsión de REE resultó mucho más precisa que el modelo de entonces, lo que motivó la spec 005. No se pudo medir la mejora de mezclar días observados y previstos.",
+      "detalle": "Archivo de previsiones de REE con 1.774 días sin huecos. Por año, el MAE de esa previsión frente al real fue de 10.735 MWh en 2022 y de 17.680 MWh en 2026.",
+      "cifras": [
+        {
+          "concepto": "Previsión eólica de REE frente al real",
+          "valor": "MAE 13.194 MWh · RMSE 19.969 MWh",
+          "protocolo": "Previsión de REE del día siguiente, 1.772 días naturales en hora peninsular, de 2022 a 2026"
+        }
+      ]
+    },
+    {
+      "numero": "005",
+      "titulo": "La previsión de REE como variable del modelo",
+      "categorias": ["modelo", "datos"],
+      "resumen": "El modelo pasó a 19 variables al incorporar la previsión de REE para el día que se predice, y su error se redujo a la mitad.",
+      "partida": "La previsión de REE era más precisa que el modelo, pero solo servía para cubrir huecos. El modelo nunca la usaba para el día que predecía.",
+      "cambio": "Se añadió como variable la previsión de REE para el día objetivo, usando solo previsiones elaboradas el día anterior o antes. Si falta, se estima con la media de los siete días anteriores y queda marcada como estimada.",
+      "resultado": "Aceptada en los 4 años evaluados. El modelo de 19 variables también mejora a la previsión de REE por sí sola, así que no se limita a copiarla.",
+      "detalle": "Evaluación walk-forward con Linear Regression, RMSE con 18 → 19 variables: 2023, 39.524 → 19.591; 2024, 39.997 → 19.176; 2025, 39.085 → 17.216; 2026, 39.195 → 23.847 MWh. Variable nueva: eolica_prev.",
+      "cifras": []
+    },
+    {
+      "numero": "006",
+      "titulo": "Exploración de las variables nuevas y elección de familia",
+      "categorias": ["modelo"],
+      "resumen": "Se volvieron a comparar ocho familias de modelos con las 19 variables, y Linear Regression se mantuvo.",
+      "partida": "La elección de Linear Regression se había hecho con las 16 variables originales, y las tres nuevas no tenían estudio exploratorio.",
+      "cambio": "Se estudió la relación de la previsión de REE con la generación real y se compararon de nuevo las familias de modelos con las 19 variables, con el mismo criterio de 3 de 4 años.",
+      "resultado": "LightGBM fue rechazado: su error en una sola partición era menor, pero solo mejoró en 1 de los 4 años. Linear Regression sigue siendo el modelo vigente.",
+      "detalle": "La correlación de Pearson entre la previsión de REE y la generación real es de 0,974 sobre 1.766 días. RMSE walk-forward de LightGBM frente a Linear Regression: 2023, 21.174 frente a 19.591; 2024, 21.102 frente a 19.176; 2025, 17.331 frente a 17.216; 2026, 20.546 frente a 23.851 MWh.",
+      "cifras": []
+    },
+    {
+      "numero": "007",
+      "titulo": "Consistencia de la familia elegida y trazabilidad",
+      "categorias": ["modelo"],
+      "resumen": "Las gráficas y los nombres del análisis dejaron de estar atados a Linear Regression, y quedaron medidas las métricas vigentes.",
+      "partida": "Algunas gráficas y nombres seguían fijados a Linear Regression aunque la familia ya se elegía automáticamente, y no estaba documentado de dónde salía cada variable.",
+      "cambio": "Las gráficas pasan a usar el modelo que se haya elegido, los nombres se vuelven neutros y se documenta el origen de las 19 variables. No cambian el modelo, los datos ni las variables.",
+      "resultado": "Cerrada. Estas son las métricas del modelo vigente que muestra esta web.",
+      "detalle": "Linear Regression gana en 3 de 4 años y LightGBM solo en 2026. Producción seguía entonces con el modelo de 16 variables.",
+      "cifras": [
+        {
+          "concepto": "Modelo vigente",
+          "valor": "RMSE 23.108,4 MWh · MAE 15.588,2 MWh · R² 0,9308",
+          "protocolo": "Linear Regression, 19 variables, test del 22 de noviembre de 2025 al 10 de noviembre de 2026 (354 días)"
+        }
+      ]
+    },
+    {
+      "numero": "008",
+      "titulo": "Integración del pipeline en el backend",
+      "categorias": ["produccion"],
+      "resumen": "El servicio de predicción pasó a usar el modelo de 19 variables y dejó de rellenar los datos que le faltan.",
+      "partida": "El servicio publicado seguía con el modelo de 16 variables, otro proceso de cálculo y valores de relleno que ocultaban fallos.",
+      "cambio": "Se instaló una copia exacta del modelo de 19 variables con su base de datos. Las capturas pasaron a las 03:00, con reintento a las 09:00, y cada predicción guarda su origen. Si falta un dato, el servicio responde con un error en vez de inventar una cifra.",
+      "resultado": "Implementada y verificada en local. La publicación en el servidor está pendiente de autorización. No produce métricas nuevas: el modelo es el mismo de la spec 007.",
+      "detalle": "Las pruebas del backend pasan (33 de 33). Mientras no se publique, el servicio en línea puede seguir devolviendo la versión de 16 variables; el bloque de estado actual de esta página indica qué versión responde.",
+      "cifras": []
+    },
+    {
+      "numero": "009",
+      "titulo": "Actualización del frontend",
+      "categorias": ["interfaz"],
+      "resumen": "Esta sección. La web muestra el recorrido de las specs y las métricas vigentes, cada una con su forma de medirla.",
+      "partida": "La web conservaba las cifras del modelo de 16 variables y mostraba tres valores distintos para el mismo modelo.",
+      "cambio": "Las cifras de la web salen de una única fuente. Cada métrica indica cómo se midió, las gráficas indican su periodo y desaparecen la predicción de ejemplo y los datos generados al azar.",
+      "resultado": "Ninguna cifra fija de la web contradice al modelo vigente. Las métricas medidas de forma distinta se muestran juntas, sin calcular una mejora entre ellas.",
+      "detalle": "Lo que la web mostraba antes quedó guardado en un registro de línea base, que no se modifica. La línea base de la comparación es la tabla antigua: RMSE 60.433 MWh y R² 0,579, con 16 variables y una ventana no documentada.",
+      "cifras": []
+    }
+  ],
+  "glosario": [
+    { "termino": "Variable", "definicion": "Cada dato de entrada que usa el modelo para predecir, como la velocidad del viento prevista o la generación del día anterior." },
+    { "termino": "RMSE", "definicion": "Raíz del error cuadrático medio. Es el error típico de la predicción en MWh y castiga más los fallos grandes. Cuanto más bajo, mejor." },
+    { "termino": "MAE", "definicion": "Error absoluto medio. Es la diferencia media, en MWh, entre lo predicho y lo real. Cuanto más bajo, mejor." },
+    { "termino": "MAPE", "definicion": "Error porcentual absoluto medio: el error medio expresado como porcentaje del valor real." },
+    { "termino": "R²", "definicion": "Coeficiente de determinación: indica qué parte de la variación de la producción explica el modelo. Va de menos infinito a 1, y 1 es la predicción perfecta." },
+    { "termino": "Retardo", "definicion": "El valor de una variable unos días antes. Por ejemplo, la generación eólica de ayer o de hace una semana." },
+    { "termino": "Media móvil", "definicion": "El promedio de los últimos días de una variable, por ejemplo el viento medio de los últimos 7 días. Suaviza los cambios bruscos." },
+    { "termino": "Walk-forward", "definicion": "Una forma de evaluar en la que cada año se predice entrenando solo con los datos anteriores, igual que ocurriría en la realidad." },
+    { "termino": "Acierto por tramos", "definicion": "Porcentaje de días en que la predicción cae en el mismo quinto de producción (de muy baja a muy alta) que el valor real." },
+    { "termino": "Previsión de REE", "definicion": "La estimación de Red Eléctrica de España de la generación eólica del día siguiente." },
+    { "termino": "Día completo", "definicion": "Un día cuya generación eólica alcanza al menos el 60 % de la mediana de los siete días anteriores. Un día por debajo se considera incompleto y no se muestra." }
+  ]
+}

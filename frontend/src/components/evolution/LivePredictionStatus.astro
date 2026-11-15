@@ -1,0 +1,62 @@
+---
+// Bloque de estado actual: el único contenido de la sección que consulta el servicio.
+const baseStatusClass = "text-sm font-medium";
+---
+
+<section
+  class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-700"
+  aria-labelledby="estado-actual-titulo"
+  data-live-prediction
+  data-state="loading"
+  aria-busy="true"
+>
+  <h3 id="estado-actual-titulo" class="text-xl font-bold text-gray-900 dark:text-white mb-1">
+    Estado actual: predicción de mañana
+  </h3>
+  <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+    Dato en vivo del servicio de predicción. Se consulta una vez al abrir la página.
+  </p>
+
+  <p data-field="estado" data-base-class={baseStatusClass} class={baseStatusClass} role="status" aria-live="polite">
+    Cargando la predicción…
+  </p>
+
+  <dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+    <div>
+      <dt class="text-gray-500 dark:text-gray-400">Producción prevista</dt>
+      <dd class="text-2xl font-bold text-gray-900 dark:text-white">
+        <span data-field="valor">—</span> <span class="text-base font-normal">MWh</span>
+      </dd>
+    </div>
+    <div>
+      <dt class="text-gray-500 dark:text-gray-400">Fecha objetivo</dt>
+      <dd class="font-semibold text-gray-900 dark:text-white" data-field="fecha">—</dd>
+    </div>
+    <div>
+      <dt class="text-gray-500 dark:text-gray-400">Fecha de emisión</dt>
+      <dd class="font-semibold text-gray-900 dark:text-white" data-field="emision">—</dd>
+    </div>
+    <div>
+      <dt class="text-gray-500 dark:text-gray-400">Familia del modelo</dt>
+      <dd class="font-semibold text-gray-900 dark:text-white" data-field="familia">—</dd>
+    </div>
+    <div>
+      <dt class="text-gray-500 dark:text-gray-400">Número de variables</dt>
+      <dd class="font-semibold text-gray-900 dark:text-white" data-field="variables">—</dd>
+    </div>
+  </dl>
+
+  <p class="mt-4 text-sm text-gray-600 dark:text-gray-400" data-field="version"></p>
+
+  <noscript>
+    <p class="mt-4 text-sm text-amber-700 dark:text-amber-300">
+      El dato en vivo no está disponible porque el navegador no ejecuta JavaScript.
+      El recorrido y la comparación de métricas de esta página no dependen de él.
+    </p>
+  </noscript>
+</section>
+
+<script>
+  import { initLivePrediction } from "../../utils/live-prediction.mjs";
+  initLivePrediction();
+</script>

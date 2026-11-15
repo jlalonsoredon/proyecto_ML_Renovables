@@ -1,327 +1,192 @@
 ---
-const API_BASE_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
+// Real de los últimos 30 días completos + predicciones del servicio (CA-5.3).
 ---
 
-<div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md">
-  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-    <h3 class="text-base font-semibold text-gray-800 dark:text-white">
-      Linear Regression — Último mes + pronóstico mañana
-    </h3>
-    <span id="pc-subtitle" class="text-xs text-gray-500 dark:text-gray-400 italic"></span>
+<figure class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md">
+  <figcaption class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <span class="text-base font-semibold text-gray-800 dark:text-white">
+      Últimos 30 días completos y predicción de mañana
+    </span>
+    <span id="pc-subtitle" class="text-xs text-gray-500 dark:text-gray-400"></span>
+  </figcaption>
+  <div id="pc-loading" class="text-center py-10 text-gray-500 dark:text-gray-400 text-sm" role="status">
+    Cargando datos… El servicio puede tardar hasta un minuto en arrancar.
   </div>
-  <div id="pc-loading" class="text-center py-10 text-gray-400 text-sm">Cargando datos…</div>
-  <div id="pc-error"   class="hidden text-center py-10 text-red-500 text-sm"></div>
-  <div id="pc-wrap"    class="hidden" style="position:relative;height:340px;">
-    <canvas id="predictionChart" style="width:100%;height:340px;"></canvas>
+  <div id="pc-error" class="hidden text-center py-10 text-red-700 dark:text-red-300 text-sm" role="alert"></div>
+  <div id="pc-wrap" class="hidden" style="position:relative;height:340px;">
+    <canvas id="predictionChart" role="img" aria-label="Gráfica de la generación eólica real de los últimos 30 días completos, las predicciones del modelo y la predicción de mañana" style="width:100%;height:340px;"></canvas>
   </div>
-</div>
+  <p id="pc-note" class="mt-2 text-xs text-gray-500 dark:text-gray-400"></p>
+  <noscript>
+    <p class="text-sm text-amber-700 dark:text-amber-300">Esta gráfica necesita JavaScript para cargar los datos del servicio.</p>
+  </noscript>
+</figure>
 
-<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script is:inline define:vars={{ API_BASE_URL }}>
-(function () {
-  var API_URL = API_BASE_URL;
+<script>
+  import { Chart, registerables } from "chart.js";
+  import { STATUS, selectCompleteWindow, predictionStatus, formatDateEs, formatNumber } from "../../utils/evolution.mjs";
+  import { fetchJson, todayInMadrid } from "../../utils/live-prediction.mjs";
 
-  function fmtDate(iso) {
-    var d = new Date(iso + "T12:00:00");
-    return d.getDate() + "\n" + d.toLocaleString("es-ES", { month: "short" });
+  Chart.register(...registerables);
+
+  type Day = { fecha: string; eolica: number | null };
+  type ChartData = {
+    fechas_hist?: string[];
+    real_gwh?: (number | null)[];
+    pred_gwh?: (number | null)[];
+    vel_ms?: (number | null)[];
+    racha_ms?: (number | null)[];
+    manana?: { fecha?: string; pred_gwh?: number | null; velmedia?: number | null; racha?: number | null; modelo?: string };
+  };
+
+  const WINDOW_DAYS = 30;
+  const loading = document.getElementById("pc-loading")!;
+  const errorBox = document.getElementById("pc-error")!;
+  const wrap = document.getElementById("pc-wrap")!;
+  const subtitle = document.getElementById("pc-subtitle")!;
+  const note = document.getElementById("pc-note")!;
+
+  const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const shortDate = (iso: string) => {
+    const [, m, d] = iso.split("-");
+    return `${Number(d)}/${Number(m)}`;
+  };
+
+  function showError(message: string) {
+    loading.classList.add("hidden");
+    errorBox.textContent = message;
+    errorBox.classList.remove("hidden");
   }
 
-  function buildChart(data) {
-    var n = data.fechas_hist.length;
+  /** Mapa fecha → valor a partir de dos listas paralelas. */
+  function byDate(dates: string[] = [], values: (number | null)[] = []) {
+    const map = new Map<string, number | null>();
+    dates.forEach((d, i) => map.set(d, values[i] ?? null));
+    return map;
+  }
 
-    // Etiquetas: historial + mañana
-    var labels = data.fechas_hist.map(fmtDate);
-    labels.push("🔮\n" + fmtDate(data.manana.fecha));
+  async function init() {
+    const [histResult, chartResult] = await Promise.allSettled([
+      fetchJson(`/api/historical?days=45`),
+      fetchJson("/api/prediction-chart"),
+    ]);
+    const chart: ChartData | null = chartResult.status === "fulfilled" ? chartResult.value : null;
 
-    // Real (histórico, GWh)
-    var dsReal = data.real_gwh.concat([null]);
+    // Serie real: el histórico pide 45 días para poder retroceder hasta 30 completos.
+    let series: Day[] = [];
+    if (histResult.status === "fulfilled" && Array.isArray(histResult.value)) {
+      series = histResult.value.map((d: { fecha: string; eolica: number | null }) => ({ fecha: d.fecha, eolica: d.eolica }));
+    } else if (chart?.fechas_hist && chart.real_gwh) {
+      series = chart.fechas_hist.map((fecha, i) => {
+        const v = chart.real_gwh![i];
+        return { fecha, eolica: isNum(v) ? v * 1000 : null };
+      });
+    }
+    const { days, discarded } = selectCompleteWindow(series, WINDOW_DAYS);
+    if (days.length === 0) {
+      showError("No se han podido cargar datos de generación del servicio.");
+      return;
+    }
 
-    // Predicción LR histórica → puede tener nulls; conectamos con mañana
-    var dsPredHist = data.pred_gwh.map(function(v) { return v; });
-    // Añadimos el punto de mañana al final de la línea de predicción
-    dsPredHist.push(data.manana.pred_gwh);
+    const preds = byDate(chart?.fechas_hist, chart?.pred_gwh);
+    const vel = byDate(chart?.fechas_hist, chart?.vel_ms);
+    const racha = byDate(chart?.fechas_hist, chart?.racha_ms);
 
-    // Punto especial mañana (solo el último índice)
-    var dsManana = new Array(n).fill(null);
-    dsManana.push(data.manana.pred_gwh);
+    const labels = days.map((d) => shortDate(d.fecha));
+    const real = days.map((d) => (isNum(d.eolica) ? Math.round(d.eolica / 100) / 10 : null));
+    const predHist = days.map((d) => preds.get(d.fecha) ?? null);
+    const velData = days.map((d) => vel.get(d.fecha) ?? null);
+    const rachaData = days.map((d) => racha.get(d.fecha) ?? null);
 
-    // Viento en m/s (eje derecho) — usar valores reales si disponibles, si no z-score
-    var velRaw   = (data.vel_ms   && data.vel_ms.some(function(v)   { return v !== null; })) ? data.vel_ms   : data.vel_norm;
-    var rachaRaw = (data.racha_ms && data.racha_ms.some(function(v) { return v !== null; })) ? data.racha_ms : data.racha_norm;
-    var usaMs    = velRaw === data.vel_ms;
-    var windUnit = usaMs ? " m/s" : " σ";
-    var windAxisLabel = usaMs ? "Viento (m/s)" : "Viento (z-score)";
+    // Predicción de mañana: se muestra con su estado, nunca se rellena (D-9-18).
+    const manana = chart?.manana;
+    const status = predictionStatus(
+      manana && isNum(manana.pred_gwh) ? { fecha: manana.fecha, prediccionMWh: manana.pred_gwh * 1000 } : null,
+      todayInMadrid(),
+    );
+    const hasTomorrow = status.state !== "no_disponible";
+    const tomorrowGWh = hasTomorrow ? Math.round((status.valueMWh as number) / 100) / 10 : null;
+    if (hasTomorrow) {
+      labels.push(`${shortDate(status.target as string)}${status.state === "caducado" ? " (caducado)" : " (mañana)"}`);
+      real.push(null);
+      predHist.push(tomorrowGWh);
+      velData.push(isNum(manana?.velmedia) ? manana!.velmedia : null);
+      rachaData.push(isNum(manana?.racha) ? manana!.racha : null);
+    }
+    const tomorrowPoint = labels.map((_, i) => (hasTomorrow && i === labels.length - 1 ? tomorrowGWh : null));
 
-    var dsVel   = velRaw.concat([usaMs ? data.manana.velmedia : data.manana.vel_norm]);
-    var dsRacha = rachaRaw.concat([usaMs ? data.manana.racha  : data.manana.racha_norm]);
+    subtitle.textContent = `Del ${formatDateEs(days[0].fecha)} al ${formatDateEs(days.at(-1)!.fecha)}`;
+    const notes = [];
+    if (days.length < WINDOW_DAYS) notes.push(`Solo hay ${days.length} días completos disponibles.`);
+    if (discarded > 0) notes.push(`Se ${discarded === 1 ? "omite 1 día incompleto" : `omiten ${discarded} días incompletos`} al final de la serie.`);
+    if (!chart) notes.push("Las predicciones no están disponibles: el servicio no ha respondido.");
+    else if (!hasTomorrow) notes.push(`Predicción de mañana: ${STATUS.UNAVAILABLE}.`);
+    else notes.push(`Predicción ${status.state === "caducado" ? STATUS.STALE + " " : ""}para el ${formatDateEs(status.target)}: ${formatNumber(tomorrowGWh as number, 1)} GWh.`);
+    note.textContent = notes.join(" ");
 
-    // Color de las barras de viento: más oscuro para "mañana"
-    var velColors   = data.vel_norm.map(function()  { return "rgba(128,203,196,0.55)"; });
-    velColors.push("rgba(38,166,154,0.85)");
-    var rachaColors = data.racha_norm.map(function() { return "rgba(255,179,0,0.50)"; });
-    rachaColors.push("rgba(255,143,0,0.85)");
+    loading.classList.add("hidden");
+    wrap.classList.remove("hidden");
 
-    var ctx = document.getElementById("predictionChart");
-    new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          // ── Barras de viento (eje derecho) ───────────────────────────────
-          {
-            label: "velmedia (m/s)",
-            type: "bar",
-            data: dsVel,
-            backgroundColor: velColors,
-            yAxisID: "yWind",
-            order: 3,
-            barPercentage: 0.4,
-            categoryPercentage: 0.5,
-          },
-          {
-            label: "racha (m/s)",
-            type: "bar",
-            data: dsRacha,
-            backgroundColor: rachaColors,
-            yAxisID: "yWind",
-            order: 3,
-            barPercentage: 0.4,
-            categoryPercentage: 0.5,
-          },
-          // ── Línea Real (eje izquierdo) ────────────────────────────────────
-          {
-            label: "Real (GWh)",
-            type: "line",
-            data: dsReal,
-            borderColor: "#2196F3",
-            backgroundColor: "rgba(33,150,243,0.08)",
-            borderWidth: 2,
-            pointRadius: 4,
-            pointBackgroundColor: "#2196F3",
-            tension: 0.3,
-            fill: false,
-            yAxisID: "yGen",
-            order: 1,
-            spanGaps: false,
-          },
-          // ── Línea Predicción LR histórica + mañana ────────────────────────
-          {
-            label: "Predicción LR (GWh)",
-            type: "line",
-            data: dsPredHist,
-            borderColor: "#FF5722",
-            borderDash: [5, 4],
-            borderWidth: 1.8,
-            pointRadius: 3,
-            pointStyle: "rectRot",
-            tension: 0.3,
-            fill: false,
-            yAxisID: "yGen",
-            order: 1,
-            spanGaps: true,
-          },
-          // ── Diamante de mañana ────────────────────────────────────────────
-          {
-            label: "Predicción mañana",
-            type: "line",
-            data: dsManana,
-            borderColor: "#9C27B0",
-            backgroundColor: "#9C27B0",
-            pointRadius: 10,
-            pointStyle: "rectRot",
-            borderWidth: 2,
-            showLine: false,
-            yAxisID: "yGen",
-            order: 0,
-          },
-        ],
+    const hasWind = velData.some(isNum) || rachaData.some(isNum);
+    const datasets: any[] = [
+      {
+        label: "Real (GWh)", type: "line", data: real, borderColor: "#2196F3", borderWidth: 2,
+        pointRadius: 3, tension: 0.3, yAxisID: "yGen", order: 1,
       },
+      {
+        label: "Predicción del modelo (GWh)", type: "line", data: predHist, borderColor: "#FF5722",
+        borderDash: [5, 4], borderWidth: 1.8, pointRadius: 3, pointStyle: "rectRot", tension: 0.3,
+        spanGaps: true, yAxisID: "yGen", order: 1,
+      },
+      {
+        label: "Predicción de mañana", type: "line", data: tomorrowPoint, borderColor: "#9C27B0",
+        backgroundColor: "#9C27B0", pointRadius: 9, pointStyle: "rectRot", showLine: false,
+        yAxisID: "yGen", order: 0,
+      },
+    ];
+    if (hasWind) {
+      datasets.push(
+        { label: "Viento medio (m/s)", type: "bar", data: velData, backgroundColor: "rgba(128,203,196,0.55)", yAxisID: "yWind", order: 3 },
+        { label: "Racha (m/s)", type: "bar", data: rachaData, backgroundColor: "rgba(255,179,0,0.5)", yAxisID: "yWind", order: 3 },
+      );
+    }
+
+    new Chart(document.getElementById("predictionChart") as HTMLCanvasElement, {
+      type: "bar",
+      data: { labels, datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
         plugins: {
-          legend: {
-            position: "top",
-            labels: { boxWidth: 12, font: { size: 11 } },
-          },
+          legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 }, color: "#9CA3AF" } },
           tooltip: {
             callbacks: {
-              label: function(ctx) {
-                var v = ctx.parsed.y;
-                if (v === null) return null;
-                if (ctx.dataset.yAxisID === "yWind") {
-                  return ctx.dataset.label + ": " + v.toFixed(2) + windUnit;
-                }
-                return ctx.dataset.label + ": " + v.toLocaleString("es-ES") + " GWh";
+              label: (ctx: any) => {
+                const v = ctx.parsed.y;
+                if (v === null || v === undefined) return "";
+                const unit = ctx.dataset.yAxisID === "yWind" ? " m/s" : " GWh";
+                return `${ctx.dataset.label}: ${Number(v).toLocaleString("es-ES")}${unit}`;
               },
             },
           },
-          // Línea vertical separando historial de mañana
-          annotation: null,
         },
         scales: {
-          x: {
-            ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 15 },
-            grid: { display: false },
-          },
+          x: { ticks: { font: { size: 9 }, color: "#9CA3AF", maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false } },
           yGen: {
-            type: "linear",
-            position: "left",
-            title: { display: true, text: "Generación eólica (GWh)", font: { size: 10 } },
-            ticks: {
-              font: { size: 9 },
-              callback: function(v) { return v.toLocaleString("es-ES"); },
-            },
-            grid: { color: "rgba(0,0,0,0.06)" },
+            type: "linear", position: "left",
+            title: { display: true, text: "Generación eólica (GWh)", color: "#9CA3AF" },
+            ticks: { color: "#9CA3AF" },
           },
           yWind: {
-            type: "linear",
-            position: "right",
-            title: { display: true, text: windAxisLabel, font: { size: 10 }, color: "#9e9e9e" },
-            min: usaMs ? 0 : undefined,
-            ticks: { font: { size: 9 }, color: "#9e9e9e" },
-            grid: { drawOnChartArea: false },
+            type: "linear", position: "right", display: hasWind, min: 0,
+            title: { display: true, text: "Viento (m/s)", color: "#9CA3AF" },
+            ticks: { color: "#9CA3AF" }, grid: { drawOnChartArea: false },
           },
         },
       },
     });
   }
 
-  function init() {
-    if (typeof Chart === "undefined") { setTimeout(init, 50); return; }
-
-    fetch(API_URL + "/api/prediction-chart")
-      .then(function(r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
-      .then(function(data) {
-        document.getElementById("pc-loading").style.display = "none";
-        document.getElementById("pc-wrap").classList.remove("hidden");
-
-        // Subtítulo con datos de viento de mañana
-        var sub = document.getElementById("pc-subtitle");
-        if (sub && data.manana) {
-          sub.textContent =
-            "viento AEMET: velmedia=" + data.manana.velmedia +
-            " m/s  |  racha=" + data.manana.racha + " m/s";
-        }
-
-        buildChart(data);
-      })
-      .catch(function(err) {
-        document.getElementById("pc-loading").style.display = "none";
-        var el = document.getElementById("pc-error");
-        el.textContent = "No se pudieron cargar los datos (" + err.message + ")";
-        el.classList.remove("hidden");
-      });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
-</script>
-
-<script define:vars={{ API_BASE_URL }}>
-  import { Chart, registerables } from "chart.js";
-
-  Chart.register(...registerables);
-
-  async function fetchData() {
-    try {
-      const [historicalRes, predictionRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/historical?days=30`),
-        fetch(`${API_BASE_URL}/api/prediction`)
-      ]);
-
-      const historical = await historicalRes.json();
-      const prediction = await predictionRes.json();
-
-      document.getElementById("loading-prediction").style.display = "none";
-
-      return {
-        labels: historical.map(d => d.fecha),
-        real: historical.map(d => d.eolica),
-        predictionDate: prediction.fecha,
-        predictionValue: prediction.prediccionMWh,
-      };
-    } catch (error) {
-      console.error("Error fetching prediction data:", error);
-      document.getElementById("loading-prediction").textContent = "Error al cargar datos";
-      return null;
-    }
-  }
-
-  fetchData().then(chartData => {
-    if (!chartData) return;
-
-    const ctx = document.getElementById("predictionChart");
-    if (!ctx) return;
-
-    const allLabels = [...chartData.labels, chartData.predictionDate];
-    const realValues = [...chartData.real];
-
-    const predictedValues = new Array(chartData.real.length - 1).fill(null);
-    predictedValues.push(chartData.real[chartData.real.length - 1]);
-    predictedValues.push(chartData.predictionValue);
-
-    new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: allLabels,
-        datasets: [
-          {
-            label: "Producción Real (MWh)",
-            data: realValues,
-            borderColor: "#2196F3",
-            backgroundColor: "rgba(33, 150, 243, 0.1)",
-            tension: 0.4,
-            fill: false,
-            pointRadius: 3,
-          },
-          {
-            label: "Predicción (MWh)",
-            data: predictedValues,
-            borderColor: "#FF5722",
-            backgroundColor: "rgba(255, 87, 34, 0.1)",
-            borderDash: [5, 5],
-            tension: 0.4,
-            fill: false,
-            pointRadius: 6,
-            pointBackgroundColor: "#FF5722",
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-          legend: {
-            position: "top",
-          },
-          tooltip: {
-            callbacks: {
-              label: (context) => {
-                const value = context.raw;
-                return value ? `${context.dataset.label}: ${Math.round(value).toLocaleString()} MWh` : "";
-              },
-            },
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: false,
-            title: {
-              display: true,
-              text: "MWh",
-            },
-          },
-        },
-      },
-    });
-  });
+  init().catch(() => showError("No se han podido cargar los datos del servicio."));
 </script>

@@ -1,0 +1,105 @@
+---
+import timeline from "../../data/spec-timeline.json";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  datos: "Datos",
+  modelo: "Modelo",
+  produccion: "Producción",
+  interfaz: "Interfaz",
+};
+
+const CATEGORY_CLASSES: Record<string, string> = {
+  datos: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
+  modelo: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+  produccion: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200",
+  interfaz: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
+};
+---
+
+<div>
+  <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+    Pulsa cada spec para ver la situación de partida, el cambio y el detalle técnico.
+    Los términos técnicos se explican en el <a href="#glosario" class="underline text-primary">glosario</a>.
+  </p>
+
+  <ol class="border-l-2 border-primary/40 ml-3 space-y-6">
+    {timeline.hitos.map((hito) => (
+      <li class="relative ml-6">
+        <span
+          class="absolute -left-[35px] top-5 h-5 w-5 rounded-full border-4 border-white dark:border-gray-900 bg-primary"
+          aria-hidden="true"
+        ></span>
+        <details
+          open
+          data-collapsible
+          class="group bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700"
+        >
+          <summary class="cursor-pointer list-none p-5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <span class="font-mono text-sm font-bold text-primary">Spec {hito.numero}</span>
+              {hito.categorias.map((c) => (
+                <span class={`px-2 py-0.5 rounded-full text-xs font-semibold ${CATEGORY_CLASSES[c]}`}>
+                  {CATEGORY_LABELS[c]}
+                </span>
+              ))}
+              <span class="ml-auto text-xs text-gray-500 dark:text-gray-400">
+                <span class="group-open:hidden">Ver detalle</span>
+                <span class="hidden group-open:inline">Ocultar detalle</span>
+              </span>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">{hito.titulo}</h3>
+            <p class="mt-1 text-gray-700 dark:text-gray-300">{hito.resumen}</p>
+          </summary>
+
+          <div class="px-5 pb-5 space-y-3 text-sm text-gray-700 dark:text-gray-300 border-t border-gray-100 dark:border-gray-700 pt-4">
+            <p><strong class="text-gray-900 dark:text-white">Situación de partida.</strong> {hito.partida}</p>
+            <p><strong class="text-gray-900 dark:text-white">Cambio.</strong> {hito.cambio}</p>
+            <p><strong class="text-gray-900 dark:text-white">Resultado.</strong> {hito.resultado}</p>
+            {hito.cifras.length > 0 && (
+              <dl class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-2">
+                {hito.cifras.map((cifra) => (
+                  <div>
+                    <dt class="font-semibold text-gray-900 dark:text-white">{cifra.concepto}</dt>
+                    <dd>{cifra.valor}</dd>
+                    <dd class="text-xs text-gray-500 dark:text-gray-400">Cómo se midió: {cifra.protocolo}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            <p class="text-xs text-gray-600 dark:text-gray-400">
+              <strong>Detalle técnico.</strong> {hito.detalle}
+            </p>
+          </div>
+        </details>
+      </li>
+    ))}
+  </ol>
+
+  <section id="glosario" class="mt-10 bg-gray-100 dark:bg-gray-800 rounded-xl p-6" aria-labelledby="glosario-titulo">
+    <h3 id="glosario-titulo" class="text-lg font-bold text-gray-900 dark:text-white mb-4">Glosario</h3>
+    <dl class="grid gap-4 md:grid-cols-2 text-sm">
+      {timeline.glosario.map((entrada) => (
+        <div>
+          <dt class="font-semibold text-gray-900 dark:text-white">{entrada.termino}</dt>
+          <dd class="text-gray-700 dark:text-gray-300">{entrada.definicion}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+</div>
+
+<script>
+  // Los hitos se generan abiertos para que se lean sin JavaScript (CA-1.8);
+  // aquí se pliegan y, al imprimir, se abren todos (RNF-11).
+  const hitos = [...document.querySelectorAll<HTMLDetailsElement>("details[data-collapsible]")];
+  hitos.forEach((d) => (d.open = false));
+
+  let previous: boolean[] = [];
+  window.addEventListener("beforeprint", () => {
+    previous = hitos.map((d) => d.open);
+    hitos.forEach((d) => (d.open = true));
+  });
+  window.addEventListener("afterprint", () => {
+    hitos.forEach((d, i) => (d.open = previous[i] ?? false));
+  });
+</script>
