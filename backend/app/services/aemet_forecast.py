@@ -13,6 +13,7 @@ import logging
 import os
 import time
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -36,6 +37,7 @@ ESPERA_TRAS_LIMITE = 60         # CA-1.5 / RNF-7: un 429 se reintenta, no se pie
 ESPERA_TRAS_ERROR = 3
 INTENTOS = 2
 TIEMPO_ESPERA = 20
+MADRID = ZoneInfo("Europe/Madrid")
 
 
 # ─────────────────────────────────────────────
@@ -127,7 +129,8 @@ def capture_forecast(hoy: date | None = None, descargador=None, conn=None,
     `descargador` permite sustituir la red en las pruebas; recibe la ubicación y
     devuelve `{"diaria", "horaria", "errores"}`.
     """
-    hoy = hoy or date.today()
+    ahora = datetime.now(MADRID)
+    hoy = hoy or ahora.date()
     clave = clave if clave is not None else os.environ.get("AEMET_API_KEY", "")
     descargador = descargador or (lambda ubicacion: descargar_partes(ubicacion, clave))
     if not clave:
@@ -136,7 +139,7 @@ def capture_forecast(hoy: date | None = None, descargador=None, conn=None,
         )
 
     forecast_db.ensure_schema(conn)
-    capturado_en = datetime.now()
+    capturado_en = ahora
 
     # Solo se archivan los días del horizonte que el mapa va a consultar. El
     # filtro usa la ventana completa, no la de pendientes: una elaboración nueva

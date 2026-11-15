@@ -1,10 +1,13 @@
 from fastapi import APIRouter
 from typing import List
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 import logging
 import json
+import math
 import os
+from zoneinfo import ZoneInfo
 import numpy as np
+from fastapi import HTTPException
 
 from ..services import db_ree
 from ..services.model_loader import model_service
@@ -25,7 +28,10 @@ _WIND_PARKS = [
     {"nombre": "La Muela (Zaragoza)",         "indicativo": "9299X", "estacion": "TARAZONA",            "lat": 41.592444983039200, "lng": -1.157502073233564},
 ]
 
-METRICS_PATH = os.environ.get("METRICS_PATH", "modelos/metrics.json")
+METRICS_PATH = os.environ.get(
+    "METRICS_PATH", "modelos/familia_como_modelo.json"
+)
+MADRID = ZoneInfo("Europe/Madrid")
 
 
 @router.get("/historical")
@@ -57,17 +63,7 @@ def get_energy_mix():
 
 @router.get("/model-comparison")
 def get_model_comparison():
-    # Intentar leer métricas guardadas junto al modelo (modelos/metrics.json)
-    try:
-        with open(METRICS_PATH, encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        pass
-    except Exception as e:
-        logger.warning(f"Error leyendo {METRICS_PATH}: {e}")
-
-    # Valores reales del entrenamiento en api.ipynb (df_resultados)
-    return [
+    historicos = [
         {"modelo": "Linear Regression",  "rmse": 60432.9, "r2": 0.579,  "mape": 41.73, "accuracy": 42.6},
         {"modelo": "Lasso",              "rmse": 60433.1, "r2": 0.579,  "mape": 41.73, "accuracy": 42.6},
         {"modelo": "Random Forest",      "rmse": 60437.6, "r2": 0.5789, "mape": 44.30, "accuracy": 36.3},
@@ -76,42 +72,82 @@ def get_model_comparison():
         {"modelo": "XGBoost",            "rmse": 63346.3, "r2": 0.5374, "mape": 45.87, "accuracy": 36.6},
         {"modelo": "Red Neuronal (MLP)", "rmse": 63909.6, "r2": 0.5291, "mape": 43.22, "accuracy": 37.5},
     ]
+    historicos = [
+        {**fila, "n_variables": 16, "historico": True}
+        for fila in historicos
+    ]
+    try:
+        with open(METRICS_PATH, encoding="utf-8") as f:
+            acta = json.load(f)
+        metricas = acta["metricas_globales"]
+        folds = acta["folds"]
+        modelo = acta["modelo"]
+        if modelo.get("features_produccion") != model_service.features:
+            raise ValueError("las métricas no corresponden al artefacto cargado")
+
+        filas_actuales = []
+        for tipo, nombre, rol, decision in (
+            ("base", "Linear Regression (19 variables)", "produccion", "vigente"),
+            ("variante", "LightGBM (19 variables)", "candidata_rechazada", "rechazado"),
+        ):
+            globales = metricas[tipo]
+            filas_actuales.append({
+                "modelo": nombre,
+                "rmse": globales["rmse"],
+                "mae": globales["mae"],
+                "r2": globales["r2"],
+                "mape": None,
+                "accuracy": None,
+                "n": globales["n"],
+                "n_variables": 19,
+                "historico": False,
+                "rol": rol,
+                "decision": decision,
+                "motivo": acta.get("criterio", {}).get("motivo", ""),
+                "folds": [
+                    {
+                        "año": fold["año"],
+                        "rmse": fold[tipo]["rmse"],
+                        "mae": fold[tipo]["mae"],
+                        "r2": fold[tipo]["r2"],
+                    }
+                    for fold in folds
+                    if not fold.get("omitido") and fold.get(tipo)
+                ],
+            })
+        return historicos + filas_actuales
+    except Exception as error:
+        logger.error("No se pudo leer el acta del modelo: %s", error)
+        raise HTTPException(
+            status_code=503,
+            detail="El informe de comparación del modelo no está disponible",
+        ) from error
 
 
 @router.get("/feature-importance")
 def get_feature_importance():
-    # Calcular desde los coeficientes del modelo LinearRegression cargado
-    if model_service.model is not None and model_service.features:
-        try:
-            coefs = np.abs(model_service.model.coef_)
-            total = float(coefs.sum()) or 1.0
-            return [
-                {"feature": feat, "importance": round(float(c / total), 4)}
-                for feat, c in sorted(
-                    zip(model_service.features, coefs),
-                    key=lambda x: x[1],
-                    reverse=True,
-                )
-            ]
-        except Exception as e:
-            logger.warning(f"Error calculando feature importance desde el modelo: {e}")
-
-    # Fallback: importancias aproximadas basadas en el análisis del notebook
-    return [
-        {"feature": "eolica_lag1",  "importance": 0.18},
-        {"feature": "eolica_ma7",   "importance": 0.14},
-        {"feature": "eolica_lag7",  "importance": 0.12},
-        {"feature": "eolica_lag2",  "importance": 0.11},
-        {"feature": "eolica_lag3",  "importance": 0.10},
-        {"feature": "vel_ma14",     "importance": 0.08},
-        {"feature": "racha_ma14",   "importance": 0.07},
-        {"feature": "vel_ma7",      "importance": 0.06},
-        {"feature": "racha_ma7",    "importance": 0.05},
-        {"feature": "velmedia",     "importance": 0.04},
-        {"feature": "racha",        "importance": 0.03},
-        {"feature": "mes",          "importance": 0.01},
-        {"feature": "dia_semana",   "importance": 0.01},
-    ]
+    if not model_service.ready or not model_service.features:
+        raise HTTPException(status_code=503, detail="Modelo de producción no disponible")
+    try:
+        coefs = np.abs(np.asarray(model_service.model.coef_, dtype=float)).reshape(-1)
+        if len(coefs) != len(model_service.features):
+            raise ValueError("coeficientes no alineados con las features")
+        total = float(coefs.sum())
+        if not np.isfinite(total) or total <= 0:
+            raise ValueError("el modelo no tiene coeficientes utilizables")
+        return [
+            {"feature": feat, "importance": round(float(value / total), 4)}
+            for feat, value in sorted(
+                zip(model_service.features, coefs),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+        ]
+    except Exception as error:
+        logger.error("No se pudo calcular la importancia del modelo: %s", error)
+        raise HTTPException(
+            status_code=503, detail="La importancia del modelo no está disponible"
+        ) from error
 
 
 @router.get("/wind-parks")
@@ -155,227 +191,267 @@ def get_mock_energy_mix():
     }
 
 
-def _get_historico_eolica(days: int) -> List[dict]:
+def _get_historico_eolica(days: int, hoy=None) -> List[dict]:
     """
     Devuelve [{"fecha": "YYYY-MM-DD", "eolica": float}, ...] de los últimos `days`
     días disponibles en la tabla `generacion`.
 
-    NO usa db_ree.get_historical_data() porque esa función mezcla fechas de la
-    tabla `generacion` (formato largo ISO "YYYY-MM-DDTHH:MM:SSZ") con fechas de
-    `aemet_diario` (formato corto "YYYY-MM-DD"), y un parseo con formato fijo
-    revienta en cuanto se topa con el formato corto:
-        ValueError: time data "2026-06-24" doesn't match format "%Y-%m-%dT%H:%M:%S%z"
-
-    Aquí se consulta `generacion` directamente y se normaliza la fecha con
-    SUBSTR(datetime, 1, 10) en SQL, evitando cualquier strptime con formato fijo.
+    `db_ree.get_generation_series` convierte primero el timestamp UTC al día
+    natural de Europe/Madrid antes de agregar.
     """
-    with db_ree._get_conn() as conn:
-        rows = conn.execute(
-            """
-            SELECT SUBSTR(datetime, 1, 10) AS fecha, SUM(valor_MWh) AS eolica
-            FROM generacion
-            WHERE tecnologia = 'Eólica'
-            GROUP BY fecha
-            ORDER BY fecha DESC
-            LIMIT ?
-            """,
-            (days,),
-        ).fetchall()
+    if hoy is None:
+        from ..services.prediction_service import today_in_madrid
 
-    # rows viene ordenado descendente (más reciente primero); lo invertimos
-    # para devolver orden cronológico ascendente, como espera el resto del código.
+        hoy = today_in_madrid()
+    series = db_ree.get_generation_series(hoy=hoy)
+    fechas = sorted(series)[-int(days):]
     return [
-        {"fecha": r[0], "eolica": float(r[1]) if r[1] is not None else 0.0}
-        for r in reversed(rows)
+        {"fecha": fecha.isoformat(), "eolica": float(series[fecha])}
+        for fecha in fechas
     ]
 
 
-@router.get("/prediction-chart")
-def get_prediction_chart():
-    """
-    Último mes histórico + predicción de mañana, listos para renderizar el gráfico
-    dual-eje (generación eólica izquierda / viento z-score derecha).
+def _chart_date(value) -> date:
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            return value.astimezone(MADRID).date()
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value)[:10])
 
-    Respuesta:
-      fechas_hist  — fechas de los últimos 30 días disponibles
-      real_gwh     — generación eólica real (GWh)
-      pred_gwh     — predicción LR guardada para esos días (GWh, null si no disponible)
-      vel_norm     — velmedia estandarizada (z-score, null si no disponible)
-      racha_norm   — racha estandarizada (z-score, null si no disponible)
-      manana       — {fecha, pred_gwh, vel_norm, racha_norm, velmedia, racha}
-      avisos       — lista de strings con fallbacks/degradaciones aplicadas
-                      (vacía si todo viene de datos reales)
-    """
-    from datetime import timedelta
-    from ..services.aemet_client import get_aggregated_forecast
 
-    _ESTACIONES_EOLICAS = ("4589X", "8175", "3013", "9299X", "6001", "9031C", "9299")
-    DAYS = 30
-    avisos: List[str] = []
-
-    # ── 1. Datos históricos reales ────────────────────────────────────────────
-    # Consulta directa a `generacion`, sin pasar por db_ree.get_historical_data
-    # (ver docstring de _get_historico_eolica para el motivo).
+def _chart_number(value):
+    if value is None or isinstance(value, bool):
+        return None
     try:
-        hist = _get_historico_eolica(DAYS)
-    except Exception as e:
-        logger.error(f"Error obteniendo datos históricos: {e}")
-        hist = []
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
 
-    if not hist:
-        avisos.append("Sin datos históricos disponibles en la BD")
 
-    fechas   = [d["fecha"]  for d in hist]
-    real_mwh = [d["eolica"] for d in hist]
-
-    # ── 2. Predicciones LR guardadas ──────────────────────────────────────────
-    pred_mwh = [None] * len(fechas)
-    if fechas:
+def _chart_json_object(value) -> dict:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
         try:
-            ph = ",".join("?" * len(fechas))
-            with db_ree._get_conn() as conn:
-                rows = conn.execute(
-                    f"SELECT fecha, prediccion_mwh FROM predictions WHERE fecha IN ({ph})",
-                    fechas,
-                ).fetchall()
-            preds_map = {r[0]: float(r[1]) for r in rows if r[1] is not None}
-            pred_mwh  = [preds_map.get(f) for f in fechas]
-        except Exception as e:
-            logger.warning(f"No se pudieron obtener predicciones históricas: {e}")
-            avisos.append("No se pudieron leer predicciones históricas guardadas")
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return decoded if isinstance(decoded, dict) else {}
+    return {}
 
-    # ── 3. Datos de viento ────────────────────────────────────────────────────
-    vel_hist   = [None] * len(fechas)
-    racha_hist = [None] * len(fechas)
-    if fechas:
+
+def _chart_emission_time(value):
+    if not value:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    try:
+        stamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=MADRID)
+    return stamp.astimezone(timezone.utc)
+
+
+def _chart_prediction_key(row):
+    return (
+        _chart_date(row.get("fecha_emision")),
+        _chart_emission_time(row.get("emitida_en")),
+    )
+
+
+def _chart_api_prediction(row) -> dict:
+    """Copia una fila canónica sin cambiar unidades ni perder trazabilidad."""
+    return {
+        "fecha_objetivo": _chart_date(row["fecha_objetivo"]).isoformat(),
+        "fecha_emision": _chart_date(row["fecha_emision"]).isoformat(),
+        "emitida_en": row.get("emitida_en"),
+        "prediccion_mwh": _chart_number(row.get("prediccion_mwh")),
+        "modelo": row.get("modelo"),
+        "n_variables": row.get("n_variables"),
+        "vector_entrada": _chart_json_object(row.get("vector_entrada")),
+        "origenes": _chart_json_object(row.get("origenes")),
+        "real_mwh": _chart_number(row.get("real_mwh")),
+        "error_mwh": _chart_number(row.get("error_mwh")),
+    }
+
+
+def build_prediction_chart_payload(
+    historico, viento, predicciones_propias, hoy, avisos=None
+) -> dict:
+    """Forma la respuesta con observaciones y emisiones guardadas, sin predicción nueva."""
+    hoy = _chart_date(hoy)
+    normalizado = []
+    for row in historico or []:
         try:
-            ph = ",".join("?" * len(fechas))
-            with db_ree._get_conn() as conn:
-                tables = {r[0] for r in conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                ).fetchall()}
+            fecha = _chart_date(row["fecha"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        valor = _chart_number(row.get("eolica", row.get("eolica_mwh")))
+        if valor is not None:
+            normalizado.append({"fecha": fecha, "eolica": valor})
+    normalizado.sort(key=lambda row: row["fecha"])
+    normalizado = normalizado[-30:]
 
-                if "aemet_diario" in tables:
-                    est_ph = ",".join("?" * len(_ESTACIONES_EOLICAS))
-                    rows = conn.execute(
-                        f"""SELECT fecha, AVG(velmedia), AVG(racha)
-                            FROM aemet_diario
-                            WHERE indicativo IN ({est_ph}) AND fecha IN ({ph})
-                            GROUP BY fecha""",
-                        (*_ESTACIONES_EOLICAS, *fechas),
-                    ).fetchall()
-                elif "aemet_daily" in tables:
-                    # Mismo agregado que la rama anterior (AVG + GROUP BY) para
-                    # evitar que, si hay varias filas por fecha/estación, se
-                    # quede solo con la última fila en vez de la media.
-                    rows = conn.execute(
-                        f"""SELECT fecha, AVG(vel_media), AVG(rachas_max)
-                            FROM aemet_daily
-                            WHERE fecha IN ({ph})
-                            GROUP BY fecha""",
-                        fechas,
-                    ).fetchall()
-                else:
-                    rows = []
+    fechas = [row["fecha"].isoformat() for row in normalizado]
+    fechas_set = set(fechas)
+    viento = viento or {}
+    vel_hist = [
+        _chart_number((viento.get(fecha) or {}).get("velmedia"))
+        for fecha in fechas
+    ]
+    racha_hist = [
+        _chart_number((viento.get(fecha) or {}).get("racha"))
+        for fecha in fechas
+    ]
 
-            wind_map   = {r[0]: (r[1], r[2]) for r in rows}
-            vel_hist   = [wind_map.get(f, (None, None))[0] for f in fechas]
-            racha_hist = [wind_map.get(f, (None, None))[1] for f in fechas]
-        except Exception as e:
-            logger.warning(f"No se pudieron obtener datos de viento: {e}")
-            avisos.append("No se pudieron leer datos de viento históricos")
+    emisiones = []
+    for row in predicciones_propias or []:
+        try:
+            emisiones.append(_chart_api_prediction(row))
+        except (KeyError, TypeError, ValueError):
+            continue
+    emisiones.sort(
+        key=lambda row: (
+            row["fecha_objetivo"],
+            row["fecha_emision"],
+            _chart_emission_time(row["emitida_en"]),
+        )
+    )
+    emisiones_historicas = [
+        row for row in emisiones if row["fecha_objetivo"] in fechas_set
+    ]
 
-    # ── 4. Z-score normalización ──────────────────────────────────────────────
-    vel_vals   = [float(v) for v in vel_hist   if v is not None]
-    racha_vals = [float(r) for r in racha_hist if r is not None]
+    ultima_por_objetivo = {}
+    for row in emisiones:
+        target = row["fecha_objetivo"]
+        previous = ultima_por_objetivo.get(target)
+        if previous is None or _chart_prediction_key(row) > _chart_prediction_key(previous):
+            ultima_por_objetivo[target] = row
 
-    # Con menos de 2 valores no hay desviación estándar fiable: el z-score
-    # resultante sería arbitrario (división por una std "de relleno" de 1.0).
-    # En ese caso se devuelve directamente None en vez de un número engañoso.
-    suficientes_datos_vel   = len(vel_vals)   >= 2
-    suficientes_datos_racha = len(racha_vals) >= 2
+    pred_gwh = [
+        (
+            round(ultima_por_objetivo[fecha]["prediccion_mwh"] / 1000, 2)
+            if fecha in ultima_por_objetivo
+            and ultima_por_objetivo[fecha]["prediccion_mwh"] is not None
+            else None
+        )
+        for fecha in fechas
+    ]
 
-    vel_mean   = float(np.mean(vel_vals))   if vel_vals   else 0.0
-    vel_std    = max(float(np.std(vel_vals)), 0.001)      if vel_vals   else 1.0
-    racha_mean = float(np.mean(racha_vals)) if racha_vals else 0.0
-    racha_std  = max(float(np.std(racha_vals)), 0.001)    if racha_vals else 1.0
+    vel_validos = [value for value in vel_hist if value is not None]
+    racha_validas = [value for value in racha_hist if value is not None]
+    suficientes_vel = len(vel_validos) >= 2
+    suficientes_racha = len(racha_validas) >= 2
+    vel_mean = float(np.mean(vel_validos)) if vel_validos else 0.0
+    vel_std = max(float(np.std(vel_validos)), 0.001) if vel_validos else 1.0
+    racha_mean = float(np.mean(racha_validas)) if racha_validas else 0.0
+    racha_std = max(float(np.std(racha_validas)), 0.001) if racha_validas else 1.0
 
-    if vel_vals and not suficientes_datos_vel:
-        avisos.append("Muy pocos datos de viento para normalizar de forma fiable (vel_norm)")
-    if racha_vals and not suficientes_datos_racha:
-        avisos.append("Muy pocos datos de racha para normalizar de forma fiable (racha_norm)")
-
-    def znorm(v, mean, std, suficientes=True):
-        if v is None or not suficientes:
+    def znorm(value, mean, std, sufficient):
+        if value is None or not sufficient:
             return None
-        return round((float(v) - mean) / std, 3)
+        return round((float(value) - mean) / std, 3)
 
-    vel_norm   = [znorm(v, vel_mean,   vel_std,   suficientes_datos_vel)   for v in vel_hist]
-    racha_norm = [znorm(r, racha_mean, racha_std, suficientes_datos_racha) for r in racha_hist]
-
-    # ── 5. Predicción de mañana ───────────────────────────────────────────────
-    fecha_manana    = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-    pred_manana_mwh = None
-    vel_manana      = vel_mean
-    racha_manana    = racha_mean
-
-    # Intentar usar la predicción ya guardada en BD
-    try:
-        saved = db_ree.get_latest_prediction()
-        if saved and saved.get("fecha") == fecha_manana:
-            features = saved.get("features") or {}
-            if not isinstance(features, dict):
-                # Por si "features" se guardó como JSON sin deserializar
-                try:
-                    features = json.loads(features)
-                except (TypeError, json.JSONDecodeError):
-                    features = {}
-            pred_manana_mwh = float(saved["prediccionMWh"])
-            vel_manana      = float(features.get("velmedia") or vel_mean)
-            racha_manana    = float(features.get("racha")    or racha_mean)
-    except Exception as e:
-        logger.warning(f"Error leyendo predicción guardada: {e}")
-        avisos.append("Error leyendo la predicción guardada en BD")
-
-    # Si no hay predicción guardada, calcular con AEMET en tiempo real
-    if pred_manana_mwh is None:
-        try:
-            forecast = get_aggregated_forecast()
-            if forecast:
-                result          = model_service.predict(forecast["velmedia"], forecast["racha"])
-                pred_manana_mwh = float(result["prediccionMWh"])
-                vel_manana      = float(forecast["velmedia"])
-                racha_manana    = float(forecast["racha"])
-        except Exception as e:
-            logger.warning(f"Error calculando predicción AEMET: {e}")
-            avisos.append("No se pudo calcular la predicción de mañana con AEMET en tiempo real")
-
-    # Fallback final: valor de relleno explícitamente marcado como tal
-    es_fallback = False
-    if pred_manana_mwh is None:
-        es_fallback = True
-        pred_manana_mwh = float(real_mwh[-1]) if real_mwh else 150000.0
-        avisos.append(
-            "Predicción de mañana no disponible: se usó un valor de relleno "
-            "(último dato real, o 150000 MWh si no había ninguno)"
+    target_manana = (hoy + timedelta(days=1)).isoformat()
+    prediction = ultima_por_objetivo.get(target_manana)
+    vector = prediction["vector_entrada"] if prediction else {}
+    origenes = prediction["origenes"] if prediction else {}
+    vel_manana = _chart_number(vector.get("velmedia"))
+    racha_manana = _chart_number(vector.get("racha"))
+    prediction_mwh = prediction["prediccion_mwh"] if prediction else None
+    avisos_finales = list(avisos or [])
+    if not normalizado:
+        avisos_finales.append("Sin datos históricos disponibles en la BD")
+    if prediction_mwh is None:
+        avisos_finales.append(
+            "No hay una predicción propia disponible para mañana; no se ha aplicado fallback."
         )
 
     return {
         "fechas_hist": fechas,
-        "real_gwh":    [round(float(v) / 1000, 2) for v in real_mwh],
-        "pred_gwh":    [round(float(v) / 1000, 2) if v is not None else None for v in pred_mwh],
-        "vel_norm":    vel_norm,
-        "racha_norm":  racha_norm,
-        "vel_ms":      [round(float(v), 2) if v is not None else None for v in vel_hist],
-        "racha_ms":    [round(float(v), 2) if v is not None else None for v in racha_hist],
+        "real_gwh": [round(row["eolica"] / 1000, 2) for row in normalizado],
+        "pred_gwh": pred_gwh,
+        "vel_norm": [
+            znorm(value, vel_mean, vel_std, suficientes_vel)
+            for value in vel_hist
+        ],
+        "racha_norm": [
+            znorm(value, racha_mean, racha_std, suficientes_racha)
+            for value in racha_hist
+        ],
+        "vel_ms": [
+            round(value, 2) if value is not None else None
+            for value in vel_hist
+        ],
+        "racha_ms": [
+            round(value, 2) if value is not None else None
+            for value in racha_hist
+        ],
         "manana": {
-            "fecha":        fecha_manana,
-            "pred_gwh":     round(pred_manana_mwh / 1000, 2),
-            "es_fallback":  es_fallback,
-            "vel_norm":     znorm(vel_manana,   vel_mean,   vel_std,   suficientes_datos_vel),
-            "racha_norm":   znorm(racha_manana, racha_mean, racha_std, suficientes_datos_racha),
-            "velmedia":     round(vel_manana,   1),
-            "racha":        round(racha_manana, 1),
+            "fecha": target_manana,
+            "pred_gwh": (
+                round(prediction_mwh / 1000, 2)
+                if prediction_mwh is not None else None
+            ),
+            "es_fallback": False,
+            "estado": "disponible" if prediction_mwh is not None else "no_disponible",
+            "vel_norm": znorm(vel_manana, vel_mean, vel_std, suficientes_vel),
+            "racha_norm": znorm(racha_manana, racha_mean, racha_std, suficientes_racha),
+            "velmedia": round(vel_manana, 1) if vel_manana is not None else None,
+            "racha": round(racha_manana, 1) if racha_manana is not None else None,
+            "prediccion_mwh": prediction_mwh,
+            "modelo": prediction.get("modelo") if prediction else None,
+            "n_variables": prediction.get("n_variables") if prediction else None,
+            "vector_entrada": vector if prediction else None,
+            "origenes": origenes if prediction else None,
+            "fecha_emision": prediction.get("fecha_emision") if prediction else None,
+            "emitida_en": prediction.get("emitida_en") if prediction else None,
         },
-        "avisos": avisos,
+        "predicciones_propias": emisiones_historicas,
+        "avisos": list(dict.fromkeys(avisos_finales)),
     }
+
+
+@router.get("/prediction-chart")
+def get_prediction_chart():
+    """Devuelve el histórico y las emisiones persistidas; no consulta fuentes."""
+    from ..services.prediction_service import today_in_madrid
+
+    hoy = today_in_madrid()
+    manana = hoy + timedelta(days=1)
+    avisos = []
+    try:
+        historico = _get_historico_eolica(30, hoy=hoy)
+    except Exception as error:
+        logger.error("Error obteniendo datos históricos para el gráfico: %s", error)
+        historico = []
+        avisos.append("No se pudieron leer datos históricos de generación")
+
+    fechas = [row["fecha"] for row in historico]
+    try:
+        viento = db_ree.get_wind_for_dates(fechas)
+    except Exception as error:
+        logger.warning("No se pudieron leer observaciones de viento: %s", error)
+        viento = {}
+        avisos.append("No se pudieron leer datos de viento históricos")
+
+    try:
+        emisiones = db_ree.get_own_predictions(
+            desde=fechas[0] if fechas else manana,
+            hasta=manana,
+        )
+    except Exception as error:
+        logger.warning("No se pudieron leer predicciones propias: %s", error)
+        emisiones = []
+        avisos.append("No se pudieron leer predicciones propias guardadas")
+
+    return build_prediction_chart_payload(
+        historico,
+        viento,
+        emisiones,
+        hoy,
+        avisos,
+    )

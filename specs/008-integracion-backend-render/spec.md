@@ -1,6 +1,6 @@
 # Spec 008 — Integrar el pipeline de producción en el backend de Render
 
-- **Estado:** lista para revisión e implementación; no implementada ni desplegada.
+- **Estado:** implementación local verificada; release del volumen vivo de Render pendiente.
 - **Fecha:** 2026-11-14.
 - **Depende del comportamiento establecido en:** specs 004, 005, 006 y 007.
 

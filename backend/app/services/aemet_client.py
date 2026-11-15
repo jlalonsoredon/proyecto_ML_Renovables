@@ -21,6 +21,39 @@ ESTACIONES_EOLICAS = [
     "9299X",  # TARAZONA (Zaragoza)
     "9031C",  # BRIVIESCA (Burgos)
 ]
+ESTACIONES_SOLARES = ["3469A", "4452", "7228", "5783", "9434"]
+ESTACIONES_OBSERVACION = list(dict.fromkeys(ESTACIONES_EOLICAS + ESTACIONES_SOLARES))
+
+
+def _parse_aemet_float(valor):
+    """Convierte un campo diario; conserva cero y trata Ip/Acum como ausente."""
+    if valor is None:
+        return None
+    texto = str(valor).strip()
+    if not texto or texto in ("Ip", "Acum"):
+        return None
+    try:
+        numero = float(texto.replace(",", "."))
+    except ValueError:
+        return None
+    return numero if np.isfinite(numero) else None
+
+
+def parse_daily_record(record: dict) -> dict:
+    """Normaliza una observación al esquema completo de `aemet_diario`."""
+    return {
+        "fecha": record.get("fecha"),
+        "indicativo": record.get("indicativo"),
+        "nombre": record.get("nombre"),
+        "provincia": record.get("provincia"),
+        "tmed": _parse_aemet_float(record.get("tmed")),
+        "tmin": _parse_aemet_float(record.get("tmin")),
+        "tmax": _parse_aemet_float(record.get("tmax")),
+        "velmedia": _parse_aemet_float(record.get("velmedia")),
+        "racha": _parse_aemet_float(record.get("racha")),
+        "prec": _parse_aemet_float(record.get("prec")),
+        "sol": _parse_aemet_float(record.get("sol")),
+    }
 
 # Códigos INE de municipios próximos a los parques eólicos (igual que en api.ipynb)
 MUNICIPIOS_EOLICOS = {
@@ -133,11 +166,10 @@ def get_aggregated_forecast() -> Optional[Dict]:
     }
 
 
-def download_aemet_diario(fecha: str) -> list:
+def download_aemet_diario(fecha: str, session=requests, sleeper=time.sleep) -> list:
     """
-    Descarga mediciones climatológicas diarias para las 6 estaciones eólicas.
+    Descarga observaciones de las seis estaciones eólicas y cinco solares.
     Usa la API histórica de AEMET (dos pasos: meta-URL → datos).
-    Retorna lista de dicts [{fecha, indicativo, velmedia, racha}, ...].
     """
     if not AEMET_API_KEY:
         logger.warning("AEMET_API_KEY no configurada — omitiendo descarga histórica")
@@ -147,7 +179,7 @@ def download_aemet_diario(fecha: str) -> list:
     fecha_fin_iso = f"{fecha}T23:59:59UTC"
     resultados = []
 
-    for station_id in ESTACIONES_EOLICAS:
+    for station_id in ESTACIONES_OBSERVACION:
         url = (
             f"{AEMET_BASE_URL}/valores/climatologicos/diarios/datos"
             f"/fechaini/{fecha_ini_iso}"
@@ -159,13 +191,13 @@ def download_aemet_diario(fecha: str) -> list:
         r1 = None
         for attempt in range(2):
             try:
-                r1 = requests.get(url, params={"api_key": AEMET_API_KEY},
-                                  headers=HEADERS, timeout=15)
+                r1 = session.get(url, params={"api_key": AEMET_API_KEY},
+                                 headers=HEADERS, timeout=15)
                 break
             except requests.exceptions.Timeout:
                 if attempt == 0:
                     logger.warning(f"AEMET timeout [{station_id}] — reintentando en 3s")
-                    time.sleep(3)
+                    sleeper(3)
                 else:
                     logger.error(f"AEMET timeout definitivo [{station_id}]")
             except requests.exceptions.RequestException as e:
@@ -173,84 +205,77 @@ def download_aemet_diario(fecha: str) -> list:
                 break
 
         if r1 is None:
-            time.sleep(0.5)
+            sleeper(0.5)
             continue
 
         if r1.status_code == 429:
             logger.warning("AEMET rate limit (429) — esperando 60s")
-            time.sleep(60)
+            sleeper(60)
             try:
-                r1 = requests.get(url, params={"api_key": AEMET_API_KEY},
-                                  headers=HEADERS, timeout=15)
+                r1 = session.get(url, params={"api_key": AEMET_API_KEY},
+                                 headers=HEADERS, timeout=15)
             except Exception as e:
                 logger.error(f"AEMET fallo tras rate limit [{station_id}]: {e}")
-                time.sleep(0.5)
+                sleeper(0.5)
                 continue
 
         if r1.status_code != 200:
             logger.warning(f"AEMET [{station_id}] paso 1 HTTP {r1.status_code}")
-            time.sleep(0.5)
+            sleeper(0.5)
             continue
 
         try:
             datos_url = r1.json().get("datos")
         except Exception as e:
             logger.error(f"AEMET [{station_id}] JSON inválido paso 1: {e}")
-            time.sleep(0.5)
+            sleeper(0.5)
             continue
 
         if not datos_url:
             logger.warning(f"AEMET [{station_id}] sin URL de datos para {fecha}")
-            time.sleep(0.5)
+            sleeper(0.5)
             continue
 
         # Paso 2: descargar registros
-        time.sleep(0.5)
+        sleeper(0.5)
         try:
-            r2 = requests.get(datos_url, headers=HEADERS, timeout=15)
+            r2 = session.get(datos_url, headers=HEADERS, timeout=15)
         except requests.exceptions.RequestException as e:
             logger.error(f"AEMET [{station_id}] error descargando datos: {e}")
-            time.sleep(0.5)
+            sleeper(0.5)
             continue
 
         if r2.status_code != 200:
             logger.warning(f"AEMET [{station_id}] paso 2 HTTP {r2.status_code}")
-            time.sleep(0.5)
+            sleeper(0.5)
             continue
 
         try:
             registros = r2.json()
         except Exception as e:
             logger.error(f"AEMET [{station_id}] JSON inválido paso 2: {e}")
-            time.sleep(0.5)
+            sleeper(0.5)
             continue
 
         if not isinstance(registros, list) or not registros:
             logger.warning(f"AEMET [{station_id}] sin registros para {fecha}")
-            time.sleep(0.5)
+            sleeper(0.5)
             continue
 
         for rec in registros:
-            vel_raw   = rec.get("velmedia")
-            racha_raw = rec.get("racha")
-            if not vel_raw or not racha_raw:
-                continue
-            try:
-                velmedia = float(str(vel_raw).replace(",", "."))
-                racha    = float(str(racha_raw).replace(",", "."))
-            except (ValueError, TypeError):
-                continue
-            resultados.append({
-                "fecha":      rec.get("fecha", fecha),
-                "indicativo": rec.get("indicativo", station_id),
-                "velmedia":   velmedia,
-                "racha":      racha,
-            })
+            fila = parse_daily_record(rec)
+            fila["fecha"] = fila["fecha"] or fecha
+            fila["indicativo"] = fila["indicativo"] or station_id
+            if any(
+                fila.get(campo) is not None
+                for campo in ("tmed", "sol", "velmedia", "racha")
+            ):
+                resultados.append(fila)
 
-        time.sleep(0.5)
+        sleeper(0.5)
 
     logger.info(
         f"download_aemet_diario({fecha}): {len(resultados)} registros "
-        f"de {len(ESTACIONES_EOLICAS)} estaciones"
+        f"de {len(ESTACIONES_OBSERVACION)} estaciones"
     )
     return resultados

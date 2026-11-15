@@ -1,50 +1,54 @@
 import logging
-import os
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
+MADRID = ZoneInfo("Europe/Madrid")
 
 
 class SchedulerService:
-    def __init__(self):
-        self.aemet_api_key = os.environ.get("AEMET_API_KEY", "")
-
-    def run_daily_task(self):
+    def run_daily_task(self, hoy: date | None = None):
+        hoy = hoy or datetime.now(MADRID).date()
         logger.info("=" * 50)
         logger.info("INICIANDO TAREA PROGRAMADA DIARIA")
         logger.info("=" * 50)
 
-        # Primero la previsión: el archivo es la única fuente que no se puede
-        # recuperar más tarde (RF-1) y la predicción la usa.
-        try:
-            self.capture_aemet_forecast()
-        except Exception as e:
-            logger.error(f"Error capturando previsiones AEMET: {e}")
+        pasos = (
+            ("capture_aemet_forecast", lambda: self.capture_aemet_forecast(hoy)),
+            ("capture_ree_forecast", lambda: self.capture_ree_forecast(hoy)),
+            ("download_ree_data", lambda: self.download_ree_data(hoy)),
+            ("download_aemet_data", lambda: self.download_aemet_data(hoy)),
+            ("reconcile_own_predictions", lambda: self.reconcile_own_predictions(hoy)),
+            ("run_prediction", lambda: self.run_prediction(hoy)),
+        )
+        resultados = {}
+        for nombre, accion in pasos:
+            try:
+                resultados[nombre] = accion()
+            except Exception as error:
+                resultados[nombre] = None
+                logger.exception("Fallo en paso programado (%s): %s", nombre, error)
+        fallidos = [
+            nombre for nombre, resultado in resultados.items()
+            if resultado is None
+            or (
+                isinstance(resultado, dict)
+                and resultado.get("estado") in ("fallo", "no_disponible")
+            )
+        ]
+        if fallidos:
+            logger.warning("Tarea diaria con incidencias: %s", ", ".join(fallidos))
+        else:
+            logger.info("Tarea diaria completada")
+        return resultados
 
-        try:
-            self.download_ree_data()
-        except Exception as e:
-            logger.error(f"Error descargando datos REE: {e}")
-
-        try:
-            self.download_aemet_data()
-        except Exception as e:
-            logger.error(f"Error descargando datos AEMET históricos: {e}")
-
-        try:
-            self.run_prediction()
-        except Exception as e:
-            logger.error(f"Error en predicción: {e}")
-
-        logger.info("Tarea diaria completada")
-
-    def capture_aemet_forecast(self):
+    def capture_aemet_forecast(self, hoy: date | None = None):
         """Archiva la previsión vigente de las 12 ubicaciones (RF-1, RF-3)."""
         from ..services import forecast_db
         from ..services.aemet_forecast import capture_forecast
 
-        resumen = capture_forecast()
+        resumen = capture_forecast(hoy=hoy)
         if forecast_db.capture_failed(resumen):
             raise RuntimeError(
                 f"captura sin ninguna ubicación: {len(resumen['errores'])} errores"
@@ -55,12 +59,21 @@ class SchedulerService:
             )
         return resumen
 
-    def retry_forecast_capture(self):
+    def capture_ree_forecast(self, hoy: date | None = None):
+        from ..services.ree_forecast import capture_ree_forecast
+
+        resumen = capture_ree_forecast(hoy=hoy)
+        if resumen["estado"] != "ok":
+            logger.warning("Captura REE no completada: %s", resumen["errores"])
+        return resumen
+
+    def retry_forecast_capture(self, hoy: date | None = None):
         """Reintento del mismo día si la captura de madrugada no cubrió el día (CA-1.5)."""
         from ..services import forecast_db
+        from ..services.prediction_service import prediction_service
 
         ultima = forecast_db.last_capture()
-        hoy = datetime.now().date()
+        hoy = hoy or datetime.now(MADRID).date()
         if (
             ultima
             and ultima["estado"] == "ok"
@@ -73,26 +86,40 @@ class SchedulerService:
 
         logger.info("Reintentando la captura de previsiones del día")
         try:
-            self.capture_aemet_forecast()
+            resumen = self.capture_aemet_forecast(hoy)
+            if resumen and resumen["filas_guardadas"]:
+                try:
+                    prediction_service.refresh_prediction(hoy)
+                except Exception as error:
+                    logger.warning("Reintento sin predicción válida: %s", error)
         except Exception as e:
             logger.error(f"Reintento de captura AEMET fallido: {e}")
 
-    def backfill_aemet_diario(self, days: int = 35):
-        """Descarga los últimos `days` días de AEMET si faltan en aemet_diario."""
-        from ..services.aemet_client import download_aemet_diario
+    def backfill_aemet_diario(self, days: int = 35, hoy: date | None = None):
+        """Rellena faltantes estación/día de la ventana local, sin recapturar lo completo."""
+        from ..services.aemet_client import ESTACIONES_OBSERVACION, download_aemet_diario
         from ..services.db_ree import save_aemet_diario, _get_conn
 
+        hoy = hoy or datetime.now(MADRID).date()
+        fin = hoy - timedelta(days=1)
+        inicio = fin - timedelta(days=days - 1)
+        esperadas = {
+            (inicio + timedelta(days=offset)).isoformat()
+            for offset in range((fin - inicio).days + 1)
+        }
+        cubiertas = set()
         with _get_conn() as conn:
             rows = conn.execute(
-                "SELECT DISTINCT fecha FROM aemet_diario WHERE fecha >= DATE('now', ? || ' days')",
-                (f"-{days}",),
+                """SELECT fecha, indicativo FROM aemet_diario
+                   WHERE fecha >= ? AND fecha <= ?""",
+                (inicio.isoformat(), fin.isoformat()),
             ).fetchall()
-        existentes = {r[0] for r in rows}
-
+        por_fecha = {}
+        for row in rows:
+            por_fecha.setdefault(row[0], set()).add(row[1])
         pendientes = [
-            (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
-            for i in range(days, 0, -1)
-            if (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d") not in existentes
+            fecha for fecha in sorted(esperadas)
+            if not set(ESTACIONES_OBSERVACION).issubset(por_fecha.get(fecha, set()))
         ]
 
         if not pendientes:
@@ -109,65 +136,70 @@ class SchedulerService:
             except Exception as e:
                 logger.error(f"Backfill AEMET error [{fecha}]: {e}")
             time.sleep(1.0)
+        return {"estado": "ok", "dias_pendientes": len(pendientes)}
 
-    def download_ree_data(self):
+    def download_ree_data(self, hoy: date | None = None):
         from ..services.ree_client import ensure_recent_data
 
         logger.info("Descargando datos de generación de REE...")
-        updated, msg = ensure_recent_data(days=30)
+        updated, msg = ensure_recent_data(days=30, hoy=hoy)
         if updated:
             logger.info(f"Datos REE actualizados: {msg}")
         else:
             logger.info("Datos REE ya al día")
+        return {"estado": "ok", "actualizado": updated, "detalle": msg}
 
-    def download_aemet_data(self):
+    def download_aemet_data(self, hoy: date | None = None):
         from ..services.aemet_client import download_aemet_diario
         from ..services.db_ree import save_aemet_diario
 
-        ayer = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        hoy = hoy or datetime.now(MADRID).date()
+        ayer = (hoy - timedelta(days=1)).isoformat()
         logger.info(f"Descargando mediciones AEMET históricas para {ayer}...")
         records = download_aemet_diario(ayer)
         if records:
             save_aemet_diario(records)
             logger.info(f"AEMET diario: {len(records)} registros guardados para {ayer}")
+            return {"estado": "ok", "fecha": ayer, "filas": len(records)}
         else:
             logger.warning(
-                f"AEMET diario: ningún registro para {ayer} — medias móviles no actualizadas"
+                f"AEMET diario: ningún registro para {ayer}"
             )
+            return {"estado": "parcial", "fecha": ayer, "filas": 0}
 
-    def run_prediction(self):
-        from ..services.aemet_client import get_aggregated_forecast
-        from ..services.model_loader import model_service
-        from ..services import db_ree
+    def reconcile_own_predictions(self, hoy: date | None = None):
+        from ..services.prediction_service import prediction_service
 
-        logger.info("Ejecutando predicción diaria...")
+        actualizadas = prediction_service.reconcile_reals(hoy)
+        logger.info("Predicciones propias actualizadas con real: %d emisiones", actualizadas)
+        return {"estado": "ok", "emisiones_actualizadas": actualizadas}
 
-        forecast = get_aggregated_forecast()
-        if forecast:
-            velmedia = forecast["velmedia"]
-            racha    = forecast["racha"]
-        else:
-            logger.warning("AEMET no disponible — usando medias históricas de la BD")
-            vals = db_ree.get_eolica_recent(days=7)
-            # Sin forecast no podemos predecir viento; saltar predicción
-            if not vals:
-                logger.error("Sin datos históricos ni AEMET — predicción omitida")
-                return
-            velmedia = 3.5
-            racha    = 8.0
+    def run_prediction(self, hoy: date | None = None):
+        from ..services.prediction_service import PredictionUnavailable, prediction_service
 
-        result = model_service.predict(velmedia, racha)
-        if result:
-            db_ree.save_prediction(
-                fecha=result["fecha"],
-                prediccion_mwh=result["prediccionMWh"],
-                modelo=result["modelo"],
-                velmedia=result["features"].get("velmedia") or velmedia,
-                racha=result["features"].get("racha") or racha,
+        logger.info("Ejecutando predicción diaria LR-19...")
+        try:
+            result = prediction_service.refresh_prediction(hoy)
+        except PredictionUnavailable as error:
+            logger.warning(
+                "Predicción no emitida para %s; faltan=%s avisos=%s",
+                error.fecha,
+                error.faltan,
+                error.avisos,
             )
-            logger.info(f"Predicción guardada: {result['prediccionMWh']} MWh para {result['fecha']}")
-        else:
-            logger.error("No se pudo generar predicción")
+            return {
+                "estado": "no_disponible",
+                "fecha": error.fecha,
+                "faltan": error.faltan,
+                "avisos": error.avisos,
+            }
+        logger.info(
+            "Predicción guardada: %s MWh para %s con %d variables",
+            result["prediccionMWh"],
+            result["fecha"],
+            result["n_variables"],
+        )
+        return {"estado": "ok", **result}
 
 
 scheduler_service = SchedulerService()

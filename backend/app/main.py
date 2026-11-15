@@ -1,10 +1,10 @@
-import os
 import logging
 import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,93 +15,120 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("Inicializando aplicación...")
+def create_app(run_background_tasks: bool = True) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        logger.info("Inicializando aplicación...")
+        from .services.db_ree import init_db
 
-    from .services.db_ree import init_db
-    init_db()
-    logger.info("Base de datos inicializada")
+        init_db()
+        logger.info("Base de datos inicializada")
+        scheduler = None
+        if run_background_tasks:
+            from apscheduler.schedulers.background import BackgroundScheduler
+            from .tasks.scheduler import scheduler_service
 
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from .tasks.scheduler import scheduler_service
+            scheduler = BackgroundScheduler()
+            scheduler.add_job(
+                scheduler_service.run_daily_task,
+                "cron",
+                hour=3,
+                minute=0,
+                timezone="Europe/Madrid",
+            )
+            scheduler.add_job(
+                scheduler_service.retry_forecast_capture,
+                "cron",
+                hour=9,
+                minute=0,
+                timezone="Europe/Madrid",
+            )
+            scheduler.start()
+            logger.info("Scheduler iniciado (03:00 y reintento a las 09:00)")
 
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(
-        scheduler_service.run_daily_task,
-        "cron",
-        hour=3,
-        minute=0,
-        timezone="Europe/Madrid"
+            def _backfill():
+                try:
+                    scheduler_service.backfill_aemet_diario(days=35)
+                except Exception as error:
+                    logger.error("Error en backfill AEMET: %s", error)
+
+            threading.Thread(target=_backfill, daemon=True).start()
+            logger.info("Backfill AEMET iniciado en segundo plano")
+        else:
+            logger.info("Modo de prueba: scheduler y backfill desactivados")
+
+        yield
+
+        if scheduler is not None:
+            scheduler.shutdown()
+        logger.info("Aplicación cerrada")
+
+    app = FastAPI(
+        title="AeroPredictor API",
+        description="API para predicción de generación eólica en España",
+        version="1.0.0",
+        lifespan=lifespan,
     )
-    # Reintento del mismo día si la captura de previsiones no cubrió el día (CA-1.5).
-    scheduler.add_job(
-        scheduler_service.retry_forecast_capture,
-        "cron",
-        hour=9,
-        minute=0,
-        timezone="Europe/Madrid"
+    app.state.run_background_tasks = run_background_tasks
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
-    scheduler.start()
-    logger.info("Scheduler iniciado (3:00 y reintento a las 9:00)")
 
-    def _backfill():
+    from .api.prediction import router as prediction_router
+    from .api.charts import router as charts_router
+
+    app.include_router(prediction_router)
+    app.include_router(charts_router)
+
+    @app.get("/")
+    def root():
+        return {
+            "message": "AeroPredictor API",
+            "version": "1.0.0",
+            "endpoints": [
+                "/api/prediction",
+                "/api/prediction/refresh",
+                "/api/forecast",
+                "/api/historical",
+                "/api/energy-mix",
+                "/api/model-comparison",
+                "/api/feature-importance",
+                "/api/wind-parks",
+                "/api/prediction-chart",
+            ],
+        }
+
+    @app.get("/health")
+    def health_check():
+        from .services.db_ree import health_check as database_health
+        from .services.model_loader import model_service
+
         try:
-            scheduler_service.backfill_aemet_diario(days=35)
-        except Exception as e:
-            logger.error(f"Error en backfill AEMET: {e}")
+            database_health()
+        except Exception as error:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "error", "detail": f"BD no disponible: {error}"},
+            )
+        if not model_service.ready:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "error",
+                    "detail": "Modelo LR-19 no disponible o incompatible",
+                },
+            )
+        return {"status": "ok"}
 
-    threading.Thread(target=_backfill, daemon=True).start()
-    logger.info("Backfill AEMET iniciado en segundo plano")
-
-    yield
-
-    scheduler.shutdown()
-    logger.info("Aplicación cerrada")
-
-
-app = FastAPI(
-    title="AeroPredictor API",
-    description="API para predicción de generación eólica en España",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-from .api.prediction import router as prediction_router
-from .api.charts import router as charts_router
-
-app.include_router(prediction_router)
-app.include_router(charts_router)
+    return app
 
 
-@app.get("/")
-def root():
-    return {
-        "message": "AeroPredictor API",
-        "version": "1.0.0",
-        "endpoints": [
-            "/api/prediction",
-            "/api/historical",
-            "/api/energy-mix",
-            "/api/model-comparison",
-            "/api/feature-importance",
-            "/api/wind-parks"
-        ]
-    }
-
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
-
+app = create_app()
+test_app = create_app(run_background_tasks=False)
 
 if __name__ == "__main__":
     import uvicorn

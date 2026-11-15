@@ -5,15 +5,18 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
       - key: AEMET_API_KEY
         sync: false
       - key: REE_API_KEY
         sync: false
       - key: DB_PATH
-        value: data/ree_generacion.db
+        value: /app/data/ree_generacion.db
       - key: MODEL_PATH
-        value: modelos/lr_eolica.joblib
+        value: /app/modelos/lr_eolica.joblib
+      - key: METRICS_PATH
+        value: /app/modelos/familia_como_modelo.json
     disk:
       - mountPath: /app/data
         name: aeropredictor-data

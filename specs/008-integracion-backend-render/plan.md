@@ -1,7 +1,7 @@
 # Plan 008 — Integración del pipeline de producción en Render
 
-Deriva de `spec.md`. Este plan documenta la implementación futura; no se ha
-modificado todavía el backend ni se ha ejecutado ningún cambio en Render.
+Deriva de `spec.md`. La implementación local del backend está completada y
+verificada; no se ha ejecutado ningún cambio en el volumen vivo de Render.
 
 ## 1. Decisiones de diseño
 

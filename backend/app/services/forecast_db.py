@@ -19,7 +19,7 @@ from datetime import date, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-TABLA = "prediccion_aemet"
+TABLA = "prediccion_diaria"
 TABLA_ESTADO = "captura_estado"
 
 # Sin elaboración declarada el registro se guarda, pero no es elegible (CA-2.7).
@@ -28,6 +28,7 @@ SIN_ELABORACION = ""
 
 ESQUEMA = f"""
 CREATE TABLE IF NOT EXISTS {TABLA} (
+    fuente        TEXT NOT NULL,
     elaborado     TEXT NOT NULL,
     objetivo      TEXT NOT NULL,
     ubicacion     TEXT NOT NULL,
@@ -42,9 +43,10 @@ CREATE TABLE IF NOT EXISTS {TABLA} (
     orto          REAL,
     ocaso         REAL,
     uv_max        REAL,
+    eolica_mwh    REAL,
     parte_json    TEXT,
     capturado_en  TEXT NOT NULL,
-    PRIMARY KEY (elaborado, objetivo, ubicacion)
+    PRIMARY KEY (fuente, elaborado, objetivo, ubicacion)
 )
 """
 
@@ -63,9 +65,9 @@ CREATE TABLE IF NOT EXISTS {TABLA_ESTADO} (
 """
 
 COLUMNAS = (
-    "elaborado", "objetivo", "ubicacion", "uso", "viento_ms", "racha_ms",
+    "fuente", "elaborado", "objetivo", "ubicacion", "uso", "viento_ms", "racha_ms",
     "tmax", "tmin", "tmed", "sol", "tramos_cielo", "orto", "ocaso",
-    "uv_max", "parte_json", "capturado_en",
+    "uv_max", "eolica_mwh", "parte_json", "capturado_en",
 )
 
 
@@ -144,8 +146,12 @@ def _texto_json(valor):
     return json.dumps(valor, ensure_ascii=False)
 
 
-def _fila_para_sql(fila: dict, parte: dict | None) -> tuple:
+FUENTES = ("aemet", "ree")
+
+
+def _fila_para_sql(fila: dict, fuente: str, parte: dict | None) -> tuple:
     return (
+        fuente,
         _texto_elaborado(fila.get("elaborado")),
         _texto_objetivo(fila["objetivo"]),
         fila["ubicacion"],
@@ -160,17 +166,20 @@ def _fila_para_sql(fila: dict, parte: dict | None) -> tuple:
         fila.get("orto"),
         fila.get("ocaso"),
         fila.get("uv_max"),
-        _texto_json(parte),
+        fila.get("eolica_mwh"),
+        _texto_json(fila.get("parte_json") if parte is None else parte),
         _texto_elaborado(fila.get("capturado_en")) or datetime.now().isoformat(),
     )
 
 
-def save_forecast(conn, filas, parte: dict | None = None) -> int:
-    """Guarda las filas de una captura sin duplicar (CA-4.1 a CA-4.3).
+def save_forecast_rows(conn, filas, fuente: str, parte: dict | None = None) -> int:
+    """Guarda AEMET/REE en el archivo común y reemplaza solo su misma revisión.
 
     La misma elaboración recapturada sustituye sus propios valores; una
     elaboración distinta se añade y la anterior se conserva.
     """
+    if fuente not in FUENTES:
+        raise ValueError(f"fuente desconocida: {fuente!r}")
     filas = list(filas or [])
     if not filas:
         return 0
@@ -178,21 +187,27 @@ def save_forecast(conn, filas, parte: dict | None = None) -> int:
     marcadores = ", ".join("?" * len(COLUMNAS))
     actualizaciones = ", ".join(
         f"{columna} = excluded.{columna}" for columna in COLUMNAS
-        if columna not in ("elaborado", "objetivo", "ubicacion")
+        if columna not in ("fuente", "elaborado", "objetivo", "ubicacion")
     )
     sentencia = (
         f"INSERT INTO {TABLA} ({', '.join(COLUMNAS)}) VALUES ({marcadores}) "
-        f"ON CONFLICT (elaborado, objetivo, ubicacion) DO UPDATE SET {actualizaciones}"
+        f"ON CONFLICT (fuente, elaborado, objetivo, ubicacion) "
+        f"DO UPDATE SET {actualizaciones}"
     )
 
     with _conexion(conn) as conexion:
         conexion.executemany(
-            sentencia, [_fila_para_sql(fila, parte) for fila in filas],
+            sentencia, [_fila_para_sql(fila, fuente, parte) for fila in filas],
         )
         conexion.commit()
 
-    logger.info(f"Archivo de previsiones: {len(filas)} filas guardadas")
+    logger.info("Archivo de previsiones %s: %d filas guardadas", fuente, len(filas))
     return len(filas)
+
+
+def save_forecast(conn, filas, parte: dict | None = None) -> int:
+    """Compatibilidad interna del capturador AEMET con el esquema común."""
+    return save_forecast_rows(conn, filas, "aemet", parte)
 
 
 def register_capture(conn, ejecutada_en: datetime, ubicaciones_ok: int,
@@ -240,21 +255,24 @@ def _a_instante(valor):
         return None
 
 
-def archived_days(conn=None) -> set:
-    """Días objetivo que ya tienen alguna previsión archivada."""
+def archived_days(conn=None, fuente: str = "aemet") -> set:
+    """Días objetivo archivados para una fuente."""
     with _conexion(conn) as conexion:
         filas = conexion.execute(
-            f"SELECT DISTINCT objetivo FROM {TABLA}"
+            f"SELECT DISTINCT objetivo FROM {TABLA} WHERE fuente = ?",
+            (fuente,),
         ).fetchall()
     return {_a_fecha(fila[0]) for fila in filas}
 
 
 def _fila_de_archivo(registro) -> dict:
     (
-        elaborado, objetivo, ubicacion, uso, viento_ms, racha_ms, tmax, tmin,
-        tmed, sol, tramos_cielo, orto, ocaso, uv_max, parte_json, capturado_en,
+        fuente, elaborado, objetivo, ubicacion, uso, viento_ms, racha_ms, tmax,
+        tmin, tmed, sol, tramos_cielo, orto, ocaso, uv_max, eolica_mwh,
+        parte_json, capturado_en,
     ) = registro
     return {
+        "fuente": fuente,
         "elaborado": _a_instante(elaborado),
         "objetivo": _a_fecha(objetivo),
         "ubicacion": ubicacion,
@@ -269,21 +287,27 @@ def _fila_de_archivo(registro) -> dict:
         "orto": orto,
         "ocaso": ocaso,
         "uv_max": uv_max,
+        "eolica_mwh": eolica_mwh,
         "parte_json": parte_json,
         "capturado_en": _a_instante(capturado_en),
     }
 
 
-def rows_between(conn, desde, hasta) -> list:
+def rows_between(conn, desde, hasta, fuente: str | None = None) -> list:
     """Filas con día objetivo dentro del rango, en orden cronológico."""
+    conditions = ["objetivo >= ?", "objetivo <= ?"]
+    params = [_texto_objetivo(desde), _texto_objetivo(hasta)]
+    if fuente is not None:
+        conditions.append("fuente = ?")
+        params.append(fuente)
     with _conexion(conn) as conexion:
         registros = conexion.execute(
             f"""
             SELECT {', '.join(COLUMNAS)} FROM {TABLA}
-            WHERE objetivo >= ? AND objetivo <= ?
-            ORDER BY objetivo, ubicacion
+            WHERE {' AND '.join(conditions)}
+            ORDER BY objetivo, ubicacion, fuente, elaborado
             """,
-            (_texto_objetivo(desde), _texto_objetivo(hasta)),
+            params,
         ).fetchall()
     return [_fila_de_archivo(registro) for registro in registros]
 
@@ -302,7 +326,7 @@ def choose_forecast(conn, objetivo, ubicacion: str, hoy):
         registro = conexion.execute(
             f"""
             SELECT {', '.join(COLUMNAS)} FROM {TABLA}
-            WHERE objetivo = ?
+            WHERE fuente = 'aemet' AND objetivo = ?
               AND ubicacion = ?
               AND elaborado <> ?
               AND DATE(elaborado) <= ?

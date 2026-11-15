@@ -1,0 +1,180 @@
+{
+  "fecha_ejecucion": "2026-11-14",
+  "criterio": {
+    "aceptado": false,
+    "mejoras": 1,
+    "validos": 4,
+    "motivo": "mejora en 1 de 4 folds válidos (mínimo 3)",
+    "detalle": [
+      {
+        "fold": 0,
+        "base": 19590.51580410044,
+        "variante": 21174.093941466694,
+        "mejora": false
+      },
+      {
+        "fold": 1,
+        "base": 19175.759596380383,
+        "variante": 21102.008994396183,
+        "mejora": false
+      },
+      {
+        "fold": 2,
+        "base": 17215.647888920896,
+        "variante": 17331.47225487106,
+        "mejora": false
+      },
+      {
+        "fold": 3,
+        "base": 23855.737551557173,
+        "variante": 20563.64957815405,
+        "mejora": true
+      }
+    ]
+  },
+  "cobertura": {},
+  "decision": "rechazado",
+  "folds": [
+    {
+      "año": 2023,
+      "omitido": false,
+      "motivo": null,
+      "dias_train": 358,
+      "dias_test": 365,
+      "base": {
+        "rmse": 19590.51580410044,
+        "r2": 0.9573972364957065,
+        "mae": 12881.925094728264
+      },
+      "variante": {
+        "rmse": 21174.093941466694,
+        "r2": 0.9502313682957195,
+        "mae": 14674.28936247494
+      }
+    },
+    {
+      "año": 2024,
+      "omitido": false,
+      "motivo": null,
+      "dias_train": 723,
+      "dias_test": 366,
+      "base": {
+        "rmse": 19175.759596380383,
+        "r2": 0.9477615115587563,
+        "mae": 13407.602461829065
+      },
+      "variante": {
+        "rmse": 21102.008994396183,
+        "r2": 0.9367394364162531,
+        "mae": 14969.740263388278
+      }
+    },
+    {
+      "año": 2025,
+      "omitido": false,
+      "motivo": null,
+      "dias_train": 1089,
+      "dias_test": 365,
+      "base": {
+        "rmse": 17215.647888920896,
+        "r2": 0.9565976782585232,
+        "mae": 12324.856507486304
+      },
+      "variante": {
+        "rmse": 17331.47225487106,
+        "r2": 0.9560117047248886,
+        "mae": 12542.03228333163
+      }
+    },
+    {
+      "año": 2026,
+      "omitido": false,
+      "motivo": null,
+      "dias_train": 1454,
+      "dias_test": 314,
+      "base": {
+        "rmse": 23855.737551557173,
+        "r2": 0.9232197056389602,
+        "mae": 15951.153147401576
+      },
+      "variante": {
+        "rmse": 20563.64957815405,
+        "r2": 0.9429488418232514,
+        "mae": 14538.941859836084
+      }
+    }
+  ],
+  "modelo": {
+    "familia_base": "Linear Regression",
+    "familia_variante": "LightGBM",
+    "familia_produccion": "Linear Regression",
+    "features_produccion": [
+      "velmedia",
+      "racha",
+      "mes",
+      "dia_semana",
+      "dia_año",
+      "eolica_lag1",
+      "eolica_lag2",
+      "eolica_lag3",
+      "eolica_lag7",
+      "vel_ma3",
+      "vel_ma7",
+      "vel_ma14",
+      "racha_ma3",
+      "racha_ma7",
+      "racha_ma14",
+      "eolica_ma7",
+      "sol_lag1",
+      "tmed_lag1",
+      "eolica_prev"
+    ],
+    "usa_scaler": true,
+    "decision": "rechazado",
+    "motivo": "mejora en 1 de 4 folds válidos (mínimo 3)"
+  },
+  "metricas_globales": {
+    "base": {
+      "n": 354,
+      "rmse": 23108.355669990728,
+      "mae": 15588.230196537208,
+      "r2": 0.9307591979859493
+    },
+    "variante": {
+      "n": 354,
+      "rmse": 20246.444690433527,
+      "mae": 14446.968395205844,
+      "r2": 0.9468477631740944
+    }
+  },
+  "metricas_test": {
+    "rmse": 23108.355669990713,
+    "mae": 15588.230196537219,
+    "r2": 0.9307591979859493,
+    "dias": 354,
+    "desde": "2025-11-22",
+    "hasta": "2026-11-10"
+  },
+  "rutas": {
+    "notebook": {
+      "ruta": "src/data/modelos/lr_eolica.joblib",
+      "sha256": "e915381e2c24fcfbc2a81ab6eca2fdede7c7729f1abe2f79e58491cf9647c702",
+      "sincronizada": true
+    },
+    "modelos": {
+      "ruta": "modelos/lr_eolica.joblib",
+      "sha256": "3704300d879a1650e383d2c051b0bfc309f24b151a2ed07fc885037a6ebd33f6",
+      "sincronizada": false
+    },
+    "backend/modelos": {
+      "ruta": "backend/modelos/lr_eolica.joblib",
+      "sha256": "3704300d879a1650e383d2c051b0bfc309f24b151a2ed07fc885037a6ebd33f6",
+      "sincronizada": false
+    },
+    "src/model/production": {
+      "ruta": "src/model/production/lr_eolica.joblib",
+      "sha256": "3704300d879a1650e383d2c051b0bfc309f24b151a2ed07fc885037a6ebd33f6",
+      "sincronizada": false
+    }
+  }
+}
