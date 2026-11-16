@@ -83,6 +83,9 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
   - Hecho cuando: `jq .` lo muestra válido, `schema_version` es 1,
     `n_variables` es 19, `avisos` está vacío y `historico` tiene al menos 30
     puntos.
+  - Estado: **parcial**. El archivo existe (sembrado por el workflow con
+    `force=true`, no a mano) y cumple todo salvo `avisos` vacío: trae 2 avisos de
+    AEMET (`parcial`). `historico` tiene 45 puntos y `n_variables` es 19.
 
 - [ ] **T-10-10 — Contrato en el repositorio** (V1–V12; RNF-3)
   - Revisar que `fecha_objetivo` es mañana, `fecha_observacion >= hoy - 2` y el
@@ -139,10 +142,31 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
   - Hecho cuando: el bot commitea, Vercel reconstruye, Render no despliega y la
     ejecución de las 08:00 se salta si el snapshot ya es el de mañana y está
     limpio.
+  - Estado: **abierta**. Medido en GitHub (secretos `BACKEND_URL` y
+    `REFRESH_TOKEN` cargados): `force=true` (run `43969457872`) → éxito, commit
+    `b01d40a` del bot; 2.ª ejecución sin `force` (run `43970160531`) → éxito pero
+    **commit `b39bb24`** en lugar de `already_done`. Causa: el snapshot lleva
+    avisos (`capture_aemet_forecast: parcial`, `download_aemet_data: parcial`),
+    el backend no cachea con avisos y recalcula (401.623 → 403.125 MWh; cambia
+    `velmedia`). Por la misma causa la guardia de las 08:00 no se saltará.
+    Render no desplegó tras los commits del bot (eventos sin cambios desde las
+    21:56; `rootDir=backend`). Pendiente: Vercel (403 de scope; hay que autorizar
+    el equipo), build filter del dashboard y decidir qué hacer con los avisos de
+    AEMET. El token se pegó en el chat: conviene rotarlo en Render y GitHub.
+  - Actualización 17/11 (00:10): con la `AEMET_API_KEY` nueva en Render la
+    captura pasó de 1/12 a 12/12 ubicaciones sin errores (el código no tenía
+    fallo: desde local daba 23/24). Run `43975927336` → éxito, commit `30ff829`
+    (objetivo 18/11, 19 variables). Siguen dos avisos estructurales, no
+    transitorios: `capture_ree_forecast` (ESIOS no publica el D+1 de mañana a
+    las 00:00–05:00) y `download_aemet_data` (AEMET no tiene aún el diario de
+    ayer: 15/11 y 16/11 sin datos). Con ellos el backend no cachea y la 2.ª
+    ejecución recalcula. Además: forzar la ejecución a las 23:5x falla con
+    `faltan=['sol_lag1']` porque la elaboración AEMET de las 22:05 deja vacío el
+    cielo del día en curso. Decisión pendiente: qué avisos impiden cachear.
 
 ## Bloque F — Integración del frontend
 
-- [ ] **T-10-15 — Tarjeta y `live-prediction.mjs`** (8.2; CA-10.6, 10.7; RNF-9)
+- [x] **T-10-15 — Tarjeta y `live-prediction.mjs`** (8.2; CA-10.6, 10.7; RNF-9)
   - Renderizar la tarjeta en build desde el snapshot: valor, fechas, familia,
     variables y estado con la fecha del build.
   - `live-prediction.mjs` solo recalcula el estado con `todayInMadrid()` y
@@ -150,13 +174,29 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     `loading`.
   - Hecho cuando: sin JavaScript se ve el estado del build; con JavaScript se
     actualiza; todo funciona con Render bloqueado y sin `fetch`.
+  - Resultado: `cardView(snapshot, today)` (pura, con pruebas) genera los
+    textos; las tres tarjetas (`index`, `resultados`, `LivePredictionStatus`)
+    se renderizan en build y `initLivePrediction(snapshot)` solo recalcula el
+    estado. `todayInMadrid` ya no está duplicada. Se retiraron los `noscript`
+    de las tarjetas porque decían «dato en vivo». Comprobado en navegador con
+    la fecha adelantada: `ok`, `pendiente`, `caducado` y `no_disponible`; 0
+    peticiones a Render o `/api` en `/`, `/resultados` y `/proceso`; `dist/`
+    sin `fetch` ni URL de Render. Límite: en `no_disponible` por fecha del
+    navegador (objetivo posterior a mañana) el script no borra las cifras del
+    build; solo cambia el mensaje (la spec no pide más).
 
-- [ ] **T-10-16 — `PredictionChart.astro`** (8.2, 8.4; CA-10.6–10.10)
+- [x] **T-10-16 — `PredictionChart.astro`** (8.2, 8.4; CA-10.6–10.10)
   - Importar el snapshot en el `<script>`, dibujar con `fechas_hist`,
     `real_gwh`, `pred_gwh`, `vel_norm`, `racha_norm` y `manana`, y añadir la
     nota de frescura.
   - Hecho cuando: la gráfica funciona sin red y muestra `ok`, `pendiente`,
     `caducado` o `no_disponible` según la fecha del navegador.
+  - Resultado: la gráfica importa el snapshot, no llama a la red y la nota de
+    frescura se renderiza en build y se recalcula en el navegador. El punto de
+    la previsión se etiqueta «mañana», «hoy» (pendiente) o «caducado» y no se
+    dibuja en `no_disponible`. Comprobado en navegador (4 estados, sin
+    desbordamiento horizontal en móvil). Adelanto de T-10-17: se retiró
+    «Cargando datos…» y el aviso de un minuto de la gráfica.
 
 - [ ] **T-10-17 — Textos y estado** (8.3, 8.4; RNF-11)
   - `LivePredictionStatus.astro`, `index.astro` y `resultados.astro`: copia de

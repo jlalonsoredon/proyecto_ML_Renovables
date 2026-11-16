@@ -1,4 +1,6 @@
 ---
+import snapshot from "../data/forecast-snapshot.json";
+import { cardView } from "../utils/live-prediction.mjs";
 import Layout from "../layouts/Layout.astro";
 import Container from "../components/shared/Container.astro";
 import Title from "../components/shared/Title.astro";
@@ -7,6 +9,7 @@ import Title3 from "../components/shared/Title3.astro";
 import Paragraph from "../components/shared/Paragraph.astro";
 import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
 import PredictionChart from "../components/charts/PredictionChart.astro";
+const view = cardView(snapshot);
 ---
 
 <Layout title="Resultados - Predicción Eólica ML">
@@ -25,32 +28,29 @@ import PredictionChart from "../components/charts/PredictionChart.astro";
         class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white mb-12"
         id="prediction-section"
         data-live-prediction
-        aria-busy="true"
+        data-state={view.estado}
       >
         <div class="flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
             <Title3>Predicción para Mañana</Title3>
-            <p class="text-blue-100 text-sm mt-1">Fecha objetivo: <span data-field="fecha">—</span></p>
-            <p class="text-blue-100 text-sm">Emitida: <span data-field="emision">—</span></p>
+            <p class="text-blue-100 text-sm mt-1">Fecha objetivo: <span data-field="fecha">{view.campos.fecha}</span></p>
+            <p class="text-blue-100 text-sm">Emitida: <span data-field="emision">{view.campos.emision}</span></p>
           </div>
           <div class="text-center">
-            <div class="text-5xl font-bold" data-field="valor">—</div>
+            <div class="text-5xl font-bold" data-field="valor">{view.campos.valor}</div>
             <div class="text-blue-200">MWh</div>
           </div>
           <div class="md:text-right text-sm">
-            <p><strong>Modelo:</strong> <span data-field="familia">—</span></p>
-            <p><strong>Variables:</strong> <span data-field="variables">—</span></p>
-            <p><strong>Velocidad viento:</strong> <span data-field="velmedia">—</span></p>
-            <p><strong>Ráfagas:</strong> <span data-field="racha">—</span></p>
+            <p><strong>Modelo:</strong> <span data-field="familia">{view.campos.familia}</span></p>
+            <p><strong>Variables:</strong> <span data-field="variables">{view.campos.variables}</span></p>
+            <p><strong>Velocidad viento:</strong> <span data-field="velmedia">{view.campos.velmedia}</span></p>
+            <p><strong>Ráfagas:</strong> <span data-field="racha">{view.campos.racha}</span></p>
           </div>
         </div>
         <p class="text-xs text-blue-100 mt-4 text-center" data-field="estado" data-tone="none" data-base-class="text-xs text-blue-100 mt-4 text-center" role="status" aria-live="polite">
-          Cargando la predicción…
-        </p>
-        <p class="text-xs text-blue-200 mt-1 text-center" data-field="version"></p>
-        <noscript>
-          <p class="text-xs text-blue-100 mt-4 text-center">El dato en vivo necesita JavaScript.</p>
-        </noscript>
+              {view.mensaje}
+            </p>
+        <p class="text-xs text-blue-200 mt-1 text-center" data-field="version">{view.campos.version}</p>
       </section>
     </Container>
 
@@ -85,6 +85,7 @@ import PredictionChart from "../components/charts/PredictionChart.astro";
 </Layout>
 
 <script>
+  import snapshot from "../data/forecast-snapshot.json";
   import { initLivePrediction } from "../utils/live-prediction.mjs";
-  initLivePrediction();
+  initLivePrediction(snapshot);
 </script>

@@ -1,5 +1,9 @@
 ---
-// Real de los últimos 30 días completos + predicciones del servicio (CA-5.3).
+// Real de los últimos 30 días completos + previsión publicada en el snapshot (CA-5.3).
+import snapshot from "../../data/forecast-snapshot.json";
+import { snapshotStatus, todayInMadrid } from "../../utils/forecast.mjs";
+
+const buildStatus = snapshotStatus(snapshot, todayInMadrid());
 ---
 
 <figure class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md">
@@ -9,23 +13,21 @@
     </span>
     <span id="pc-subtitle" class="text-xs text-gray-500 dark:text-gray-400"></span>
   </figcaption>
-  <div id="pc-loading" class="text-center py-10 text-gray-500 dark:text-gray-400 text-sm" role="status">
-    Cargando datos… El servicio puede tardar hasta un minuto en arrancar.
-  </div>
   <div id="pc-error" class="hidden text-center py-10 text-red-700 dark:text-red-300 text-sm" role="alert"></div>
-  <div id="pc-wrap" class="hidden" style="position:relative;height:340px;">
+  <div id="pc-wrap" style="position:relative;height:340px;">
     <canvas id="predictionChart" role="img" aria-label="Gráfica de la generación eólica real de los últimos 30 días completos, las predicciones del modelo y la predicción de mañana" style="width:100%;height:340px;"></canvas>
   </div>
-  <p id="pc-note" class="mt-2 text-xs text-gray-500 dark:text-gray-400"></p>
+  <p id="pc-note" class="mt-2 text-xs text-gray-500 dark:text-gray-400" role="status" aria-live="polite">{buildStatus.mensaje}</p>
   <noscript>
-    <p class="text-sm text-amber-700 dark:text-amber-300">Esta gráfica necesita JavaScript para cargar los datos del servicio.</p>
+    <p class="text-sm text-amber-700 dark:text-amber-300">Esta gráfica necesita JavaScript para dibujarse. La nota de arriba indica el estado de la previsión publicada.</p>
   </noscript>
 </figure>
 
 <script>
   import { Chart, registerables } from "chart.js";
-  import { STATUS, selectCompleteWindow, predictionStatus, formatDateEs, formatNumber } from "../../utils/evolution.mjs";
-  import { fetchJson, todayInMadrid } from "../../utils/live-prediction.mjs";
+  import snapshot from "../../data/forecast-snapshot.json";
+  import { selectCompleteWindow, formatDateEs, formatNumber } from "../../utils/evolution.mjs";
+  import { FORECAST_STATE, snapshotStatus, todayInMadrid } from "../../utils/forecast.mjs";
 
   Chart.register(...registerables);
 
@@ -40,7 +42,6 @@
   };
 
   const WINDOW_DAYS = 30;
-  const loading = document.getElementById("pc-loading")!;
   const errorBox = document.getElementById("pc-error")!;
   const wrap = document.getElementById("pc-wrap")!;
   const subtitle = document.getElementById("pc-subtitle")!;
@@ -53,7 +54,7 @@
   };
 
   function showError(message: string) {
-    loading.classList.add("hidden");
+    wrap.classList.add("hidden");
     errorBox.textContent = message;
     errorBox.classList.remove("hidden");
   }
@@ -65,26 +66,16 @@
     return map;
   }
 
-  async function init() {
-    const [histResult, chartResult] = await Promise.allSettled([
-      fetchJson(`/api/historical?days=45`),
-      fetchJson("/api/prediction-chart"),
-    ]);
-    const chart: ChartData | null = chartResult.status === "fulfilled" ? chartResult.value : null;
+  function init() {
+    const chart = (snapshot as { grafico?: ChartData }).grafico ?? null;
+    const status = snapshotStatus(snapshot, todayInMadrid());
 
-    // Serie real: el histórico pide 45 días para poder retroceder hasta 30 completos.
-    let series: Day[] = [];
-    if (histResult.status === "fulfilled" && Array.isArray(histResult.value)) {
-      series = histResult.value.map((d: { fecha: string; eolica: number | null }) => ({ fecha: d.fecha, eolica: d.eolica }));
-    } else if (chart?.fechas_hist && chart.real_gwh) {
-      series = chart.fechas_hist.map((fecha, i) => {
-        const v = chart.real_gwh![i];
-        return { fecha, eolica: isNum(v) ? v * 1000 : null };
-      });
-    }
+    // Serie real: el histórico trae 45 días para poder retroceder hasta 30 completos.
+    const history = (snapshot as { historico?: Day[] }).historico ?? [];
+    const series: Day[] = Array.isArray(history) ? history.map((d) => ({ fecha: d.fecha, eolica: d.eolica })) : [];
     const { days, discarded } = selectCompleteWindow(series, WINDOW_DAYS);
     if (days.length === 0) {
-      showError("No se han podido cargar datos de generación del servicio.");
+      showError("No hay datos de generación en la previsión publicada.");
       return;
     }
 
@@ -98,16 +89,14 @@
     const velData = days.map((d) => vel.get(d.fecha) ?? null);
     const rachaData = days.map((d) => racha.get(d.fecha) ?? null);
 
-    // Predicción de mañana: se muestra con su estado, nunca se rellena (D-9-18).
+    // Predicción publicada: se muestra con su estado, nunca se rellena (D-9-18).
     const manana = chart?.manana;
-    const status = predictionStatus(
-      manana && isNum(manana.pred_gwh) ? { fecha: manana.fecha, prediccionMWh: manana.pred_gwh * 1000 } : null,
-      todayInMadrid(),
-    );
-    const hasTomorrow = status.state !== "no_disponible";
-    const tomorrowGWh = hasTomorrow ? Math.round((status.valueMWh as number) / 100) / 10 : null;
+    const hasTomorrow = status.estado !== FORECAST_STATE.UNAVAILABLE && isNum(manana?.pred_gwh);
+    const tomorrowGWh = hasTomorrow ? Math.round((manana!.pred_gwh as number) * 10) / 10 : null;
     if (hasTomorrow) {
-      labels.push(`${shortDate(status.target as string)}${status.state === "caducado" ? " (caducado)" : " (mañana)"}`);
+      const suffix = status.estado === FORECAST_STATE.STALE ? " (caducado)"
+        : status.estado === FORECAST_STATE.PENDING ? " (hoy)" : " (mañana)";
+      labels.push(`${shortDate(status.objetivo as string)}${suffix}`);
       real.push(null);
       predHist.push(tomorrowGWh);
       velData.push(isNum(manana?.velmedia) ? manana!.velmedia : null);
@@ -116,16 +105,11 @@
     const tomorrowPoint = labels.map((_, i) => (hasTomorrow && i === labels.length - 1 ? tomorrowGWh : null));
 
     subtitle.textContent = `Del ${formatDateEs(days[0].fecha)} al ${formatDateEs(days.at(-1)!.fecha)}`;
-    const notes = [];
+    const notes = [status.mensaje];
     if (days.length < WINDOW_DAYS) notes.push(`Solo hay ${days.length} días completos disponibles.`);
     if (discarded > 0) notes.push(`Se ${discarded === 1 ? "omite 1 día incompleto" : `omiten ${discarded} días incompletos`} al final de la serie.`);
-    if (!chart) notes.push("Las predicciones no están disponibles: el servicio no ha respondido.");
-    else if (!hasTomorrow) notes.push(`Predicción de mañana: ${STATUS.UNAVAILABLE}.`);
-    else notes.push(`Predicción ${status.state === "caducado" ? STATUS.STALE + " " : ""}para el ${formatDateEs(status.target)}: ${formatNumber(tomorrowGWh as number, 1)} GWh.`);
+    if (hasTomorrow) notes.push(`Producción prevista: ${formatNumber(tomorrowGWh as number, 1)} GWh.`);
     note.textContent = notes.join(" ");
-
-    loading.classList.add("hidden");
-    wrap.classList.remove("hidden");
 
     const hasWind = velData.some(isNum) || rachaData.some(isNum);
     const datasets: any[] = [
@@ -188,5 +172,9 @@
     });
   }
 
-  init().catch(() => showError("No se han podido cargar los datos del servicio."));
+  try {
+    init();
+  } catch {
+    showError("No se ha podido dibujar la gráfica con la previsión publicada.");
+  }
 </script>

@@ -12,6 +12,7 @@ import {
   tomorrowInMadrid,
   validateSnapshot,
 } from "../src/utils/forecast.mjs";
+import { cardView, toneClass } from "../src/utils/live-prediction.mjs";
 
 const TODAY = "2026-11-16";
 const TOMORROW = "2026-11-17";
@@ -208,4 +209,35 @@ test("todayInMadrid con un instante UTC fijo devuelve la fecha de Madrid en vera
   assert.equal(todayInMadrid(new Date("2026-07-15T21:59:00Z")), "2026-07-15");
   assert.equal(todayInMadrid(new Date("2026-12-15T22:30:00Z")), "2026-12-15");
   assert.equal(todayInMadrid(new Date("2026-12-15T23:00:00Z")), "2026-12-16");
+});
+
+test("cardView con un snapshot válido muestra sus valores y el estado ok", () => {
+  const view = cardView(buildSnapshot(), TODAY);
+  assert.equal(view.estado, FORECAST_STATE.OK);
+  assert.equal(view.campos.valor, "278.461");
+  assert.equal(view.campos.fecha, "17 de noviembre de 2026");
+  assert.equal(view.campos.familia, "Linear Regression");
+  assert.equal(view.campos.variables, "19");
+  assert.equal(view.mensaje, "Previsión para el 17/11/2026. Datos del 16/11/2026 a las 05:02.");
+});
+
+test("cardView con el mismo snapshot cambia de estado solo con la fecha", () => {
+  const snapshot = buildSnapshot();
+  assert.equal(cardView(snapshot, TODAY).estado, FORECAST_STATE.OK);
+  assert.equal(cardView(snapshot, TOMORROW).estado, FORECAST_STATE.PENDING);
+  assert.equal(cardView(snapshot, "2026-11-19").estado, FORECAST_STATE.STALE);
+});
+
+test("cardView con un snapshot inválido no rellena ningún campo", () => {
+  const snapshot = buildSnapshot();
+  snapshot.prediccion.n_variables = 16;
+  const view = cardView(snapshot, TODAY);
+  assert.equal(view.estado, FORECAST_STATE.UNAVAILABLE);
+  assert.ok(Object.values(view.campos).every((text) => text === "no disponible"));
+  assert.equal(cardView(null, TODAY).estado, FORECAST_STATE.UNAVAILABLE);
+});
+
+test("toneClass devuelve vacío para un tono desconocido", () => {
+  assert.equal(toneClass("inventado"), "");
+  assert.notEqual(toneClass("aviso"), "");
 });
