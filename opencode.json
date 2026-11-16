@@ -13,6 +13,10 @@
         "headers": {
           "Authorization": "Bearer {file:./.render_api_key}"
         }
+      },
+      "vercel": {
+        "type": "remote",
+        "url": "https://mcp.vercel.com"
       }
     }
   }
