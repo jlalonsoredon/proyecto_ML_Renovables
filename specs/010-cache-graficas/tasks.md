@@ -247,13 +247,25 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     - P-10-16 cumplida: ningún deploy de Render tras los commits del bot.
     - P-10-18 cumplida en local con uvicorn: 401 × 5, 429 en el sexto; con otra
       IP (`X-Forwarded-For`) sigue 401.
-    - P-10-19 cumplida: la segunda ejecución con aviso recalcula en vez de
-      `already_done`.
-    - P-10-9 cumplida solo a medias: el commit y el deploy de Render funcionan;
-      el rebuild de Vercel no se ha comprobado (403 de scope).
-    - P-10-10 **no cumplida**: dos ejecuciones el mismo día dan dos commits
-      (`b01d40a`, `b39bb24`) porque el snapshot lleva avisos.
+    - P-10-19 cumplida con la regla nueva (opción A): con un aviso bloqueante
+      la segunda llamada recalcula; con solo los esperables (REE y AEMET diario)
+      devuelve `already_done`. Verificado con pasos simulados y en producción.
+      La formulación original de P-10-19 («cualquier aviso recalcula») ya no
+      aplica.
+    - P-10-9 cumplida: ejecución manual → commit (`4da4894`) y build de Vercel
+      con ese commit (lanzado a mano; ver abajo).
+    - P-10-10 cumplida tras la opción A: la primera ejecución sin `force`
+      publica `4da4894` y la segunda responde `already_done` sin commit (logs de
+      Render: «Snapshot ya generado»).
+    - **Hallazgo:** Vercel no ha creado ningún despliegue automático desde el
+      commit `47578bb` (16/11 15:50 UTC), ni para `e04d3e4`, `7f5b050`, `12eba47`
+      ni para el commit del bot. Los despliegues de producción de hoy se han
+      lanzado con `create_deployment` (`7f5b050` y `4da4894`, ambos `READY`).
+      Hay que revisar la integración Git del proyecto `project-vo9e4` en el
+      dashboard (rama de producción, Ignored Build Step, conexión al repo).
     - P-10-20 no verificable fuera de GitHub.
+    - Pendiente para cerrar T-10-19: el despliegue automático de Vercel por
+      push (ver hallazgo). P-10-20 se queda como no verificable.
     - Sin JavaScript: comprobado en el HTML del build; no se ha probado en un
       navegador con JS desactivado.
 
