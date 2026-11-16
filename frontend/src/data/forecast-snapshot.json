@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "version": "2026-11-16T230459Z",
-  "fecha_generacion": "2026-11-17T00:04:59+01:00",
+  "version": "2026-11-16T233323Z",
+  "fecha_generacion": "2026-11-17T00:33:23+01:00",
   "fecha_objetivo": "2026-11-18",
   "fecha_emision": "2026-11-17",
   "fecha_observacion": "2026-11-16",
@@ -57,7 +57,7 @@
       "eolica_prev": "estimada"
     },
     "fecha_emision": "2026-11-17",
-    "emitida_en": "2026-11-17T00:11:20.280206+01:00"
+    "emitida_en": "2026-11-17T00:38:35.393932+01:00"
   },
   "historico": [
     {
@@ -521,7 +521,7 @@
         "eolica_prev": "estimada"
       },
       "fecha_emision": "2026-11-17",
-      "emitida_en": "2026-11-17T00:11:20.280206+01:00"
+      "emitida_en": "2026-11-17T00:38:35.393932+01:00"
     },
     "predicciones_propias": [
       {
