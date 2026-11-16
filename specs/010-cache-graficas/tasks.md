@@ -198,18 +198,32 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     desbordamiento horizontal en móvil). Adelanto de T-10-17: se retiró
     «Cargando datos…» y el aviso de un minuto de la gráfica.
 
-- [ ] **T-10-17 — Textos y estado** (8.3, 8.4; RNF-11)
+- [x] **T-10-17 — Textos y estado** (8.3, 8.4; RNF-11)
   - `LivePredictionStatus.astro`, `index.astro` y `resultados.astro`: copia de
     «publicado», sin «en vivo», sin «Cargando…» y sin el aviso de un minuto.
   - La hora sale de `generationLabel(snapshot)`; ningún texto fija las 05:00.
   - Hecho cuando: los textos coinciden con la tabla 8.4, se ven bien en móvil y
     sin JavaScript muestran el estado del build.
+  - Resultado: sin «en vivo», «Cargando…» ni aviso de un minuto en `index`,
+    `resultados`, `proceso` ni la gráfica. Textos comprobados contra la tabla
+    8.4 (`ok`, `pendiente`, `caducado`, `no_disponible`). La hora sale de
+    `generationLabel`. Sin JavaScript: el HTML del build trae el estado
+    (comprobado en `dist/`). En `no_disponible` el script también sustituye las
+    cifras por «no disponible» (antes quedaban visibles; corregido). Móvil
+    comprobado en `resultados`; la portada no se pudo capturar en móvil por el
+    estado de la ventana del navegador.
 
-- [ ] **T-10-18 — Retirar el cron muerto** (D-10-13; CA-10.13)
+- [x] **T-10-18 — Retirar el cron muerto** (D-10-13; CA-10.13)
   - Eliminar `frontend/cron.js`, quitar `crons` de `frontend/vercel.json` y
     retirar `predictionStatus` de `evolution.mjs`.
   - Hecho cuando: no quedan referencias al cron ni a `predictionStatus` y
     `node --test` sigue en verde.
+  - Resultado: `frontend/cron.js` eliminado; `frontend/vercel.json` queda en
+    `{}`; `predictionStatus` retirada de `evolution.mjs`. Sin referencias en
+    `frontend/src`, `frontend/tests` ni `vercel.json`. Quedan menciones en
+    `AGENTS.md`, `README.md` y specs anteriores: son documentación histórica o
+    del proyecto y no se han tocado sin pedirlo. `node --test frontend/tests`:
+    42/42.
 
 ## Bloque G — Verificación y cierre
 
@@ -220,9 +234,35 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     token.
   - Hecho cuando: P-10-9 a P-10-20 pasan y el sitio se reconstruye sin
     intervención.
+  - Resultado (parcial, ver `MEMORY.md`):
+    - P-10-11 cumplida: `grep onrender dist` sin resultados; ni token ni clave
+      en `dist/` ni en los logs de Render.
+    - P-10-12 cumplida: `/`, `/resultados` y `/proceso` sin peticiones a
+      Render ni a `/api` (con el preview del build).
+    - P-10-13 y P-10-17 cumplidas: con la fecha del navegador adelantada, el
+      snapshot del 18/11 pasa a `pendiente` (18/11) y a `caducado` (19/11, un
+      build de dos días).
+    - P-10-14 cumplida: revertir el commit de datos deja el blob del snapshot
+      anterior (`f17d98d6`).
+    - P-10-16 cumplida: ningún deploy de Render tras los commits del bot.
+    - P-10-18 cumplida en local con uvicorn: 401 × 5, 429 en el sexto; con otra
+      IP (`X-Forwarded-For`) sigue 401.
+    - P-10-19 cumplida: la segunda ejecución con aviso recalcula en vez de
+      `already_done`.
+    - P-10-9 cumplida solo a medias: el commit y el deploy de Render funcionan;
+      el rebuild de Vercel no se ha comprobado (403 de scope).
+    - P-10-10 **no cumplida**: dos ejecuciones el mismo día dan dos commits
+      (`b01d40a`, `b39bb24`) porque el snapshot lleva avisos.
+    - P-10-20 no verificable fuera de GitHub.
+    - Sin JavaScript: comprobado en el HTML del build; no se ha probado en un
+      navegador con JS desactivado.
 
-- [ ] **T-10-20 — Cierre documental**
+- [x] **T-10-20 — Cierre documental**
   - Actualizar `MEMORY.md` con estado, secretos, filtro de Render, primer
     commit y forma de revertir.
   - Hecho cuando: el estado de la 010 queda escrito y los pendientes ajenos
     (008 en producción, rotación AEMET, scikit-learn) siguen listados.
+  - Resultado: `MEMORY.md` recoge estado, secretos, commits del bot, forma de
+    revertir y los pendientes ajenos (008 en producción, rotación de la clave
+    AEMET y de `REFRESH_TOKEN`, compatibilidad de scikit-learn). El filtro de
+    build de Render y `healthCheckPath` siguen siendo manuales en el dashboard.

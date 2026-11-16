@@ -54,6 +54,10 @@ export function cardView(snapshot, today = todayInMadrid()) {
 
 function setState(root, view) {
   root.dataset.state = view.estado;
+  root.querySelectorAll("[data-field]").forEach((el) => {
+    const name = el.dataset.field;
+    if (name !== "estado" && name in view.campos) el.textContent = view.campos[name];
+  });
   root.querySelectorAll('[data-field="estado"]').forEach((el) => {
     el.textContent = view.mensaje;
     // data-tone="none": fondos de color propio donde el tono de estado no contrasta.
