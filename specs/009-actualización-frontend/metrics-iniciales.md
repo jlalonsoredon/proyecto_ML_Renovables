@@ -184,3 +184,15 @@ Este registro no se reescribe. Las anotaciones se añaden aquí, fechadas.
 
 La diferencia se debe a que la spec 008 no está liberada en el entorno
 publicado.
+
+### 2026-11-16 — Cierre de la spec 009
+
+- Este registro se conserva **congelado**: describe lo que mostraba la web antes
+  de la spec y no se actualiza con las cifras nuevas.
+- Implementación cerrada y verificada: 28/28 pruebas, `astro check` sin errores y
+  build de las 4 páginas. El detalle está en `spec.md` (sección 10) y en
+  `tasks.md`.
+- Las gráficas de modelos usan la exportación del PASO 6 del 2026-11-15
+  (LR 23.215,1 MWh · R² 0,9301); el paso 6, la tabla y los textos mantienen el
+  modelo de producción (23.108,4 · 0,9308). Las cifras de este documento no se
+  sustituyen por ninguna de las dos.

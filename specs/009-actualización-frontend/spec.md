@@ -1,6 +1,7 @@
 # Spec 009 — Actualizar el frontend: el recorrido de las specs y las métricas reales
 
-- **Estado:** spec cerrada tras revisión QA; pendiente de plan e implementación.
+- **Estado:** implementada y cerrada el 2026-11-16. Verificación: 28/28 pruebas,
+  `astro check` sin errores y build de las 4 páginas.
 - **Fecha:** 2026-11-15.
 - **Depende del comportamiento establecido en:** specs 001 a 008.
 - **Línea base registrada en:** el registro de métricas iniciales de esta misma
@@ -401,3 +402,60 @@ páginas nuevas, cambios en el menú y dependencias nuevas.
 | Principio 4: lógica separada | D-9-21 |
 | Principio 5: tests como puerta | D-9-21, RF-7 |
 | Principio 6: datos del usuario | Sección 8 |
+
+## 10. Cierre
+
+### 10.1 Qué se entregó
+
+- La sección 6 de `/proceso`, con el recorrido de las nueve specs, el glosario
+  y el bloque de estado actual.
+- La comparación de métricas con el protocolo visible y sin restar
+  experimentos distintos.
+- Las gráficas de modelos con tres líneas —real, 16 variables y 19 variables—
+  y las métricas de cada versión junto a su ventana.
+- Los datos congelados en JSON versionados y la lógica pura probada con
+  `node --test`.
+- La retirada de `mockData.ts` y de las cifras y textos antiguos de las cuatro
+  páginas.
+
+### 10.2 Cambio respecto al plan
+
+A petición del usuario, el 2026-11-16 se recuperaron las gráficas por modelo en
+lugar de la tabla y la gráfica de barras del paso 3. Esto sustituye a P-9-7 y
+P-9-8: la comparación vuelve a dibujar las ocho familias con sus series
+semanales, ahora acompañadas de la serie de 19 variables. La tabla de nueve
+filas se mantiene únicamente en el paso 6. Las nuevas fuentes son
+`model-predictions.json` (series combinadas) y `model-predictions-19.json`
+(exportación del PASO 6 del notebook).
+
+### 10.3 Cifras y ventanas
+
+| Uso | Cifra | Ventana |
+|---|---|---|
+| Modelo en producción (paso 6, tabla y textos) | RMSE 23.108,4 MWh · R² 0,9308 | 2025-11-22 → 2026-11-10 |
+| Exportación del notebook (solo gráficas) | LR RMSE 23.215,1 MWh · R² 0,9301 | 2025-11-23 → 2026-11-11 |
+| Serie antigua de 16 variables | RMSE 60.418 MWh · R² 0,5779 | 2025-06-29 → 2026-05-10 |
+
+Las dos primeras no se restan: la exportación tiene un día más de datos. La web
+lo explica junto a las gráficas y una prueba impide tratar esas filas como
+comparables.
+
+### 10.4 Verificación
+
+- `node --test tests/` en `frontend/`: **28/28**.
+- `astro check`: **0 errores** (24 avisos previos de tipos).
+- `npm run build`: **4 páginas** generadas.
+- Consola limpia en las cuatro páginas; sin desbordamiento a 360 px; modo
+  oscuro legible; los nueve hitos abiertos sin JavaScript; servicio apagado y
+  producción degradada con el comportamiento previsto.
+
+### 10.5 Pendiente fuera del repositorio
+
+- Quitar la celda 108 de `src/notebooks/main.ipynb`, que solo sirvió para
+  exportar las predicciones.
+- El notebook reentrenó `src/data/modelos/lr_eolica.joblib` el 2026-11-15
+  (SHA-256 `1f1cdd4d…`); el artefacto del backend sigue intacto
+  (`e915381e…`) y no se ha tocado.
+- La liberación de la spec 008 en Render y el arranque en frío del servicio
+  quedan fuera del alcance de esta spec.
+
