@@ -30,7 +30,7 @@ def create_app(run_background_tasks: bool = True) -> FastAPI:
 
             scheduler = BackgroundScheduler()
             scheduler.add_job(
-                scheduler_service.run_daily_task,
+                scheduler_service.run_daily_snapshot,
                 "cron",
                 hour=3,
                 minute=0,
@@ -51,7 +51,10 @@ def create_app(run_background_tasks: bool = True) -> FastAPI:
                     scheduler_service.backfill_aemet_diario(days=35)
                 except Exception as error:
                     logger.error("Error en backfill AEMET: %s", error)
+                finally:
+                    scheduler_service.backfill_done.set()
 
+            scheduler_service.backfill_done.clear()
             threading.Thread(target=_backfill, daemon=True).start()
             logger.info("Backfill AEMET iniciado en segundo plano")
         else:
@@ -80,9 +83,11 @@ def create_app(run_background_tasks: bool = True) -> FastAPI:
 
     from .api.prediction import router as prediction_router
     from .api.charts import router as charts_router
+    from .api.internal import router as internal_router
 
     app.include_router(prediction_router)
     app.include_router(charts_router)
+    app.include_router(internal_router, include_in_schema=False)
 
     @app.get("/")
     def root():

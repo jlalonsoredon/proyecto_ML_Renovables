@@ -465,7 +465,7 @@ test("la app programa captura 03:00 y reintento 09:00 en Europe/Madrid", (t) => 
 
   const result = runProbe({ action: "scheduler_schedule" }, database);
   assert.deepEqual(result.jobs, [
-    { function: "run_daily_task", hour: 3, minute: 0, timezone: "Europe/Madrid" },
+    { function: "run_daily_snapshot", hour: 3, minute: 0, timezone: "Europe/Madrid" },
     { function: "retry_forecast_capture", hour: 9, minute: 0, timezone: "Europe/Madrid" },
   ]);
   assert.equal(result.started, true);

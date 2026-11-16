@@ -3,6 +3,8 @@
 Memoria del proyecto entre sesiones; mantenerla en torno a 50 líneas.
 
 ## Estado actual
+- Spec 010 (snapshot diario de gráficas) en implementación: hechas T-10-03 a T-10-08 (matriz local P-10-1/2/3/5/6/7/8 en verde; P-10-4 solo contra Render) (el job de las 03:00 es `scheduler_service.run_daily_snapshot`, que llama a `forecast_cache.refresh`; `backfill_done` nace activado y `main.py` lo limpia y lo reactiva en `finally`; `run_scheduler.py` standalone sigue con `run_daily_task`). `charts.get_historico_eolica` y `build_current_chart(hoy)` públicas; `services/forecast_cache.py` (snapshot, V1–V12, lock y caché en memoria) y `api/internal.py` (`POST /api/internal/forecast/refresh`, `GET .../status`, token `REFRESH_TOKEN`, 5 fallos/min/IP). Pendiente manual en Render: `REFRESH_TOKEN` y start command con `--proxy-headers`.
+- Probar `charts`/`forecast_cache` en local con `DB_PATH` sobre una copia temporal y borrando su `-wal`/`-shm` antes de cada copia: abrir la BD versionada la deja como `M` (WAL) y un `-wal` viejo se reaplica sobre una copia nueva. No hay `httpx`: sin `TestClient`; se prueba con uvicorn + `curl`.
 - Specs 001–007 portan el análisis a `src/`; la 008 lo integra en el backend y la 009 actualiza el frontend con el recorrido y las métricas reales.
 - Spec 008 está implementada y probada localmente. El volumen vivo de Render no se ha pausado ni actualizado; ver `specs/008-integracion-backend-render/tasks.md`.
 - Artefacto backend: Linear Regression + StandardScaler, 19 variables, `usa_scaler=True`; SHA-256 `e915381e2c24fcfbc2a81ab6eca2fdede7c7729f1abe2f79e58491cf9647c702`.

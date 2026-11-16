@@ -230,7 +230,7 @@ Sin cambios de comportamiento en `/api/historical` ni en `/api/prediction-chart`
 
 - `estado` vale `actualizado` o `already_done`. En ambos casos incluye `snapshot`.
 - Si la validación falla: `502` con `{"detail": "snapshot_invalido", "problemas": [...]}`. Nunca se devuelve un snapshot inválido.
-- `GET /api/internal/forecast/status` devuelve `{"cache": {"version", "fecha_objetivo", "generado_en"} | null}` y `GET /health` sigue siendo público.
+- `GET /api/internal/forecast/status` exige el mismo token y devuelve `{"cache": {"version", "fecha_objetivo", "generado_en"} | null}`; `GET /health` sigue siendo público.
 
 ### 6.4 Idempotencia y concurrencia
 

@@ -195,7 +195,7 @@ def get_mock_energy_mix():
     }
 
 
-def _get_historico_eolica(days: int, hoy=None) -> List[dict]:
+def get_historico_eolica(days: int, hoy=None) -> List[dict]:
     """
     Devuelve [{"fecha": "YYYY-MM-DD", "eolica": float}, ...] de los últimos `days`
     días disponibles en la tabla `generacion`.
@@ -419,16 +419,12 @@ def build_prediction_chart_payload(
     }
 
 
-@router.get("/prediction-chart")
-def get_prediction_chart():
-    """Devuelve el histórico y las emisiones persistidas; no consulta fuentes."""
-    from ..services.prediction_service import today_in_madrid
-
-    hoy = today_in_madrid()
+def build_current_chart(hoy) -> dict:
+    """Lee el histórico y las emisiones persistidas para `hoy`; no consulta fuentes."""
     manana = hoy + timedelta(days=1)
     avisos = []
     try:
-        historico = _get_historico_eolica(30, hoy=hoy)
+        historico = get_historico_eolica(30, hoy=hoy)
     except Exception as error:
         logger.error("Error obteniendo datos históricos para el gráfico: %s", error)
         historico = []
@@ -459,3 +455,11 @@ def get_prediction_chart():
         hoy,
         avisos,
     )
+
+
+@router.get("/prediction-chart")
+def get_prediction_chart():
+    """Devuelve el histórico y las emisiones persistidas; no consulta fuentes."""
+    from ..services.prediction_service import today_in_madrid
+
+    return build_current_chart(today_in_madrid())

@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -10,6 +11,32 @@ MADRID = ZoneInfo("Europe/Madrid")
 
 
 class SchedulerService:
+    def __init__(self):
+        # Activado salvo que el arranque lance el backfill (ver `main.py`).
+        self.backfill_done = threading.Event()
+        self.backfill_done.set()
+
+    def run_daily_snapshot(self):
+        """Job de las 03:00: mismo camino y misma caché que el endpoint interno."""
+        from ..services import forecast_cache
+
+        try:
+            resultado = forecast_cache.refresh()
+        except forecast_cache.RunInProgress:
+            logger.warning("Snapshot diario omitido: ya hay una generación en curso")
+            return None
+        except forecast_cache.SnapshotInvalid as error:
+            logger.error("Snapshot diario no publicable: %s", error)
+            return None
+        logger.info(
+            "Snapshot diario %s: run_id=%s duracion_s=%s avisos=%s",
+            resultado["estado"],
+            resultado["run_id"],
+            resultado["duracion_s"],
+            resultado["avisos"],
+        )
+        return resultado
+
     def run_daily_task(self, hoy: date | None = None):
         hoy = hoy or datetime.now(MADRID).date()
         logger.info("=" * 50)

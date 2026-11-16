@@ -22,14 +22,14 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
 
 ## Bloque B — Backend
 
-- [ ] **T-10-03 — Refactor de `charts.py`** (PD-10-2, PD-10-3; 6.2)
-  - `_get_historico_eolica` pasa a `get_historico_eolica` y se actualizan sus
-    dos usos.
+- [x] **T-10-03 — Refactor de `charts.py`** (PD-10-2, PD-10-3; 6.2)
+  - `_get_historico_eolica` pasa a `get_historico_eolica` y se actualiza su
+    único uso (`build_current_chart`).
   - Extraer el cuerpo de `get_prediction_chart()` a `build_current_chart(hoy)`.
   - Hecho cuando: `/api/prediction-chart` y `/api/historical` responden lo mismo
     que antes, salvo el orden de claves.
 
-- [ ] **T-10-04 — `forecast_cache.py`** (V1–V12; D-10-7, D-10-9)
+- [x] **T-10-04 — `forecast_cache.py`** (V1–V12; D-10-7, D-10-9)
   - `build_snapshot(hoy)`: llama a `scheduler_service.run_daily_task(hoy)` y
     compone el snapshot con `get_historico_eolica` y
     `build_prediction_chart_payload`. Sin duplicar cálculos.
@@ -38,7 +38,7 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
   - Hecho cuando: un snapshot real pasa la validación y los bloques
     `prediccion`, `historico` y `grafico` coinciden con los endpoints públicos.
 
-- [ ] **T-10-05 — Endpoint interno** (CA-10.1–10.3, 10.5, 10.17; D-10-10, D-10-20)
+- [x] **T-10-05 — Endpoint interno** (CA-10.1–10.3, 10.5, 10.17; D-10-10, D-10-20)
   - `POST /api/internal/forecast/refresh` con `Authorization: Bearer` y
     `secrets.compare_digest`; `503` sin variable, `401` con traza, `429` a partir
     de 5 fallos/minuto/IP, `409` si hay una ejecución en curso, `502` si el
@@ -49,24 +49,28 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     proxy.
   - Hecho cuando: P-10-1 a P-10-8 pasan en local y P-10-18 contra uvicorn con
     proxy headers, con dos IPs distintas.
+  - Pendiente manual: el start command del servicio real en el dashboard de
+    Render (solo `render.yaml` está actualizado) y crear `REFRESH_TOKEN` allí.
 
-- [ ] **T-10-06 — Espera al backfill** (6.6; RNF-4)
+- [x] **T-10-06 — Espera al backfill** (6.6; RNF-4)
   - `scheduler_service.backfill_done` (`threading.Event`), activado en `finally`
     desde `main.py`; con `run_background_tasks=False` nace activado.
   - `refresh()` espera 10 minutos como máximo y anota el timeout en `avisos`.
   - Hecho cuando: un arranque local con backfill lento no bloquea más de 10
     minutos y uno normal no espera de más.
 
-- [ ] **T-10-07 — Job de las 03:00** (D-10-4)
+- [x] **T-10-07 — Job de las 03:00** (D-10-4)
   - El scheduler llama a `forecast_cache.refresh()` en vez de a
     `run_daily_task`, sin reentrenar y con el mismo camino que el endpoint.
   - Hecho cuando: dos ejecuciones del mismo día devuelven `already_done` y los
     logs incluyen `run_id`, duración y avisos.
 
-- [ ] **T-10-08 — Matriz local con `curl`** (P-10-1 a P-10-8)
+- [x] **T-10-08 — Matriz local con `curl`** (P-10-1 a P-10-8)
   - Sin token, token malo, sin `REFRESH_TOKEN`, llamada correcta, repetición,
     `force`, dos simultáneas y fallo forzado de REE.
   - Hecho cuando: los códigos y cuerpos coinciden con la tabla de pruebas.
+  - Resultado: P-10-1, 2, 3, 5, 6, 7 y 8 pasan en local. P-10-4 (servicio
+    dormido, menos de 20 min) solo se puede medir contra Render: queda para T-10-09.
 
 ## Bloque C — Sembrado
 
