@@ -291,3 +291,15 @@ export function staleMessage(snapshot, today) {
   const result = classify(snapshot, today);
   return result.estado === FORECAST_STATE.OK ? null : result.mensaje;
 }
+
+// Espejo de AVISOS_ESPERADOS en backend/app/services/forecast_cache.py.
+const AVISOS_ESPERADOS = Object.freeze([
+  "Paso capture_ree_forecast: fallo",
+  "Paso download_aemet_data: parcial",
+]);
+
+/** Avisos que impiden tomar el snapshot por limpio; los esperables a esa hora no cuentan. */
+export function avisosBloqueantes(snapshot) {
+  const avisos = Array.isArray(snapshot?.avisos) ? snapshot.avisos : [];
+  return avisos.filter((aviso) => !AVISOS_ESPERADOS.includes(aviso));
+}

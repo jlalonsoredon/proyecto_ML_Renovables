@@ -77,7 +77,7 @@ Además, el cron que debía mantener esto ya está muerto: `frontend/cron.js` es
 | D-10-9 | El histórico se obtiene de `db_ree`, nunca de `/api/historical`. | Ese endpoint cae en `generate_mock_historical` si la BD está vacía. Publicar un mock como dato real sería el peor fallo posible. | Reutilizar el endpoint HTTP: arrastra el fallback silencioso. |
 | D-10-10 | El token se compara con `secrets.compare_digest` y el endpoint falla cerrado si falta la variable. | Sin `REFRESH_TOKEN` configurado, el endpoint responde 503 y no ejecuta nada. | Comparación con `==` o arrancar sin token: abre la ejecución a cualquiera. |
 | D-10-11 | Render ignora los cambios en `frontend/**`. | El commit diario no debe provocar un despliegue del backend. | Dejar que Render redeploye cada día: un minuto de build y un reinicio innecesarios. |
-| D-10-12 | El workflow reintenta a las 08:00 solo si el snapshot no es el de mañana o tiene avisos. | Red de seguridad real a coste cero: si la ejecución de las 05:00 falla o sale degradada, la de las 08:00 publica una limpia. | Reintentar siempre: duplica trabajo y commits. |
+| D-10-12 | El workflow reintenta a las 08:00 solo si el snapshot no es el de mañana o tiene avisos bloqueantes. | Red de seguridad real a coste cero: si la ejecución de las 05:00 falla o sale degradada, la de las 08:00 publica una limpia. | Reintentar siempre: duplica trabajo y commits. |
 | D-10-13 | Se retiran `frontend/cron.js` y el cron de `frontend/vercel.json`. | Nunca funcionaron y confunden sobre quién actualiza los datos. | Conservarlos: dejan una segunda vía muerta. |
 | D-10-14 | El rollback es `git revert` del commit de datos o del commit de frontend. | Ambas cosas están versionadas y se reconstruyen solas. | Bandera `PUBLIC_DATA_SOURCE`: obliga a mantener dos caminos vivos. |
 | D-10-15 | Sin dependencias nuevas. | El backend no habla con ningún almacén: devuelve JSON. El workflow usa `curl`, `git` y `node`, ya presentes en el runner. | SDK de Supabase, `@vercel/blob`, cliente HTTP nuevo. |
@@ -235,7 +235,7 @@ Sin cambios de comportamiento en `/api/historical` ni en `/api/prediction-chart`
 ### 6.4 Idempotencia y concurrencia
 
 - **Bloqueo:** `threading.Lock` no bloqueante. Si hay una ejecución en curso, `409 {"detail": "run_in_progress"}`.
-- **Caché en memoria:** solo se guarda si la ejecución terminó **sin avisos**. Sin `force`, una segunda llamada para la misma fecha objetivo devuelve `already_done` con el mismo snapshot y no vuelve a ejecutar la tarea. Si hubo avisos, la siguiente llamada recalcula: un reintento no debe heredar una ejecución degradada.
+- **Caché en memoria:** solo se guarda si la ejecución terminó **sin avisos bloqueantes**. Son esperables y no bloquean `capture_ree_forecast: fallo` (ESIOS aún sin D+1 de madrugada) ni `download_aemet_data: parcial` (AEMET aún sin el diario de ayer); la lista `AVISOS_ESPERADOS` está en `forecast_cache.py` y su espejo en `forecast.mjs`. Cualquier otro aviso sí bloquea. Sin `force`, una segunda llamada para la misma fecha objetivo devuelve `already_done` con el mismo snapshot y no vuelve a ejecutar la tarea. Si hubo avisos, la siguiente llamada recalcula: un reintento no debe heredar una ejecución degradada.
 - **Por qué en memoria y no en disco:** el disco de Render es efímero; persistir sería mentira. La memoria cubre el caso real: el scheduler de las 03:00 y la llamada de las 05:00 dentro del mismo contenedor despierto.
 - **Idempotencia de publicación:** el workflow compara el hash del snapshot con el archivo del repositorio. Si coincide, no hace commit. Sin commit no hay rebuild ni versión nueva.
 
@@ -318,7 +318,7 @@ on:
 ### 7.2 Pasos
 
 1. **Checkout** del repositorio.
-2. **Guardia de frescura** (solo para ejecuciones programadas): lee `frontend/src/data/forecast-snapshot.json`, calcula si `fecha_objetivo` es mañana en `Europe/Madrid` **y** si `avisos` está vacío, y escribe `skip=true|false` en `$GITHUB_OUTPUT`. Los pasos siguientes llevan `if: steps.guard.outputs.skip != 'true'`. No se compara con el texto del cron: la condición depende del estado del archivo, no de qué expresión lo disparó.
+2. **Guardia de frescura** (solo para ejecuciones programadas): lee `frontend/src/data/forecast-snapshot.json`, calcula si `fecha_objetivo` es mañana en `Europe/Madrid` **y** si no quedan avisos bloqueantes (`avisosBloqueantes`), y escribe `skip=true|false` en `$GITHUB_OUTPUT`. Los pasos siguientes llevan `if: steps.guard.outputs.skip != 'true'`. No se compara con el texto del cron: la condición depende del estado del archivo, no de qué expresión lo disparó.
 3. **Petición**: `curl --fail-with-body --max-time 1200 -X POST "$BACKEND_URL/api/internal/forecast/refresh"` con el token, guardando la respuesta en `/tmp/refresh.json` y el código HTTP en un archivo.
 4. **Diagnóstico**: si el código no es 200, imprime el cuerpo redactado y termina con error.
 5. **Validación**: extrae `.snapshot` con `jq` y lo valida con el módulo del frontend:
@@ -472,7 +472,7 @@ El scheduler no corre. No pasa nada: el workflow de las 05:00 despierta el servi
 | GitHub retrasa el cron 20 minutos en hora punta. | El diseño lo tolera: no hay hora límite y el estado `pendiente` cubre la espera. |
 | El servicio tarda 12 minutos en arrancar y terminar. | La cadena 10 < 20 < 30 minutos lo cubre; el visitante no lo nota. |
 | El snapshot es idéntico al del día anterior. | No hay commit, no hay rebuild. |
-| La primera ejecución termina con avisos. | No se cachea; el reintento de las 08:00 vuelve a generar. |
+| La primera ejecución termina con avisos bloqueantes. | No se cachea; el reintento de las 08:00 vuelve a generar. Con solo los esperables sí se cachea. |
 | El repositorio lleva 60 días sin actividad. | Se espera que el commit diario cuente como actividad y lo evite; si aun así se desactiva, el estado `caducado` lo delata. |
 | El token se filtra en un log. | `redact_secrets` lo sustituye; los intentos fallidos se registran sin el valor recibido. |
 | El JSON se corrompe en el commit. | `validateSnapshot` en el workflow lo impide; si aun así llega, el build falla y Vercel no publica. |
@@ -497,7 +497,7 @@ El scheduler no corre. No pasa nada: el workflow de las 05:00 despierta el servi
 | CA-10.14 | El commit diario no dispara un despliegue de Render. |
 | CA-10.15 | El estado se recalcula en el navegador: un `dist/` viejo avisa sin reconstruir. |
 | CA-10.16 | La cadena de tiempos es 10 < 20 < 30 minutos. |
-| CA-10.17 | Una ejecución con avisos no se cachea y se reintenta. |
+| CA-10.17 | Una ejecución con avisos bloqueantes no se cachea y se reintenta; con solo los esperables se cachea. |
 
 ## 14. Pruebas de aceptación
 

@@ -10,6 +10,7 @@ import {
   staleMessage,
   todayInMadrid,
   tomorrowInMadrid,
+  avisosBloqueantes,
   validateSnapshot,
 } from "../src/utils/forecast.mjs";
 import { cardView, toneClass } from "../src/utils/live-prediction.mjs";
@@ -240,4 +241,14 @@ test("cardView con un snapshot inválido no rellena ningún campo", () => {
 test("toneClass devuelve vacío para un tono desconocido", () => {
   assert.equal(toneClass("inventado"), "");
   assert.notEqual(toneClass("aviso"), "");
+});
+
+test("avisosBloqueantes ignora los avisos esperables de REE y del diario de AEMET", () => {
+  const snapshot = buildSnapshot();
+  snapshot.avisos = ["Paso capture_ree_forecast: fallo", "Paso download_aemet_data: parcial"];
+  assert.deepEqual(avisosBloqueantes(snapshot), []);
+
+  snapshot.avisos.push("Paso capture_aemet_forecast: parcial");
+  assert.deepEqual(avisosBloqueantes(snapshot), ["Paso capture_aemet_forecast: parcial"]);
+  assert.deepEqual(avisosBloqueantes({}), []);
 });

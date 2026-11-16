@@ -31,6 +31,13 @@ MIN_PUNTOS_HISTORICO = 30
 MAX_ANTIGUEDAD_OBSERVACION = 2
 ORIGENES_VALIDOS = {"observacion", "prevision", "mixta", "estimada"}
 PASOS_SIN_INCIDENCIA = {"ok"}
+# Avisos esperables a la hora de publicar: ESIOS aún no tiene el D+1 de madrugada
+# y AEMET aún no tiene el diario de ayer. No impiden guardar la caché.
+# Espejo de AVISOS_ESPERADOS en frontend/src/utils/forecast.mjs.
+AVISOS_ESPERADOS = frozenset({
+    "Paso capture_ree_forecast: fallo",
+    "Paso download_aemet_data: parcial",
+})
 BACKFILL_TIMEOUT_S = 600
 
 # Fragmentos que delatan una gráfica construida sin datos reales (V10).
@@ -268,7 +275,8 @@ def refresh(force: bool = False, hoy: date | None = None) -> dict:
     """Ejecuta la tarea diaria y devuelve el snapshot validado.
 
     Sin `force`, una segunda llamada para el mismo objetivo devuelve la ejecución
-    cacheada. Solo se cachean las ejecuciones sin avisos.
+    cacheada. Solo se cachean las ejecuciones sin avisos bloqueantes: los de
+    AVISOS_ESPERADOS no cuentan.
     """
     global _cache
     if not _lock.acquire(blocking=False):
@@ -320,11 +328,12 @@ def refresh(force: bool = False, hoy: date | None = None) -> dict:
             "avisos": avisos,
             "snapshot": snapshot,
         }
-        if avisos:
+        bloqueantes = [aviso for aviso in avisos if aviso not in AVISOS_ESPERADOS]
+        if bloqueantes:
             _cache = None
             logger.warning(
                 "Snapshot %s válido con avisos en %.1f s; no se cachea: %s",
-                run_id, duracion, avisos,
+                run_id, duracion, bloqueantes,
             )
         else:
             _cache = resultado

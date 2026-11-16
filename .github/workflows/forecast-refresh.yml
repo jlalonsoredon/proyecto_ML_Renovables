@@ -43,7 +43,7 @@ jobs:
         run: |
           node --input-type=module -e "
             import { existsSync, readFileSync, appendFileSync } from 'node:fs';
-            import { todayInMadrid, tomorrowInMadrid } from './frontend/src/utils/forecast.mjs';
+            import { avisosBloqueantes, todayInMadrid, tomorrowInMadrid } from './frontend/src/utils/forecast.mjs';
             const ruta = process.env.SNAPSHOT_PATH;
             let omitir = false;
             let motivo = 'no hay snapshot publicado';
@@ -51,11 +51,11 @@ jobs:
               try {
                 const snapshot = JSON.parse(readFileSync(ruta, 'utf8'));
                 const manana = tomorrowInMadrid(todayInMadrid());
-                const limpio = Array.isArray(snapshot.avisos) && snapshot.avisos.length === 0;
+                const limpio = avisosBloqueantes(snapshot).length === 0;
                 omitir = snapshot.fecha_objetivo === manana && limpio;
                 motivo = omitir
-                  ? 'el snapshot ya es el de mañana y no tiene avisos'
-                  : 'objetivo ' + snapshot.fecha_objetivo + ' (mañana: ' + manana + '), avisos: ' + (snapshot.avisos ?? []).length;
+                  ? 'el snapshot ya es el de mañana y no tiene avisos bloqueantes'
+                  : 'objetivo ' + snapshot.fecha_objetivo + ' (mañana: ' + manana + '), avisos bloqueantes: ' + avisosBloqueantes(snapshot).length;
               } catch (error) {
                 motivo = 'el snapshot publicado no se puede leer: ' + error.message;
               }
