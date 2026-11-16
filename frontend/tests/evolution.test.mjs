@@ -12,7 +12,6 @@ import {
   isPlausibleMetric,
   formatMetric,
   rowStatus,
-  predictionStatus,
   formatDateEs,
 } from "../src/utils/evolution.mjs";
 
@@ -163,62 +162,6 @@ test("el estado de una fila sale de lo que declara", () => {
   assert.equal(rowStatus({ estado: "histórico" }), STATUS.HISTORICAL);
   assert.equal(rowStatus({ estado: "inventado" }), STATUS.UNAVAILABLE);
   assert.equal(rowStatus({}), STATUS.UNAVAILABLE);
-});
-
-const newContract = {
-  fecha: "2026-11-16",
-  prediccionMWh: 278461,
-  modelo: "Linear Regression",
-  n_variables: 19,
-  fecha_emision: "2026-11-15",
-};
-
-test("el contrato de 19 variables completo está disponible", () => {
-  const status = predictionStatus(newContract, "2026-11-15");
-  assert.equal(status.state, "ok");
-  assert.equal(status.nVariables, 19);
-  assert.equal(status.family, "Linear Regression");
-  assert.equal(status.issuedOn, "2026-11-15");
-  assert.deepEqual(status.missing, []);
-});
-
-test("el contrato antiguo declara su versión y lo que falta", () => {
-  const old = {
-    fecha: "2026-11-16",
-    prediccionMWh: 106432,
-    modelo: "Linear Regression",
-    features: { velmedia: 3.17, racha: 0 },
-  };
-  const status = predictionStatus(old, "2026-11-15");
-  assert.equal(status.state, "ok");
-  assert.equal(status.nVariables, null);
-  assert.deepEqual(status.missing, ["n_variables", "fecha_emision"]);
-});
-
-test("sin respuesta o sin predicción no hay dato", () => {
-  assert.equal(predictionStatus(null, "2026-11-15").state, "no_disponible");
-  assert.equal(predictionStatus({}, "2026-11-15").state, "no_disponible");
-  assert.equal(
-    predictionStatus({ ...newContract, prediccionMWh: null }, "2026-11-15").state,
-    "no_disponible",
-  );
-  assert.equal(
-    predictionStatus({ ...newContract, fecha: "16/11/2026" }, "2026-11-15").state,
-    "no_disponible",
-  );
-});
-
-test("una fecha objetivo pasada está caducada", () => {
-  assert.equal(predictionStatus(newContract, "2026-11-17").state, "caducado");
-  assert.equal(predictionStatus(newContract, "2026-11-16").state, "ok");
-});
-
-test("la caducidad funciona al cambiar de mes y de año", () => {
-  const nov = { ...newContract, fecha: "2026-11-30" };
-  assert.equal(predictionStatus(nov, "2026-12-01").state, "caducado");
-  const dec = { ...newContract, fecha: "2026-12-31" };
-  assert.equal(predictionStatus(dec, "2027-01-01").state, "caducado");
-  assert.equal(predictionStatus(dec, "2026-12-31").state, "ok");
 });
 
 // ── Integridad de los datos congelados ──────────────────────────────────────

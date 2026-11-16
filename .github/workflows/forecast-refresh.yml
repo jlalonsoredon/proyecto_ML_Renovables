@@ -1,0 +1,178 @@
+name: Actualizar previsión
+
+# Genera el snapshot diario en el backend y lo publica como commit (spec 010).
+# La hora va en Europe/Madrid para no tener que corregir el cambio de hora.
+on:
+  schedule:
+    - cron: "0 5 * * *"
+      timezone: "Europe/Madrid"
+    # Reintento: la guardia lo detiene si el snapshot ya es el de mañana y está limpio.
+    - cron: "0 8 * * *"
+      timezone: "Europe/Madrid"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Ignorar la caché del backend y recalcular"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forecast-refresh
+  cancel-in-progress: false
+
+env:
+  SNAPSHOT_PATH: frontend/src/data/forecast-snapshot.json
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+
+      # Decide por el estado del archivo, no por qué cron lo ha disparado.
+      - name: Guardia de frescura
+        id: guard
+        if: github.event_name == 'schedule'
+        run: |
+          node --input-type=module -e "
+            import { existsSync, readFileSync, appendFileSync } from 'node:fs';
+            import { todayInMadrid, tomorrowInMadrid } from './frontend/src/utils/forecast.mjs';
+            const ruta = process.env.SNAPSHOT_PATH;
+            let omitir = false;
+            let motivo = 'no hay snapshot publicado';
+            if (existsSync(ruta)) {
+              try {
+                const snapshot = JSON.parse(readFileSync(ruta, 'utf8'));
+                const manana = tomorrowInMadrid(todayInMadrid());
+                const limpio = Array.isArray(snapshot.avisos) && snapshot.avisos.length === 0;
+                omitir = snapshot.fecha_objetivo === manana && limpio;
+                motivo = omitir
+                  ? 'el snapshot ya es el de mañana y no tiene avisos'
+                  : 'objetivo ' + snapshot.fecha_objetivo + ' (mañana: ' + manana + '), avisos: ' + (snapshot.avisos ?? []).length;
+              } catch (error) {
+                motivo = 'el snapshot publicado no se puede leer: ' + error.message;
+              }
+            }
+            console.log((omitir ? 'Se omite: ' : 'Se ejecuta: ') + motivo);
+            appendFileSync(process.env.GITHUB_OUTPUT, 'skip=' + omitir + '\n' + 'motivo=' + motivo + '\n');
+          "
+
+      - name: Pedir el snapshot al backend
+        id: request
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          if [ -z "$BACKEND_URL" ] || [ -z "$REFRESH_TOKEN" ]; then
+            echo "::error::Faltan los secretos BACKEND_URL o REFRESH_TOKEN"
+            exit 1
+          fi
+          url="${BACKEND_URL%/}/api/internal/forecast/refresh"
+          if [ "$FORCE" = "true" ]; then url="$url?force=true"; fi
+          set +e
+          code=$(curl --silent --show-error --fail-with-body --max-time 1200 -X POST \
+            -H "Authorization: Bearer $REFRESH_TOKEN" \
+            -o /tmp/refresh.json -w '%{http_code}' "$url")
+          curl_exit=$?
+          set -e
+          echo "$code" > /tmp/refresh.code
+          echo "http_code=$code" >> "$GITHUB_OUTPUT"
+          echo "curl_exit=$curl_exit" >> "$GITHUB_OUTPUT"
+          echo "Respuesta HTTP $code (curl salió con $curl_exit)"
+
+      - name: Diagnóstico
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          code=$(cat /tmp/refresh.code)
+          if [ "$code" != "200" ]; then
+            echo "::error::El backend respondió HTTP $code"
+            if [ -s /tmp/refresh.json ]; then head -c 2000 /tmp/refresh.json; echo; fi
+            exit 1
+          fi
+
+      - name: Validar el snapshot
+        id: validate
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          jq -e '.snapshot' /tmp/refresh.json > /tmp/snapshot.json
+          node --input-type=module -e "
+            import { readFileSync } from 'node:fs';
+            import { todayInMadrid, validateSnapshot } from './frontend/src/utils/forecast.mjs';
+            const snapshot = JSON.parse(readFileSync('/tmp/snapshot.json', 'utf8'));
+            const problemas = validateSnapshot(snapshot, todayInMadrid());
+            if (problemas.length) {
+              for (const problema of problemas) console.error('::error::' + problema);
+              process.exit(1);
+            }
+            console.log('Snapshot válido para ' + snapshot.fecha_objetivo);
+          "
+          {
+            echo "estado=$(jq -r '.estado' /tmp/refresh.json)"
+            echo "version=$(jq -r '.snapshot.version' /tmp/refresh.json)"
+            echo "objetivo=$(jq -r '.snapshot.fecha_objetivo' /tmp/refresh.json)"
+            echo "duracion=$(jq -r '.duracion_s' /tmp/refresh.json)"
+            echo "avisos=$(jq -r '.snapshot.avisos | length' /tmp/refresh.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publicar el snapshot
+        id: publish
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+        run: |
+          mkdir -p "$(dirname "$SNAPSHOT_PATH")"
+          jq --indent 2 . /tmp/snapshot.json > "$SNAPSHOT_PATH"
+          git add "$SNAPSHOT_PATH"
+          if git diff --cached --quiet; then
+            echo "El snapshot no ha cambiado: no hay commit"
+            echo "commit=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          objetivo=$(jq -r '.fecha_objetivo' "$SNAPSHOT_PATH")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: snapshot de previsión para $objetivo"
+          git pull --rebase origin "$DEFAULT_BRANCH"
+          git push origin "HEAD:$DEFAULT_BRANCH"
+          echo "commit=true" >> "$GITHUB_OUTPUT"
+
+      - name: Resumen
+        if: always()
+        env:
+          OMITIDA: ${{ steps.guard.outputs.skip }}
+          MOTIVO: ${{ steps.guard.outputs.motivo }}
+          RESULTADO: ${{ job.status }}
+          HTTP_CODE: ${{ steps.request.outputs.http_code }}
+          ESTADO: ${{ steps.validate.outputs.estado }}
+          VERSION: ${{ steps.validate.outputs.version }}
+          OBJETIVO: ${{ steps.validate.outputs.objetivo }}
+          DURACION: ${{ steps.validate.outputs.duracion }}
+          AVISOS: ${{ steps.validate.outputs.avisos }}
+          COMMIT: ${{ steps.publish.outputs.commit }}
+        run: |
+          {
+            echo "## Previsión diaria"
+            if [ "$OMITIDA" = "true" ]; then
+              echo "Ejecución omitida: $MOTIVO."
+            else
+              echo "| Campo | Valor |"
+              echo "|---|---|"
+              echo "| Resultado | $RESULTADO |"
+              echo "| HTTP del backend | ${HTTP_CODE:--} |"
+              echo "| Estado | ${ESTADO:--} |"
+              echo "| Versión | ${VERSION:--} |"
+              echo "| Fecha objetivo | ${OBJETIVO:--} |"
+              echo "| Duración (s) | ${DURACION:--} |"
+              echo "| Avisos | ${AVISOS:--} |"
+              echo "| Commit | ${COMMIT:--} |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

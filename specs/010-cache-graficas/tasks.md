@@ -92,26 +92,29 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
 
 ## Bloque D — Lógica del frontend
 
-- [ ] **T-10-11 — `forecast.mjs`** (8.1)
+- [x] **T-10-11 — `forecast.mjs`** (8.1)
   - `todayInMadrid(now)`, `tomorrowInMadrid(today)`,
     `validateSnapshot(snapshot, today)`, `snapshotStatus(snapshot, today)`,
-    `generationLabel(snapshot)` y `staleMessage(snapshot)`.
+    `generationLabel(snapshot)` y `staleMessage(snapshot, today)`.
   - Sin DOM, sin red y sin reloj oculto: `todayInMadrid(now)` recibe el instante
     como parámetro opcional y el resto recibe la fecha ya resuelta.
   - Hecho cuando: los cuatro estados y los textos de la tabla 8.4 salen de
     estas funciones.
 
-- [ ] **T-10-12 — Pruebas de la lógica** (8.1, 8.4; CA-10.10, 10.15)
+- [x] **T-10-12 — Pruebas de la lógica** (8.1, 8.4; CA-10.10, 10.15)
   - `frontend/tests/forecast.test.mjs` con los 15 casos del plan: calendario,
     snapshot válido, faltantes, ayer/hoy, 16 variables, `NaN`, longitudes,
     husos, snapshot real, `pendiente`/`caducado`, build viejo, determinismo y
     datos simulados.
   - Retirar de `evolution.test.mjs` las pruebas de `predictionStatus`.
   - Hecho cuando: `node --test frontend/tests` está en verde.
+  - Resultado: 37 pasan, 0 fallan y 1 se omite con motivo explícito: el caso
+    «snapshot real» espera a `frontend/src/data/forecast-snapshot.json`
+    (T-10-09). Cuando exista, se ejecuta y la omisión desaparece.
 
 ## Bloque E — Automatización
 
-- [ ] **T-10-13 — Workflow** (7.1–7.3; CA-10.4)
+- [x] **T-10-13 — Workflow** (7.1–7.3; CA-10.4)
   - Crons `0 5` y `0 8` con `timezone: Europe/Madrid`, `workflow_dispatch` con
     `force`, `permissions: contents: write`, `concurrency` y
     `timeout-minutes: 30`.
@@ -121,6 +124,14 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     `$GITHUB_STEP_SUMMARY`.
   - Hecho cuando: `workflow_dispatch` con y sin `force` funciona y una segunda
     ejecución sin cambios no crea commit.
+  - Resultado: `.github/workflows/forecast-refresh.yml`. Probado en local
+    ejecutando los `run:` reales del YAML contra un servidor de pruebas y un
+    remoto git `bare`: dispatch sin y con `force`, segunda ejecución sin commit,
+    guardia en `schedule` (omite, ejecuta con objetivo de ayer, con avisos y con
+    archivo corrupto) y fallos (401, 502, sin secretos, backend caído, snapshot
+    rechazado por `forecast.mjs`). No comprobable fuera de GitHub: soporte real
+    de `timezone` en `schedule`, `jq` y Node en el runner, permisos de push y
+    reconstrucción de Vercel. Eso es T-10-14.
 
 - [ ] **T-10-14 — Secretos y primer commit automático** (7.3; CA-10.4, 10.14)
   - Cargar `BACKEND_URL` y `REFRESH_TOKEN` en GitHub Actions; ejecutar el

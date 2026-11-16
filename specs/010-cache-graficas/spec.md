@@ -361,9 +361,9 @@ Módulo puro, sin DOM y sin red, para que `node --test` lo importe sin transpila
 | `todayInMadrid(now = new Date())` | Fecha `YYYY-MM-DD` en `Europe/Madrid` para el instante dado. Es la única función que lee el reloj; las pruebas le pasan un instante fijo. |
 | `tomorrowInMadrid(today)` | Suma un día a una fecha `YYYY-MM-DD` sin cruzar husos. |
 | `validateSnapshot(snapshot, today)` | Implementa V1–V5 y V7–V12; devuelve `string[]`. V6 queda solo en el backend porque la lista de las 19 variables vive allí. `today` entra como parámetro porque V2, V3 y V7 comparan con la fecha actual. De V12, el frontend comprueba el recuento y el orden; la procedencia real la garantiza el backend. |
-| `snapshotStatus(snapshot, today)` | Cuatro estados: `ok` si el objetivo es mañana; `pendiente` si el objetivo es hoy (aún no se ha publicado la de mañana); `caducado` si el objetivo ya pasó; `no_disponible` si el snapshot es ilegible, está incompleto o `n_variables != 19`. Devuelve `motivo`. |
-| `generationLabel(snapshot)` | «Datos del 16/11/2026 a las 05:02», en español. |
-| `staleMessage(snapshot)` | Texto del aviso cuando el objetivo no es mañana. |
+| `snapshotStatus(snapshot, today)` | Cuatro estados: `ok` si el objetivo es mañana; `pendiente` si el objetivo es hoy (aún no se ha publicado la de mañana); `caducado` si el objetivo ya pasó; `no_disponible` si el snapshot es ilegible, está incompleto, `n_variables != 19` o el objetivo es posterior a mañana. Devuelve `{estado, motivo, tono, mensaje, objetivo}`; `tono` es `ok`, `info`, `aviso` o `error`. Solo aplica las comprobaciones que no dependen de la fecha (V1, V4, V5, V8–V12 y el orden de V7): un snapshot de ayer es `caducado`, no inválido. |
+| `generationLabel(snapshot)` | «Datos del 16/11/2026 a las 05:02», siempre en hora de Madrid y sin depender del huso del proceso. Exige que `fecha_generacion` lleve huso (`Z` o `±hh:mm`); si no, devuelve «Fecha de generación no disponible». |
+| `staleMessage(snapshot, today)` | Texto del aviso cuando el objetivo no es mañana; `null` si el estado es `ok`. Recibe `today` porque sin él no puede distinguir `pendiente` de `caducado`. |
 
 `snapshotStatus` sustituye a `predictionStatus`, que se retira de `evolution.mjs` junto con sus pruebas: validaba la respuesta HTTP que deja de existir. La regla nueva es `fecha_objetivo === mañana`, no `fecha_objetivo >= hoy`.
 
