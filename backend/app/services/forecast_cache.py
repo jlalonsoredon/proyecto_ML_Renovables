@@ -233,6 +233,18 @@ def validate_snapshot(snapshot, hoy: date) -> list[str]:
     if len(set(longitudes.values())) > 1:
         problemas.append(f"V8: longitudes desalineadas en grafico: {longitudes}")
 
+    # V8 (opcionales): origen del viento rellenado con previsión.
+    for clave in ("vel_origen", "racha_origen"):
+        lista = grafico.get(clave)
+        if lista is None:
+            continue
+        if not isinstance(lista, list):
+            problemas.append(f"V8: grafico.{clave} no es una lista")
+        elif "fechas_hist" in longitudes and len(lista) != longitudes["fechas_hist"]:
+            problemas.append(f"V8: grafico.{clave} no está alineada con fechas_hist")
+        elif any(valor not in (None, "observacion", "prevision") for valor in lista):
+            problemas.append(f"V8: grafico.{clave} tiene orígenes no válidos")
+
     # V9
     manana_grafico = grafico.get("manana")
     if not isinstance(manana_grafico, dict):

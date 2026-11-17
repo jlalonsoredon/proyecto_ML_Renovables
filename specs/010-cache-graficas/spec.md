@@ -169,6 +169,8 @@ El usuario llamó a este archivo «previsiones.json». Se adopta `forecast-snaps
     "racha_norm": [-0.42],
     "vel_ms": [3.1],
     "racha_ms": [6.4],
+    "vel_origen": ["observacion"],
+    "racha_origen": ["prevision"],
     "manana": { "fecha": "2026-11-17", "pred_gwh": 278.46, "prediccion_mwh": 278461.37 },
     "predicciones_propias": [],
     "avisos": []
@@ -184,7 +186,8 @@ El usuario llamó a este archivo «previsiones.json». Se adopta `forecast-snaps
 3. `fecha_observacion` es la fecha del último punto de `historico`, no la de generación.
 4. `version` es el instante UTC de la generación, con formato `YYYY-MM-DDTHHMMSSZ`. Se usa en el mensaje de commit y en los logs.
 5. Los `avisos` de la raíz acumulan los pasos fallidos de la tarea diaria que no impidieron predecir. Se publican: son información, no ruido.
-6. No hay campos opcionales sin motivo: si un dato no está, el snapshot no se publica.
+6. Los rellenos de viento van declarados. AEMET publica el resumen diario de ayer con horas de retraso, así que los últimos días del gráfico suelen quedarse sin observación. En esos días `vel_ms` y `racha_ms` se rellenan con la previsión de AEMET, con la misma regla de elegibilidad que el pipeline (`aemet_national_series` sobre `prediccion_diaria`, elaboración no posterior al día objetivo ni a hoy). `vel_origen` y `racha_origen` declaran día a día si el valor es `observacion` o `prevision`; la gráfica pinta esos días más claros y lo dice en el tooltip.
+7. No hay otros campos opcionales: si un dato no está, el snapshot no se publica. `vel_origen` y `racha_origen` lo son para no invalidar los snapshots publicados antes de este relleno.
 
 ## 6. Backend
 
@@ -252,7 +255,7 @@ El snapshot se rechaza si cualquiera de estas condiciones falla:
 | V5 | `prediccion.prediccionMWh` es finito y mayor que cero. |
 | V6 | `vector_entrada` tiene las 19 claves de `FEATURE_COLS`, todas finitas, y `origenes` usa solo `observacion`, `prevision`, `mixta` o `estimada`. |
 | V7 | `historico` no está vacío, está ordenado y su última fecha es `fecha_observacion`, con `fecha_observacion >= hoy - 2`. |
-| V8 | `grafico.fechas_hist`, `real_gwh`, `pred_gwh`, `vel_norm`, `racha_norm`, `vel_ms` y `racha_ms` tienen la misma longitud. |
+| V8 | `grafico.fechas_hist`, `real_gwh`, `pred_gwh`, `vel_norm`, `racha_norm`, `vel_ms` y `racha_ms` tienen la misma longitud. `vel_origen` y `racha_origen` son opcionales; si están, deben medir lo mismo que `fechas_hist` y solo contener `observacion`, `prevision` o `null`. |
 | V9 | `grafico.manana.fecha == fecha_objetivo` y `grafico.manana.prediccion_mwh` difiere de `prediccion.prediccionMWh` en menos de 1 MWh, con ambos valores finitos. El campo ya existe en el payload de `/api/prediction-chart`; la tolerancia es necesaria porque `prediccionMWh` se redondea a entero y el gráfico conserva el valor de la BD. |
 | V10 | `grafico.avisos` no contiene avisos de datos simulados ni de series no leídas. |
 | V11 | No hay `NaN`, `Infinity` ni `None` donde el contrato exige número. |

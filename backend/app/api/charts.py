@@ -9,8 +9,9 @@ from zoneinfo import ZoneInfo
 import numpy as np
 from fastapi import HTTPException
 
-from ..services import db_ree
+from ..services import db_ree, forecast_db
 from ..services.model_loader import model_service
+from ..services.prediction_features import aemet_national_series
 from ..services.redaction import redact_secrets
 
 logger = logging.getLogger(__name__)
@@ -282,6 +283,50 @@ def _chart_api_prediction(row) -> dict:
     }
 
 
+def _wind_origin(viento, fecha: str, clave: str):
+    """Origen declarado del viento de un día: observación, previsión o nada."""
+    entrada = (viento or {}).get(fecha) or {}
+    origen = _chart_json_object(entrada.get("origen")).get(clave)
+    if origen in ("observacion", "prevision"):
+        return origen
+    return "observacion" if _chart_number(entrada.get(clave)) is not None else None
+
+
+def _wind_forecast(fechas: list[str], hoy) -> dict[str, dict]:
+    """Previsión AEMET por día, con la misma regla de elegibilidad que el pipeline."""
+    if not fechas:
+        return {}
+    dias = [_chart_date(fecha) for fecha in fechas]
+    try:
+        with db_ree._connection() as conexion:
+            filas = forecast_db.rows_between(conexion, min(dias), max(dias))
+        return aemet_national_series(filas, "eolica", hoy)
+    except Exception as error:
+        logger.warning("No se pudieron leer las previsiones de viento: %s", error)
+        return {}
+
+
+def _merge_wind_series(observado, previsto, fechas: list[str]) -> dict[str, dict]:
+    """Observación si existe; si falta, previsión de AEMET con el origen declarado."""
+    merged = {}
+    for fecha in fechas:
+        obs = observado.get(fecha) or {}
+        prev = previsto.get(fecha) or {}
+        entrada = {}
+        origenes = {}
+        for clave, clave_prevision in (("velmedia", "viento_ms"), ("racha", "racha_ms")):
+            valor = _chart_number(obs.get(clave))
+            origen = "observacion" if valor is not None else None
+            if valor is None:
+                valor = _chart_number(prev.get(clave_prevision))
+                origen = "prevision" if valor is not None else None
+            entrada[clave] = valor
+            origenes[clave] = origen
+        entrada["origen"] = origenes
+        merged[fecha] = entrada
+    return merged
+
+
 def build_prediction_chart_payload(
     historico, viento, predicciones_propias, hoy, avisos=None
 ) -> dict:
@@ -394,6 +439,12 @@ def build_prediction_chart_payload(
             round(value, 2) if value is not None else None
             for value in racha_hist
         ],
+        "vel_origen": [
+            _wind_origin(viento, fecha, "velmedia") for fecha in fechas
+        ],
+        "racha_origen": [
+            _wind_origin(viento, fecha, "racha") for fecha in fechas
+        ],
         "manana": {
             "fecha": target_manana,
             "pred_gwh": (
@@ -437,6 +488,17 @@ def build_current_chart(hoy) -> dict:
         logger.warning("No se pudieron leer observaciones de viento: %s", error)
         viento = {}
         avisos.append("No se pudieron leer datos de viento históricos")
+
+    viento = _merge_wind_series(viento, _wind_forecast(fechas, hoy), fechas)
+    rellenos = sum(
+        1 for fecha in fechas
+        if "prevision" in (viento[fecha]["origen"] or {}).values()
+    )
+    if rellenos:
+        avisos.append(
+            f"{rellenos} día(s) del gráfico usan la previsión de AEMET: "
+            "aún no hay observación de viento"
+        )
 
     try:
         emisiones = db_ree.get_own_predictions(

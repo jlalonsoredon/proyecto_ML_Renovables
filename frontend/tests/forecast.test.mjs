@@ -151,6 +151,24 @@ test("longitudes desalineadas en grafico se señalan; una lista que no es lista,
   assert.equal(countProblems(validateSnapshot(noLista, TODAY), "V8: grafico.racha_norm no es una lista"), 1);
 });
 
+test("el origen del viento es opcional, pero si está debe alinearse y declararse", () => {
+  const sinOrigen = buildSnapshot();
+  assert.equal(countProblems(validateSnapshot(sinOrigen, TODAY), "V8"), 0);
+
+  const conOrigen = buildSnapshot();
+  conOrigen.grafico.vel_origen = Array.from({ length: 30 }, () => "observacion");
+  conOrigen.grafico.racha_origen = Array.from({ length: 30 }, () => "prevision");
+  assert.equal(countProblems(validateSnapshot(conOrigen, TODAY), "V8"), 0);
+
+  const corto = buildSnapshot();
+  corto.grafico.vel_origen = ["observacion"];
+  assert.equal(countProblems(validateSnapshot(corto, TODAY), "V8: grafico.vel_origen no está alineada con fechas_hist"), 1);
+
+  const invalido = buildSnapshot();
+  invalido.grafico.racha_origen = Array.from({ length: 30 }, () => "media");
+  assert.equal(countProblems(validateSnapshot(invalido, TODAY), "V8: grafico.racha_origen tiene orígenes no válidos"), 1);
+});
+
 test("generationLabel en dos husos distintos da el mismo texto", () => {
   const conOffset = buildSnapshot();
   conOffset.fecha_generacion = "2026-11-16T03:12:44+01:00";

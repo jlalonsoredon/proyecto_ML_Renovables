@@ -30,6 +30,8 @@ const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const VERSION = /^\d{4}-\d{2}-\d{2}T\d{6}Z$/;
 const HAS_OFFSET = /(Z|[+-]\d{2}:\d{2})$/;
 const CHART_SERIES = ["fechas_hist", "real_gwh", "pred_gwh", "vel_norm", "racha_norm", "vel_ms", "racha_ms"];
+// Opcionales: Snapshots anteriores al relleno con previsión no los traen.
+const OPTIONAL_CHART_SERIES = ["vel_origen", "racha_origen"];
 
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
@@ -158,6 +160,19 @@ function structuralProblems(snapshot) {
     else problems.push(`V8: grafico.${key} no es una lista`);
   }
   if (new Set(Object.values(lengths)).size > 1) problems.push("V8: longitudes desalineadas en grafico");
+
+  // V8 (opcionales): origen del viento, alineado con fechas_hist cuando está.
+  for (const key of OPTIONAL_CHART_SERIES) {
+    const list = grafico[key];
+    if (list === undefined) continue;
+    if (!Array.isArray(list)) {
+      problems.push(`V8: grafico.${key} no es una lista`);
+    } else if (lengths.fechas_hist !== undefined && list.length !== lengths.fechas_hist) {
+      problems.push(`V8: grafico.${key} no está alineada con fechas_hist`);
+    } else if (!list.every((value) => value === null || value === "observacion" || value === "prevision")) {
+      problems.push(`V8: grafico.${key} tiene orígenes no válidos`);
+    }
+  }
 
   // V9
   const tomorrowChart = grafico.manana;

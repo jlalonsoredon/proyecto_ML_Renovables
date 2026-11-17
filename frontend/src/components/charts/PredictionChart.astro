@@ -38,6 +38,8 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
     pred_gwh?: (number | null)[];
     vel_ms?: (number | null)[];
     racha_ms?: (number | null)[];
+    vel_origen?: (string | null)[];
+    racha_origen?: (string | null)[];
     manana?: { fecha?: string; pred_gwh?: number | null; velmedia?: number | null; racha?: number | null; modelo?: string };
   };
 
@@ -60,8 +62,8 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
   }
 
   /** Mapa fecha → valor a partir de dos listas paralelas. */
-  function byDate(dates: string[] = [], values: (number | null)[] = []) {
-    const map = new Map<string, number | null>();
+  function byDate<T>(dates: string[] = [], values: (T | null)[] = []) {
+    const map = new Map<string, T | null>();
     dates.forEach((d, i) => map.set(d, values[i] ?? null));
     return map;
   }
@@ -82,12 +84,24 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
     const preds = byDate(chart?.fechas_hist, chart?.pred_gwh);
     const vel = byDate(chart?.fechas_hist, chart?.vel_ms);
     const racha = byDate(chart?.fechas_hist, chart?.racha_ms);
+    const velOrigen = byDate(chart?.fechas_hist, chart?.vel_origen);
+    const rachaOrigen = byDate(chart?.fechas_hist, chart?.racha_origen);
 
     const labels = days.map((d) => shortDate(d.fecha));
     const real = days.map((d) => (isNum(d.eolica) ? Math.round(d.eolica / 100) / 10 : null));
     const predHist = days.map((d) => preds.get(d.fecha) ?? null);
     const velData = days.map((d) => vel.get(d.fecha) ?? null);
     const rachaData = days.map((d) => racha.get(d.fecha) ?? null);
+
+    // Sin origen declarado (snapshots antiguos) el viento solo puede ser observado.
+    const originOf = (map: Map<string, string | null>, fecha: string, value: number | null) => {
+      const declared = map.get(fecha);
+      if (declared === "prevision" || declared === "observacion") return declared;
+      return isNum(value) ? "observacion" : null;
+    };
+    const velOrig = days.map((d, i) => originOf(velOrigen, d.fecha, velData[i]));
+    const rachaOrig = days.map((d, i) => originOf(rachaOrigen, d.fecha, rachaData[i]));
+    const rellenos = velOrig.filter((origen) => origen === "prevision").length;
 
     // Predicción publicada: se muestra con su estado, nunca se rellena (D-9-18).
     const manana = chart?.manana;
@@ -99,8 +113,12 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
       labels.push(`${shortDate(status.objetivo as string)}${suffix}`);
       real.push(null);
       predHist.push(tomorrowGWh);
-      velData.push(isNum(manana?.velmedia) ? manana!.velmedia : null);
-      rachaData.push(isNum(manana?.racha) ? manana!.racha : null);
+      const velManana = isNum(manana?.velmedia) ? (manana!.velmedia as number) : null;
+      const rachaManana = isNum(manana?.racha) ? (manana!.racha as number) : null;
+      velData.push(velManana);
+      rachaData.push(rachaManana);
+      velOrig.push(velManana === null ? null : "prevision");
+      rachaOrig.push(rachaManana === null ? null : "prevision");
     }
     const tomorrowPoint = labels.map((_, i) => (hasTomorrow && i === labels.length - 1 ? tomorrowGWh : null));
 
@@ -109,6 +127,13 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
     if (days.length < WINDOW_DAYS) notes.push(`Solo hay ${days.length} días completos disponibles.`);
     if (discarded > 0) notes.push(`Se ${discarded === 1 ? "omite 1 día incompleto" : `omiten ${discarded} días incompletos`} al final de la serie.`);
     if (hasTomorrow) notes.push(`Producción prevista: ${formatNumber(tomorrowGWh as number, 1)} GWh.`);
+    if (rellenos > 0) {
+      notes.push(
+        rellenos === 1
+          ? "Se rellena 1 día con la previsión de AEMET al no haber observación."
+          : `Se rellenan ${rellenos} días con la previsión de AEMET al no haber observación.`,
+      );
+    }
     note.textContent = notes.join(" ");
 
     const hasWind = velData.some(isNum) || rachaData.some(isNum);
@@ -129,9 +154,24 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
       },
     ];
     if (hasWind) {
+      const tonoViento = { observado: "rgba(128,203,196,0.55)", previsto: "rgba(128,203,196,0.16)", borde: "rgba(128,203,196,0.9)" };
+      const tonoRacha = { observado: "rgba(255,179,0,0.5)", previsto: "rgba(255,179,0,0.14)", borde: "rgba(255,179,0,0.85)" };
+      const fill = (origenes: (string | null)[], colors: { observado: string; previsto: string }) =>
+        origenes.map((origen) => (origen === "prevision" ? colors.previsto : colors.observado));
+      const stroke = (origenes: (string | null)[], border: string) =>
+        origenes.map((origen) => (origen === "prevision" ? border : "rgba(0,0,0,0)"));
+
       datasets.push(
-        { label: "Viento medio (m/s)", type: "bar", data: velData, backgroundColor: "rgba(128,203,196,0.55)", yAxisID: "yWind", order: 3 },
-        { label: "Racha (m/s)", type: "bar", data: rachaData, backgroundColor: "rgba(255,179,0,0.5)", yAxisID: "yWind", order: 3 },
+        {
+          label: "Viento medio (m/s)", type: "bar", data: velData,
+          backgroundColor: fill(velOrig, tonoViento), borderColor: stroke(velOrig, tonoViento.borde),
+          borderWidth: 1, borderSkipped: false, yAxisID: "yWind", order: 3,
+        },
+        {
+          label: "Racha (m/s)", type: "bar", data: rachaData,
+          backgroundColor: fill(rachaOrig, tonoRacha), borderColor: stroke(rachaOrig, tonoRacha.borde),
+          borderWidth: 1, borderSkipped: false, yAxisID: "yWind", order: 3,
+        },
       );
     }
 
@@ -150,7 +190,12 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
                 const v = ctx.parsed.y;
                 if (v === null || v === undefined) return "";
                 const unit = ctx.dataset.yAxisID === "yWind" ? " m/s" : " GWh";
-                return `${ctx.dataset.label}: ${Number(v).toLocaleString("es-ES")}${unit}`;
+                const esViento = ctx.dataset.yAxisID === "yWind";
+                const origen = esViento
+                  ? (String(ctx.dataset.label).startsWith("Viento") ? velOrig[ctx.dataIndex] : rachaOrig[ctx.dataIndex])
+                  : null;
+                const nota = origen === "prevision" ? " · previsión AEMET" : "";
+                return `${ctx.dataset.label}: ${Number(v).toLocaleString("es-ES")}${unit}${nota}`;
               },
             },
           },
