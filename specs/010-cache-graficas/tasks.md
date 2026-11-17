@@ -81,17 +81,20 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
   - Guardar `.snapshot` como `frontend/src/data/forecast-snapshot.json` y
     commitearlo.
   - Hecho cuando: `jq .` lo muestra válido, `schema_version` es 1,
-    `n_variables` es 19, `avisos` está vacío y `historico` tiene al menos 30
-    puntos.
+    `n_variables` es 19, no hay avisos bloqueantes y `historico` tiene al menos
+    30 puntos.
   - Estado: **parcial**. El archivo existe (sembrado por el workflow con
-    `force=true`, no a mano) y cumple todo salvo `avisos` vacío: trae 2 avisos de
-    AEMET (`parcial`). `historico` tiene 45 puntos y `n_variables` es 19.
+    `force=true`, no a mano) y cumple: `historico` con 45 puntos, `n_variables`
+    19 y solo los dos avisos esperables (REE sin D+1 y AEMET sin el diario de
+    ayer), que no bloquean. Queda pendiente el start command con
+    `--proxy-headers` en Render: `render.yaml` lo declara, pero el servicio
+    `api_ML` conserva el antiguo y no está gestionado por blueprint.
 
 - [ ] **T-10-10 — Contrato en el repositorio** (V1–V12; RNF-3)
   - Revisar que `fecha_objetivo` es mañana, `fecha_observacion >= hoy - 2` y el
     archivo no supera 120 KB.
-  - Hecho cuando: el snapshot es el estado inicial del build y no hay campos
-    opcionales ni datos simulados.
+  - Hecho cuando: el snapshot es el estado inicial del build, no tiene avisos
+    bloqueantes y no hay campos opcionales ni datos simulados.
 
 ## Bloque D — Lógica del frontend
 
