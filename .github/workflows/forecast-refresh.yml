@@ -4,8 +4,11 @@ name: Actualizar previsión
 # La hora va en Europe/Madrid para no tener que corregir el cambio de hora.
 on:
   schedule:
-    # TEMPORAL: prueba del planificador; se restaura a las 05:00 y 08:00 de Madrid.
-    - cron: "*/10 * * * *"
+    - cron: "0 5 * * *"
+      timezone: "Europe/Madrid"
+    # Reintento: la guardia lo detiene si el snapshot ya es el de mañana y está limpio.
+    - cron: "0 8 * * *"
+      timezone: "Europe/Madrid"
   workflow_dispatch:
     inputs:
       force:

@@ -156,6 +156,13 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     vez instalada, el commit `0e73ad2` generó despliegue de producción `READY`
     sin intervención, y un push a la rama `test/vercel-push` generó su preview.
     Queda por verificar en real solo la ejecución programada de las 08:00.
+  - Estado del planificador: **no entrega eventos**. Con el workflow `active`, el
+    archivo confirmado en `main` y un cron temporal `*/10 * * * *` (sin
+    `timezone`), no se creó ninguna ejecución en los turnos de 09:30 y 09:40 UTC.
+    En todo el historial del repositorio no hay ni una ejecución `schedule`. La
+    guardia sí está verificada con el snapshot real (omitiría), pero el disparo
+    horario no se puede dar por bueno: hace falta un disparador externo o
+    comprobarlo en un repositorio con el planificador operativo.
   - Estado: **abierta**. Medido en GitHub (secretos `BACKEND_URL` y
     `REFRESH_TOKEN` cargados): `force=true` (run `43969457872`) → éxito, commit
     `b01d40a` del bot; 2.ª ejecución sin `force` (run `43970160531`) → éxito pero
