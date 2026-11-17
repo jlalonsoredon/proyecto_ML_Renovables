@@ -16,12 +16,16 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     `n_variables: 19`, `fecha_emision` 17/11, objetivo 18/11 y `vector_entrada`.
     El arranque en frío del plan gratuito tardó 72 s.
 
-- [ ] **T-10-02 — Fusionar `SDD` y filtrar Render** (D-10-11; CA-10.14)
+- [x] **T-10-02 — Fusionar `SDD` y filtrar Render** (D-10-11; CA-10.14)
   - Merge de `SDD` en `main` para que existan el workflow y el backend nuevos.
   - Build Filters del servicio `api_ML`: incluir `backend/**`, excluir
     `frontend/**`. Declarar `buildFilter` en `render.yaml` como documentación.
   - Hecho cuando: el workflow aparece en la rama por defecto y un commit que
     solo toca `frontend/**` no genera deploy en Render.
+  - Resultado: `buildFilter.paths=["backend/**"]` en el servicio `api_ML`.
+    Verificado: el commit del bot `c04d446` (solo `frontend/`) no generó deploy;
+    el servicio no se reinició. `render.yaml` no se ha tocado porque describe
+    otro servicio (`aeropredictor-backend`).
 
 ## Bloque B — Backend
 
@@ -77,7 +81,7 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
 
 ## Bloque C — Sembrado
 
-- [ ] **T-10-09 — Desplegar y sembrar** (5.1; 17.2)
+- [x] **T-10-09 — Desplegar y sembrar** (5.1; 17.2)
   - Configurar `REFRESH_TOKEN` y el start command con proxy headers en Render,
     desplegar el backend y llamar una vez a
     `POST /api/internal/forecast/refresh?force=true`.
@@ -86,12 +90,11 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
   - Hecho cuando: `jq .` lo muestra válido, `schema_version` es 1,
     `n_variables` es 19, no hay avisos bloqueantes y `historico` tiene al menos
     30 puntos.
-  - Estado: **parcial**. El archivo existe (sembrado por el workflow con
-    `force=true`, no a mano) y cumple: `historico` con 45 puntos, `n_variables`
-    19 y solo los dos avisos esperables (REE sin D+1 y AEMET sin el diario de
-    ayer), que no bloquean. Queda pendiente el start command con
-    `--proxy-headers` en Render: `render.yaml` lo declara, pero el servicio
-    `api_ML` conserva el antiguo y no está gestionado por blueprint.
+  - Resultado: sembrado por el workflow con `force=true` (no a mano). Start
+    command con `--proxy-headers --forwarded-allow-ips="*"` y
+    `healthCheckPath=/health` aplicados en `api_ML`. Snapshot de 26.714 B con
+    `schema_version` 1, objetivo 18/11, 19 variables, 45 puntos y sin avisos
+    bloqueantes.
 
 - [x] **T-10-10 — Contrato en el repositorio** (V1–V12; RNF-3)
   - Revisar que `fecha_objetivo` es mañana, `fecha_observacion >= hoy - 2` y el
