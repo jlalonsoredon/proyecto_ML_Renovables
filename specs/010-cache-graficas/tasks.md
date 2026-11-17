@@ -145,6 +145,11 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
   - Hecho cuando: el bot commitea, Vercel reconstruye, Render no despliega y la
     ejecución de las 08:00 se salta si el snapshot ya es el de mañana y está
     limpio.
+  - Estado de la reconstrucción: **cumplido**. La GitHub App de Vercel no estaba
+    instalada en `jlalonsoredon` (única causa de que ningún push desplegara). Una
+    vez instalada, el commit `0e73ad2` generó despliegue de producción `READY`
+    sin intervención, y un push a la rama `test/vercel-push` generó su preview.
+    Queda por verificar en real solo la ejecución programada de las 08:00.
   - Estado: **abierta**. Medido en GitHub (secretos `BACKEND_URL` y
     `REFRESH_TOKEN` cargados): `force=true` (run `43969457872`) → éxito, commit
     `b01d40a` del bot; 2.ª ejecución sin `force` (run `43970160531`) → éxito pero
@@ -255,17 +260,17 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
       devuelve `already_done`. Verificado con pasos simulados y en producción.
       La formulación original de P-10-19 («cualquier aviso recalcula») ya no
       aplica.
-    - P-10-9 cumplida: ejecución manual → commit (`4da4894`) y build de Vercel
-      con ese commit (lanzado a mano; ver abajo).
+    - P-10-9 cumplida del todo: ejecución manual → commit (`4da4894`) y build de
+      Vercel; tras instalar la GitHub App, cualquier push despliega solo
+      (`0e73ad2` en producción, `36bffa4` en preview, ambos `READY`).
     - P-10-10 cumplida tras la opción A: la primera ejecución sin `force`
       publica `4da4894` y la segunda responde `already_done` sin commit (logs de
       Render: «Snapshot ya generado»).
-    - **Hallazgo:** Vercel no ha creado ningún despliegue automático desde el
-      commit `47578bb` (16/11 15:50 UTC), ni para `e04d3e4`, `7f5b050`, `12eba47`
-      ni para el commit del bot. Los despliegues de producción de hoy se han
-      lanzado con `create_deployment` (`7f5b050` y `4da4894`, ambos `READY`).
-      Hay que revisar la integración Git del proyecto `project-vo9e4` en el
-      dashboard (rama de producción, Ignored Build Step, conexión al repo).
+    - **Hallazgo (resuelto):** Vercel no creó ningún despliegue automático desde
+      `47578bb` porque la GitHub App de Vercel no estaba instalada en
+      `jlalonsoredon` (`create_git_project` devolvía «you need to install the
+      GitHub integration first»). Los builds manuales funcionaban porque el repo
+      es público. Tras instalarla, los push despliegan solos.
     - P-10-20 no verificable fuera de GitHub.
     - Pendiente para cerrar T-10-19: el despliegue automático de Vercel por
       push (ver hallazgo). P-10-20 se queda como no verificable.
