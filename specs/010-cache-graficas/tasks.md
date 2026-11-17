@@ -90,11 +90,14 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     `--proxy-headers` en Render: `render.yaml` lo declara, pero el servicio
     `api_ML` conserva el antiguo y no está gestionado por blueprint.
 
-- [ ] **T-10-10 — Contrato en el repositorio** (V1–V12; RNF-3)
+- [x] **T-10-10 — Contrato en el repositorio** (V1–V12; RNF-3)
   - Revisar que `fecha_objetivo` es mañana, `fecha_observacion >= hoy - 2` y el
     archivo no supera 120 KB.
   - Hecho cuando: el snapshot es el estado inicial del build, no tiene avisos
     bloqueantes y no hay campos opcionales ni datos simulados.
+  - Resultado: 26.714 bytes, `schema_version` 1, `fecha_objetivo` 18/11,
+    `fecha_observacion` 16/11, `n_variables` 19, `historico` 45 puntos y solo
+    los dos avisos esperables.
 
 ## Bloque D — Lógica del frontend
 
