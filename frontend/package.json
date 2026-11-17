@@ -12,6 +12,7 @@
   "dependencies": {
     "@astrojs/check": "^0.9.5",
     "@astrojs/tailwind": "^6.0.2",
+    "@vercel/speed-insights": "^2.1.0",
     "astro": "^5.14.7",
     "chart.js": "^4.5.1",
     "leaflet": "^1.9.4",
