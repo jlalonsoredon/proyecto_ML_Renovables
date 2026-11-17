@@ -168,11 +168,11 @@ test("el estado de una fila sale de lo que declara", () => {
 
 const CATEGORIES = new Set(["datos", "modelo", "produccion", "interfaz"]);
 
-test("el recorrido tiene las nueve specs en orden y completas", () => {
+test("el recorrido tiene las diez specs en orden y completas", () => {
   const { hitos, glosario } = readJson("spec-timeline.json");
   assert.deepEqual(
     hitos.map((h) => h.numero),
-    ["001", "002", "003", "004", "005", "006", "007", "008", "009"],
+    ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010"],
   );
   for (const hito of hitos) {
     for (const field of ["titulo", "resumen", "partida", "cambio", "resultado", "detalle"]) {

@@ -1,5 +1,5 @@
 {
-  "fuente": "Resumen de las specs 001 a 009 del proyecto. Cada cifra procede de la medición registrada en su propia spec.",
+  "fuente": "Resumen de las specs 001 a 010 del proyecto. Cada cifra procede de la medición registrada en su propia spec.",
   "hitos": [
     {
       "numero": "001",
@@ -117,6 +117,33 @@
       "resultado": "Ninguna cifra fija de la web contradice al modelo vigente. Las métricas medidas de forma distinta se muestran juntas, sin calcular una mejora entre ellas.",
       "detalle": "Lo que la web mostraba antes quedó guardado en un registro de línea base, que no se modifica. La línea base de la comparación es la tabla antigua: RMSE 60.433 MWh y R² 0,579, con 16 variables y una ventana no documentada.",
       "cifras": []
+    },
+    {
+      "numero": "010",
+      "titulo": "Snapshot diario de la previsión",
+      "categorias": ["produccion", "interfaz"],
+      "resumen": "La web dejó de llamar a Render. Un workflow diario publica la previsión como un archivo versionado que se lee al construir la página.",
+      "partida": "Cada visita hacía tres peticiones a un servicio gratuito que se dormía a los 15 minutos y tardaba unos 51 s en despertar. Si estaba dormido a las 03:00, la tarea diaria tampoco se ejecutaba.",
+      "cambio": "Un workflow de GitHub Actions ejecuta la tarea completa a las 05:17 (Europe/Madrid) y reintenta a las 08:17 si la previsión no es la de mañana. Valida el resultado y lo publica como un commit; la web lee ese archivo al construir, sin peticiones al navegador.",
+      "resultado": "Cero peticiones a Render desde el navegador: la portada, los resultados y el proceso cargan con HTML y JavaScript de Vercel aunque Render esté dormido. Si una ejecución falla, se conserva la última versión válida y la web avisa de que está caducada.",
+      "detalle": "Un solo forecast-snapshot.json reúne los tres payloads de eólica y se valida antes de publicarse (V1–V12). El estado se recalcula con la fecha del navegador: pendiente si el objetivo es hoy y caducado si ya pasó. Los días sin observación de viento se rellenan con la previsión de AEMET y la gráfica marca su origen.",
+      "cifras": [
+        {
+          "concepto": "Peticiones del navegador a Render",
+          "valor": "0",
+          "protocolo": "grep -r onrender frontend/dist sin resultados (P-10-11), con las tres páginas navegables."
+        },
+        {
+          "concepto": "Publicación diaria",
+          "valor": "05:17 y reintento a las 08:17, hora de Madrid",
+          "protocolo": "Workflow forecast-refresh.yml; el reintento solo publica si el snapshot no es el de mañana o tiene avisos bloqueantes."
+        },
+        {
+          "concepto": "Tamaño del snapshot",
+          "valor": "28.126 bytes",
+          "protocolo": "Snapshot publicado el 17/11 para el objetivo 18/11: 30 días de gráfica y 45 de histórico."
+        }
+      ]
     }
   ],
   "glosario": [
