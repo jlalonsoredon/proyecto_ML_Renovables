@@ -44,7 +44,7 @@ Además, el cron que debía mantener esto ya está muerto: `frontend/cron.js` es
 | 3 | ¿Dónde se guarda? | Commit diario en el repositorio. | Sin Supabase ni Vercel Blob. El propio commit es la versión y el puntero. |
 | 4 | ¿Se retira el scheduler de las 03:00? | Se mantiene como respaldo. | El endpoint debe ser idempotente y el scheduler pasa a usar el mismo camino de generación. |
 | 5 | ¿Runtime o build-time? ¿Antigüedad? | Build-time. Mostrar la última fecha disponible y avisar si no es la previsión para mañana. | Cero peticiones a Render desde el navegador. La frescura se mide por `fecha_objetivo`: `pendiente` de madrugada y `caducado` si la publicación ha fallado. |
-| 6 | ¿GitHub Actions o Vercel Cron? | GitHub Actions a las **05:00**. | Workflow diario con `timezone: Europe/Madrid` y ejecución manual. |
+| 6 | ¿GitHub Actions o Vercel Cron? | GitHub Actions a las **05:17**. | Workflow diario con `timezone: Europe/Madrid` y ejecución manual. |
 
 ## 2. Objetivo y alcance
 
@@ -53,7 +53,7 @@ Además, el cron que debía mantener esto ya está muerto: `frontend/cron.js` es
 **Dentro del alcance:**
 
 - Un endpoint interno autenticado que ejecuta la tarea diaria completa y devuelve un snapshot validado.
-- Un workflow de GitHub Actions a las 05:00 que lo invoca, valida el resultado y lo publica como commit.
+- Un workflow de GitHub Actions a las 05:17 que lo invoca, valida el resultado y lo publica como commit.
 - Un único JSON versionado en `frontend/src/data/forecast-snapshot.json`.
 - La sustitución de las tres llamadas a Render por la lectura de ese JSON en tiempo de build.
 - La eliminación del cron muerto de Vercel.
@@ -68,8 +68,8 @@ Además, el cron que debía mantener esto ya está muerto: `frontend/cron.js` es
 |---|---|---|---|
 | D-10-1 | Un único `forecast-snapshot.json` por ejecución. | Atomicidad: no puede existir una versión con la predicción nueva y el histórico viejo. | Tres archivos: multiplican las peticiones y permiten versiones a medias. |
 | D-10-2 | La publicación es un commit en `frontend/src/data/`. | Cero servicios nuevos, cero claves, cero coste. El historial de git es el registro de versiones y el `git revert` es el botón de deshacer. | Supabase Storage o Vercel Blob: una cuenta y una dependencia más para guardar 50 KB al día. |
-| D-10-3 | El disparador es GitHub Actions a las 05:00 con `timezone: Europe/Madrid`. | Tiene permiso de escritura con `GITHUB_TOKEN`, historial de ejecuciones y botón manual. Se espera que el commit diario cuente como actividad y evite la desactivación a los 60 días. | Vercel Cron: necesitaría un PAT para hacer el commit y no aporta nada aquí. |
-| D-10-4 | El scheduler de las 03:00 se mantiene, pero pasa a llamar al mismo camino de generación que el endpoint. | Si el servicio está despierto a las 03:00, el trabajo queda hecho y cacheado en memoria. Si está dormido, el endpoint de las 05:00 lo repite. | Retirarlo: el usuario pidió conservarlo como red de seguridad. |
+| D-10-3 | El disparador es GitHub Actions a las 05:17 con `timezone: Europe/Madrid`. | Tiene permiso de escritura con `GITHUB_TOKEN`, historial de ejecuciones y botón manual. Se espera que el commit diario cuente como actividad y evite la desactivación a los 60 días. | Vercel Cron: necesitaría un PAT para hacer el commit y no aporta nada aquí. |
+| D-10-4 | El scheduler de las 03:00 se mantiene, pero pasa a llamar al mismo camino de generación que el endpoint. | Si el servicio está despierto a las 03:00, el trabajo queda hecho y cacheado en memoria. Si está dormido, el endpoint de las 05:17 lo repite. | Retirarlo: el usuario pidió conservarlo como red de seguridad. |
 | D-10-5 | El frontend lee el snapshot en **build**, no en runtime. | Elimina por completo la red: no hay fetch, no hay CORS, no hay caché que invalidar, no hay arranque en frío. | Runtime contra un almacén externo: obliga a mantener manifiesto y políticas de caché. |
 | D-10-6 | La frescura se mide por `fecha_objetivo`, no por horas, con dos estados distintos: `pendiente` y `caducado`. | «Previsión para mañana» es una condición semántica, no un intervalo. Un snapshot de hace 8 h puede ser correcto; uno de hace 2 h puede estar caducado. Y no es lo mismo «todavía no se ha publicado» que «la publicación ha fallado». | Umbral de 36 h: miente en ambos sentidos. Un solo estado de error: avisa cada madrugada de algo normal. |
 | D-10-7 | El endpoint ejecuta `scheduler_service.run_daily_task`, no `refresh_prediction`. | Solo recalcular con las previsiones guardadas usaría datos viejos. La tarea completa captura AEMET, captura REE, descarga REE, descarga AEMET, concilia y predice. | Llamar a `/api/prediction/refresh`: publicaría una previsión construida con previsiones caducadas. |
@@ -77,7 +77,7 @@ Además, el cron que debía mantener esto ya está muerto: `frontend/cron.js` es
 | D-10-9 | El histórico se obtiene de `db_ree`, nunca de `/api/historical`. | Ese endpoint cae en `generate_mock_historical` si la BD está vacía. Publicar un mock como dato real sería el peor fallo posible. | Reutilizar el endpoint HTTP: arrastra el fallback silencioso. |
 | D-10-10 | El token se compara con `secrets.compare_digest` y el endpoint falla cerrado si falta la variable. | Sin `REFRESH_TOKEN` configurado, el endpoint responde 503 y no ejecuta nada. | Comparación con `==` o arrancar sin token: abre la ejecución a cualquiera. |
 | D-10-11 | Render ignora los cambios en `frontend/**`. | El commit diario no debe provocar un despliegue del backend. | Dejar que Render redeploye cada día: un minuto de build y un reinicio innecesarios. |
-| D-10-12 | El workflow reintenta a las 08:00 solo si el snapshot no es el de mañana o tiene avisos bloqueantes. | Red de seguridad real a coste cero: si la ejecución de las 05:00 falla o sale degradada, la de las 08:00 publica una limpia. | Reintentar siempre: duplica trabajo y commits. |
+| D-10-12 | El workflow reintenta a las 08:17 solo si el snapshot no es el de mañana o tiene avisos bloqueantes. | Red de seguridad real a coste cero: si la ejecución de las 05:17 falla o sale degradada, la de las 08:17 publica una limpia. | Reintentar siempre: duplica trabajo y commits. |
 | D-10-13 | Se retiran `frontend/cron.js` y el cron de `frontend/vercel.json`. | Nunca funcionaron y confunden sobre quién actualiza los datos. | Conservarlos: dejan una segunda vía muerta. |
 | D-10-14 | El rollback es `git revert` del commit de datos o del commit de frontend. | Ambas cosas están versionadas y se reconstruyen solas. | Bandera `PUBLIC_DATA_SOURCE`: obliga a mantener dos caminos vivos. |
 | D-10-15 | Sin dependencias nuevas. | El backend no habla con ningún almacén: devuelve JSON. El workflow usa `curl`, `git` y `node`, ya presentes en el runner. | SDK de Supabase, `@vercel/blob`, cliente HTTP nuevo. |
@@ -92,7 +92,7 @@ Además, el cron que debía mantener esto ya está muerto: `frontend/cron.js` es
 ### 4.1 Escritura (una vez al día)
 
 ```
-GitHub Actions (05:00 Europe/Madrid)
+GitHub Actions (05:17 Europe/Madrid)
         │  POST /api/internal/forecast/refresh   Authorization: Bearer <token>
         ▼
 Render · FastAPI
@@ -236,7 +236,7 @@ Sin cambios de comportamiento en `/api/historical` ni en `/api/prediction-chart`
 
 - **Bloqueo:** `threading.Lock` no bloqueante. Si hay una ejecución en curso, `409 {"detail": "run_in_progress"}`.
 - **Caché en memoria:** solo se guarda si la ejecución terminó **sin avisos bloqueantes**. Son esperables y no bloquean `capture_ree_forecast: fallo` (ESIOS aún sin D+1 de madrugada) ni `download_aemet_data: parcial` (AEMET aún sin el diario de ayer); la lista `AVISOS_ESPERADOS` está en `forecast_cache.py` y su espejo en `forecast.mjs`. Cualquier otro aviso sí bloquea. Sin `force`, una segunda llamada para la misma fecha objetivo devuelve `already_done` con el mismo snapshot y no vuelve a ejecutar la tarea. Si hubo avisos, la siguiente llamada recalcula: un reintento no debe heredar una ejecución degradada.
-- **Por qué en memoria y no en disco:** el disco de Render es efímero; persistir sería mentira. La memoria cubre el caso real: el scheduler de las 03:00 y la llamada de las 05:00 dentro del mismo contenedor despierto.
+- **Por qué en memoria y no en disco:** el disco de Render es efímero; persistir sería mentira. La memoria cubre el caso real: el scheduler de las 03:00 y la llamada de las 05:17 dentro del mismo contenedor despierto.
 - **Idempotencia de publicación:** el workflow compara el hash del snapshot con el archivo del repositorio. Si coincide, no hace commit. Sin commit no hay rebuild ni versión nueva.
 
 ### 6.5 Validación (lista cerrada)
@@ -298,9 +298,9 @@ Verificación: P-10-18 se ejecuta contra uvicorn con proxy headers o contra el s
 ```yaml
 on:
   schedule:
-    - cron: "0 5 * * *"
+    - cron: "17 5 * * *"
       timezone: "Europe/Madrid"
-    - cron: "0 8 * * *"
+    - cron: "17 8 * * *"
       timezone: "Europe/Madrid"
   workflow_dispatch:
     inputs:
@@ -337,9 +337,9 @@ on:
 6. **Publicación**: copia a `frontend/src/data/forecast-snapshot.json`, `git add`, y hace commit solo si `git diff --cached --quiet` es falso. Mensaje: `data: snapshot de previsión para 2026-11-17`. Autor: `github-actions[bot]`. Push a la rama por defecto.
 7. **Resumen**: escribe en `$GITHUB_STEP_SUMMARY` versión, fecha objetivo, duración, avisos y si hubo commit.
 
-### 7.3 Reintento de las 08:00
+### 7.3 Reintento de las 08:17
 
-Existe solo para el caso de que la ejecución de las 05:00 falle o termine con avisos. No crea una segunda versión: la guardia lo detiene si el snapshot ya es el de mañana y está limpio, y la comparación de hash detiene el commit si el contenido es idéntico.
+Existe solo para el caso de que la ejecución de las 05:17 falle o termine con avisos. No crea una segunda versión: la guardia lo detiene si el snapshot ya es el de mañana y está limpio, y la comparación de hash detiene el commit si el contenido es idéntico.
 
 ### 7.4 Filtro de compilación de Render
 
@@ -402,13 +402,13 @@ Módulo puro, sin DOM y sin red, para que `node --test` lo importe sin transpila
 | `fecha_objetivo` anterior | `caducado` | «La previsión publicada es del 14/11 para el 15/11. No hay datos más recientes.» Tono de aviso. |
 | Snapshot ilegible o incompleto | `no_disponible` | «No hay una previsión publicada válida. El resto de la página sigue siendo válido.» |
 
-La hora de publicación nunca se escribe a mano: sale de `generationLabel(snapshot)`, que usa `fecha_generacion`. El scheduler de las 03:00 puede generar el snapshot y la llamada de las 05:00 devolverlo como `already_done`; fijar «05:00» en el texto mentiría sobre ese caso.
+La hora de publicación nunca se escribe a mano: sale de `generationLabel(snapshot)`, que usa `fecha_generacion`. El scheduler de las 03:00 puede generar el snapshot y la llamada de las 05:17 devolverlo como `already_done`; fijar «05:17» en el texto mentiría sobre ese caso.
 
 La tarjeta sigue mostrando valor, fecha objetivo, emisión, familia, variables y viento. La gráfica mantiene su ventana de 30 días completos.
 
 ### 8.5 La madrugada es un estado normal
 
-Entre las 00:00 y la primera ejecución correcta del día —las 03:00 si el servicio está despierto, las 05:00 si estaba dormido—, el snapshot más reciente apunta al día en curso. No es un fallo: la previsión de mañana todavía no existe. Por eso ese caso es `pendiente`, con tono informativo y el texto de la tabla anterior. `caducado` queda reservado para cuando la fecha objetivo ya pasó, que sí implica que algo ha fallado.
+Entre las 00:00 y la primera ejecución correcta del día —las 03:00 si el servicio está despierto, las 05:17 si estaba dormido—, el snapshot más reciente apunta al día en curso. No es un fallo: la previsión de mañana todavía no existe. Por eso ese caso es `pendiente`, con tono informativo y el texto de la tabla anterior. `caducado` queda reservado para cuando la fecha objetivo ya pasó, que sí implica que algo ha fallado.
 
 La distinción evita el peor efecto de un estado único: normalizar un aviso de error que aparece todas las noches. La ventana no tiene una hora fija de fin: depende de cuándo arranca el servicio. Adelantar la ejecución a las 23:30 la reduciría a costa de predecir con previsiones menos frescas.
 
@@ -432,7 +432,7 @@ Tres barreras: el lock del backend (`409`), el `concurrency` del workflow y la c
 
 ### 9.5 Render dormido a las 03:00
 
-El scheduler no corre. No pasa nada: el workflow de las 05:00 despierta el servicio con su petición y espera lo que tarde. El visitante no espera nunca.
+El scheduler no corre. No pasa nada: el workflow de las 05:17 despierta el servicio con su petición y espera lo que tarde. El visitante no espera nunca.
 
 ## 10. Requisitos no funcionales
 
@@ -468,11 +468,11 @@ El scheduler no corre. No pasa nada: el workflow de las 05:00 despierta el servi
 | Caso | Comportamiento esperado |
 |---|---|
 | El workflow corre el 29 de febrero. | `tomorrowInMadrid` suma días con `Date.UTC`, no con aritmética de strings. |
-| Cambio de hora (marzo y octubre). | `timezone: Europe/Madrid` en el cron; 05:00 y 08:00 no caen en la hora saltada. La validación compara fechas locales, no instantes. |
+| Cambio de hora (marzo y octubre). | `timezone: Europe/Madrid` en el cron; 05:17 y 08:17 no caen en la hora saltada. La validación compara fechas locales, no instantes. |
 | GitHub retrasa el cron 20 minutos en hora punta. | El diseño lo tolera: no hay hora límite y el estado `pendiente` cubre la espera. |
 | El servicio tarda 12 minutos en arrancar y terminar. | La cadena 10 < 20 < 30 minutos lo cubre; el visitante no lo nota. |
 | El snapshot es idéntico al del día anterior. | No hay commit, no hay rebuild. |
-| La primera ejecución termina con avisos bloqueantes. | No se cachea; el reintento de las 08:00 vuelve a generar. Con solo los esperables sí se cachea. |
+| La primera ejecución termina con avisos bloqueantes. | No se cachea; el reintento de las 08:17 vuelve a generar. Con solo los esperables sí se cachea. |
 | El repositorio lleva 60 días sin actividad. | Se espera que el commit diario cuente como actividad y lo evite; si aun así se desactiva, el estado `caducado` lo delata. |
 | El token se filtra en un log. | `redact_secrets` lo sustituye; los intentos fallidos se registran sin el valor recibido. |
 | El JSON se corrompe en el commit. | `validateSnapshot` en el workflow lo impide; si aun así llega, el build falla y Vercel no publica. |
@@ -522,7 +522,7 @@ El scheduler no corre. No pasa nada: el workflow de las 05:00 despierta el servi
 | P-10-17 | Abrir un `dist/` de hace dos días | El estado pasa a `caducado` sin reconstruir |
 | P-10-18 | Seis intentos con token incorrecto en un minuto, desde la misma IP | `429` en el sexto; una séptima desde otra IP sigue dando `401` |
 | P-10-19 | Ejecución con un aviso y llamada posterior | Recalcula en vez de `already_done` |
-| P-10-20 | Cron de las 05:00 retrasado 20 minutos | Se ejecuta igual y publica |
+| P-10-20 | Cron de las 05:17 retrasado 20 minutos | Se ejecuta igual y publica |
 
 ## 15. Fuera de alcance
 
@@ -538,14 +538,14 @@ El scheduler no corre. No pasa nada: el workflow de las 05:00 despierta el servi
 | Riesgo | Impacto | Mitigación |
 |---|---|---|
 | La spec 008 no está liberada y el contrato sigue en 16 variables. | V4 rechaza todos los snapshots y no hay publicación. | Requisito previo obligatorio: liberar la 008 en `main` antes de sembrar. |
-| El backfill AEMET del arranque tarda más que la espera. | Predicción sin observaciones y fallo de validación. | Espera de 10 min, aviso en la respuesta y reintento a las 08:00. |
+| El backfill AEMET del arranque tarda más que la espera. | Predicción sin observaciones y fallo de validación. | Espera de 10 min, aviso en la respuesta y reintento a las 08:17. |
 | AEMET limita por tasa (429). | Captura parcial o fallida. | Ya existe reintento en la tarea; si no basta, la validación impide publicar un dato incompleto. |
-| Render tarda más de 20 min en frío. | El workflow falla. | Reintento a las 08:00 y `timeout-minutes: 30`. |
+| Render tarda más de 20 min en frío. | El workflow falla. | Reintento a las 08:17 y `timeout-minutes: 30`. |
 | El workflow se desactiva por inactividad. | Deja de actualizarse. | Se espera que el commit diario cuente como actividad. Si no basta, el `caducado` lo hace visible y se reactiva a mano. |
 | El repositorio crece sin control. | Clon más lento con los años. | ≤ 50 MB/año (RNF-10); se puede podar el histórico de datos si algún día molesta. |
 | Se publica una previsión con `origenes` estimados. | Calidad del dato. | Se muestran en `prediccion.origenes`; la web no los oculta. |
 | El push del bot no dispara el build de Vercel. | El snapshot se commitea pero la web no se actualiza. | Comprobar el primer commit automático (CA-10.4); si Vercel ignora los pushes del bot, usar un PAT fine-grained solo para el push. |
-| GitHub retrasa el cron en hora punta. | La publicación llega más tarde de las 05:00. | Sin hora límite y con `pendiente` cubriendo la espera. |
+| GitHub retrasa el cron en hora punta. | La publicación llega más tarde de las 05:17. | Sin hora límite y con `pendiente` cubriendo la espera. |
 | El start command del dashboard no incorpora `--proxy-headers`. | El rate limit cuenta todos los intentos como una sola IP y no frena nada. | Comprobarlo con P-10-18 desde dos IPs en el primer despliegue; `render.yaml` deja el comando escrito. |
 
 ## 17. Requisitos previos y orden de implementación
@@ -561,7 +561,7 @@ El scheduler no corre. No pasa nada: el workflow de las 05:00 despierta el servi
 1. **Backend.** `forecast_cache.py`, el refactor de `charts.py`, el endpoint interno, el evento de backfill y el cambio del job de las 03:00.
 2. **Sembrar.** Desplegar el backend en `main`, llamar una vez a `POST /api/internal/forecast/refresh?force=true` y guardar el `.snapshot` devuelto como `frontend/src/data/forecast-snapshot.json`. Es el estado inicial y la prueba de que el contrato de 19 variables encaja en producción.
 3. **Lógica del frontend.** `forecast.mjs` y sus pruebas. Va antes que el workflow porque la validación previa al commit usa el mismo módulo.
-4. **Automatización.** Workflow, secretos, guardia de las 08:00 y primer commit automático.
+4. **Automatización.** Workflow, secretos, guardia de las 08:17 y primer commit automático.
 5. **Integración del frontend.** Sustitución de las tres llamadas, textos de estado y retirada del cron muerto.
 6. **Verificación.** P-10-1 a P-10-20, con Render dormido incluido.
 
