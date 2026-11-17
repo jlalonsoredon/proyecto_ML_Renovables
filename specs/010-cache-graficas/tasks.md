@@ -8,10 +8,13 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
 
 ## Bloque A — Requisitos previos
 
-- [ ] **T-10-01 — Liberar la 008 en `main`** (CA-10.1)
+- [x] **T-10-01 — Liberar la 008 en `main`** (CA-10.1)
   - Desplegar el contrato de 19 variables con `fecha_emision` y `n_variables`.
   - Hecho cuando: `/api/prediction` devuelve `n_variables: 19`, `fecha_emision`
     y el vector completo; `/health` responde 200.
+  - Resultado: en producción, `/health` 200 y `/api/prediction` 200 con
+    `n_variables: 19`, `fecha_emision` 17/11, objetivo 18/11 y `vector_entrada`.
+    El arranque en frío del plan gratuito tardó 72 s.
 
 - [ ] **T-10-02 — Fusionar `SDD` y filtrar Render** (D-10-11; CA-10.14)
   - Merge de `SDD` en `main` para que existan el workflow y el backend nuevos.
