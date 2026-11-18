@@ -413,9 +413,10 @@ def refresh(force: bool = False, hoy: date | None = None,
 
     `snapshot_anterior` es el archivo durable de predicciones: el workflow envía
     el último snapshot publicado para recuperar lo que la SQLite efímera perdió.
-    Sin `force`, una segunda llamada para el mismo objetivo devuelve la ejecución
-    cacheada. Solo se cachean las ejecuciones sin avisos bloqueantes: los de
-    AVISOS_ESPERADOS no cuentan.
+    La restauración se intenta antes del atajo de caché; si recupera filas, se
+    recalcula aunque no haya `force`. Sin `force`, una segunda llamada para el
+    mismo objetivo devuelve la ejecución cacheada. Solo se cachean las
+    ejecuciones sin avisos bloqueantes: los de AVISOS_ESPERADOS no cuentan.
     """
     global _cache
     if not _lock.acquire(blocking=False):
@@ -423,7 +424,35 @@ def refresh(force: bool = False, hoy: date | None = None,
     try:
         hoy = hoy or today_in_madrid()
         objetivo = (hoy + timedelta(days=1)).isoformat()
-        if not force and _cache and _cache["snapshot"]["fecha_objetivo"] == objetivo:
+
+        # Se restaura antes del atajo de caché: tras un reinicio el scheduler de
+        # las 03:00 puede haber cacheado un snapshot sin las predicciones
+        # históricas. Si se recuperó alguna fila, hay que recalcular para que el
+        # snapshot publicado las incluya.
+        fuente = snapshot_anterior if snapshot_anterior is not None else (
+            _cache.get("snapshot") if _cache else None
+        )
+        restauradas = 0
+        if fuente:
+            try:
+                restauradas = restore_predictions(fuente, hoy)
+                if restauradas:
+                    logger.info(
+                        "%d predicciones históricas restauradas; se recalcula el snapshot",
+                        restauradas,
+                    )
+            except Exception as error:
+                logger.warning(
+                    "No se pudieron restaurar predicciones históricas: %s",
+                    redact_secrets(error),
+                )
+
+        if (
+            not force
+            and restauradas == 0
+            and _cache
+            and _cache["snapshot"]["fecha_objetivo"] == objetivo
+        ):
             logger.info("Snapshot ya generado para %s (run_id=%s)", objetivo, _cache["run_id"])
             return {**_cache, "estado": "already_done"}
 
@@ -431,23 +460,6 @@ def refresh(force: bool = False, hoy: date | None = None,
         ahora = datetime.now(timezone.utc)
         run_id = ahora.strftime("%Y-%m-%dT%H%M%SZ")
         logger.info("Snapshot %s: iniciando para %s", run_id, objetivo)
-
-        fuente = snapshot_anterior if snapshot_anterior is not None else (
-            _cache.get("snapshot") if _cache else None
-        )
-        if fuente:
-            try:
-                restauradas = restore_predictions(fuente, hoy)
-                if restauradas:
-                    logger.info(
-                        "Snapshot %s: %d predicciones históricas restauradas",
-                        run_id, restauradas,
-                    )
-            except Exception as error:
-                logger.warning(
-                    "Snapshot %s: no se pudieron restaurar predicciones históricas: %s",
-                    run_id, redact_secrets(error),
-                )
 
         avisos_previos = []
         if not scheduler_service.backfill_done.wait(timeout=BACKFILL_TIMEOUT_S):
