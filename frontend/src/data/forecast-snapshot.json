@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "version": "2026-11-18T211710Z",
-  "fecha_generacion": "2026-11-18T22:17:10+01:00",
+  "version": "2026-11-18T213705Z",
+  "fecha_generacion": "2026-11-18T22:37:05+01:00",
   "fecha_objetivo": "2026-11-19",
   "fecha_emision": "2026-11-18",
   "fecha_observacion": "2026-11-17",
@@ -1120,8 +1120,8 @@
       "fecha": "2026-11-18",
       "eolica": null,
       "aemet": {
-        "velmedia": 3.52,
-        "racha": 13.25,
+        "velmedia": 3.08,
+        "racha": 13.65,
         "sol": null,
         "tmed": null,
         "origen": {
@@ -2110,7 +2110,6 @@
     ]
   },
   "avisos": [
-    "Paso capture_aemet_forecast: parcial",
     "Paso download_aemet_data: parcial",
     "Paso run_prediction: no_disponible"
   ]
