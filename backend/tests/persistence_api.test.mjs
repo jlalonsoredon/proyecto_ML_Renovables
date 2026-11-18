@@ -533,7 +533,7 @@ test("el payload del gráfico alinea la última emisión y conserva trazabilidad
   assert.deepEqual(result.fechas_hist, ["2026-01-01", "2026-01-02"]);
   assert.deepEqual(result.real_gwh, [10, 11]);
   assert.deepEqual(result.pred_gwh, [9.5, 10]);
-  assert.equal(result.predicciones_propias.length, 3);
+  assert.equal(result.predicciones_propias.length, 4);
   assert.equal(result.manana.fecha, "2026-01-03");
   assert.equal(result.manana.pred_gwh, 12);
   assert.equal(result.manana.vector_entrada.velmedia, 3);

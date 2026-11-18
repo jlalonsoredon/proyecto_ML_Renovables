@@ -90,6 +90,27 @@ test("un snapshot válido evaluado con su fecha no tiene problemas", () => {
   assert.deepEqual(validateSnapshot(buildSnapshot(), TODAY), []);
 });
 
+test("el último día puede no tener generación real y fecha_observacion lo salta", () => {
+  const snapshot = buildSnapshot();
+  snapshot.historico.push({ fecha: "2026-11-15", eolica: null });
+  snapshot.fecha_observacion = "2026-11-14";
+  assert.deepEqual(validateSnapshot(snapshot, TODAY), []);
+});
+
+test("fecha_observacion debe ser el último día con generación real", () => {
+  const snapshot = buildSnapshot();
+  snapshot.fecha_observacion = snapshot.historico.at(-2).fecha;
+  const problems = validateSnapshot(snapshot, TODAY);
+  assert.equal(countProblems(problems, "V7: fecha_observacion no es la última fecha con generación real"), 1);
+});
+
+test("V12 cuenta solo los días con generación real", () => {
+  const snapshot = buildSnapshot();
+  for (const row of snapshot.historico.slice(-16)) row.eolica = null;
+  const problems = validateSnapshot(snapshot, TODAY);
+  assert.equal(countProblems(problems, "V12:"), 1);
+});
+
 test("falta prediccion o grafico: un problema por clave", () => {
   const sinPrediccion = buildSnapshot();
   delete sinPrediccion.prediccion;

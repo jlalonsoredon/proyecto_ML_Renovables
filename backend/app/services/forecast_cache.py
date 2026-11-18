@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 from ..api import charts
 from ..tasks.scheduler import scheduler_service
+from . import db_ree
 from .model_loader import FEATURE_COLS
 from .prediction_service import prediction_service, today_in_madrid
 from .redaction import redact_secrets
@@ -117,19 +118,101 @@ def summarize_steps(pasos: dict) -> tuple[dict, list[str]]:
     return estados, avisos
 
 
+def _prediction_records(snapshot: dict, hoy: date) -> list[dict]:
+    """Extrae las emisiones durables del snapshot anterior (formato nuevo o viejo)."""
+    if not isinstance(snapshot, dict):
+        return []
+    desde = hoy - timedelta(days=HISTORICO_DIAS - 1)
+    hasta = hoy + timedelta(days=1)
+    records = {}
+
+    def add(row):
+        if not isinstance(row, dict):
+            return
+        objetivo = _as_date(row.get("fecha_objetivo"))
+        emision = _as_date(row.get("fecha_emision"))
+        try:
+            mwh = float(row.get("prediccion_mwh"))
+        except (TypeError, ValueError):
+            return
+        if objetivo is None or emision is None or not (desde <= objetivo <= hasta):
+            return
+        if not math.isfinite(mwh) or mwh <= 0:
+            return
+        key = (objetivo.isoformat(), emision.isoformat())
+        candidate = {
+            "fecha_objetivo": key[0],
+            "fecha_emision": key[1],
+            "emitida_en": row.get("emitida_en"),
+            "prediccion_mwh": mwh,
+            "modelo": row.get("modelo"),
+            "n_variables": row.get("n_variables"),
+            "vector_entrada": row.get("vector_entrada"),
+            "origenes": row.get("origenes"),
+            "real_mwh": row.get("real_mwh"),
+            "error_mwh": row.get("error_mwh"),
+        }
+        previous = records.get(key)
+        if previous is None or (
+            not previous.get("vector_entrada") and candidate.get("vector_entrada")
+        ):
+            records[key] = candidate
+
+    grafico = snapshot.get("grafico") or {}
+    for row in grafico.get("predicciones_propias") or []:
+        add(row)
+    manana = grafico.get("manana") or {}
+    if manana.get("prediccion_mwh") is not None:
+        add({
+            "fecha_objetivo": manana.get("fecha"),
+            "fecha_emision": manana.get("fecha_emision"),
+            "emitida_en": manana.get("emitida_en"),
+            "prediccion_mwh": manana.get("prediccion_mwh"),
+            "modelo": manana.get("modelo"),
+            "n_variables": manana.get("n_variables"),
+            "vector_entrada": manana.get("vector_entrada"),
+            "origenes": manana.get("origenes"),
+        })
+    for row in snapshot.get("historico") or []:
+        prediccion = row.get("prediccion") if isinstance(row, dict) else None
+        if isinstance(prediccion, dict):
+            add({
+                "fecha_objetivo": row.get("fecha"),
+                "fecha_emision": prediccion.get("fecha_emision"),
+                "emitida_en": prediccion.get("emitida_en"),
+                "prediccion_mwh": prediccion.get("mwh"),
+                "modelo": prediccion.get("modelo"),
+                "n_variables": prediccion.get("n_variables"),
+            })
+
+    resultado = []
+    for record in records.values():
+        if not record.get("modelo"):
+            record["modelo"] = "Linear Regression"
+        if not record.get("n_variables"):
+            record["n_variables"] = len(FEATURE_COLS)
+        resultado.append(record)
+    return resultado
+
+
+def restore_predictions(snapshot_anterior, hoy: date) -> int:
+    """Recupera del snapshot anterior las predicciones que la BD efímera perdió."""
+    return db_ree.restore_own_predictions(_prediction_records(snapshot_anterior, hoy))
+
+
 def build_snapshot(hoy: date, ahora: datetime | None = None, avisos=None) -> dict:
     """Compone el snapshot con las funciones internas; no ejecuta la tarea diaria."""
     ahora = ahora or datetime.now(timezone.utc)
-    historico = charts.get_historico_eolica(HISTORICO_DIAS, hoy=hoy)
+    grafico = charts.build_current_chart(hoy, dias_historico=HISTORICO_DIAS)
+    historico = grafico.pop("historico", [])
     prediccion = prediction_service.get_prediction(hoy)
-    grafico = charts.build_current_chart(hoy)
     return {
         "schema_version": SCHEMA_VERSION,
         "version": ahora.astimezone(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ"),
         "fecha_generacion": ahora.astimezone(MADRID).isoformat(timespec="seconds"),
         "fecha_objetivo": prediccion["fecha"],
         "fecha_emision": prediccion["fecha_emision"],
-        "fecha_observacion": historico[-1]["fecha"] if historico else None,
+        "fecha_observacion": charts.last_observation(historico),
         "prediccion": prediccion,
         "historico": historico,
         "grafico": grafico,
@@ -213,9 +296,15 @@ def validate_snapshot(snapshot, hoy: date) -> list[str]:
     else:
         if any(a >= b for a, b in zip(fechas, fechas[1:])):
             problemas.append("V7: historico no está ordenado ni es estrictamente creciente")
+        observadas = [
+            fecha for fecha, item in zip(fechas, historico)
+            if _finite(item.get("eolica"))
+        ]
         observacion = _as_date(snapshot.get("fecha_observacion"))
-        if observacion != fechas[-1]:
-            problemas.append("V7: fecha_observacion no es la última fecha del historico")
+        if not observadas:
+            problemas.append("V7: historico no tiene ningún día con generación real")
+        elif observacion != observadas[-1]:
+            problemas.append("V7: fecha_observacion no es la última fecha con generación real")
         if observacion is None or observacion < hoy - timedelta(days=MAX_ANTIGUEDAD_OBSERVACION):
             problemas.append(
                 f"V7: fecha_observacion tiene más de {MAX_ANTIGUEDAD_OBSERVACION} días de antigüedad"
@@ -270,22 +359,60 @@ def validate_snapshot(snapshot, hoy: date) -> list[str]:
     for ruta in _non_finite_paths(snapshot):
         problemas.append(f"V11: valor no finito en {ruta}")
     for posicion, item in enumerate(historico):
-        if isinstance(item, dict) and not _finite(item.get("eolica")):
+        if not isinstance(item, dict):
+            problemas.append(f"V11: historico[{posicion}] no es un objeto")
+            break
+        if item.get("eolica") is not None and not _finite(item.get("eolica")):
             problemas.append(f"V11: historico[{posicion}].eolica no es un número")
             break
+        aemet = item.get("aemet")
+        if aemet is not None and not isinstance(aemet, dict):
+            problemas.append(f"V11: historico[{posicion}].aemet no es un objeto")
+            break
+        if isinstance(aemet, dict):
+            malo = next(
+                (clave for clave in ("velmedia", "racha", "sol", "tmed")
+                 if aemet.get(clave) is not None and not _finite(aemet.get(clave))),
+                None,
+            )
+            if malo:
+                problemas.append(f"V11: historico[{posicion}].aemet.{malo} no es un número")
+                break
+        prediccion_dia = item.get("prediccion")
+        if prediccion_dia is not None and not isinstance(prediccion_dia, dict):
+            problemas.append(f"V11: historico[{posicion}].prediccion no es un objeto")
+            break
+        if isinstance(prediccion_dia, dict):
+            malo = next(
+                (clave for clave in ("mwh", "gwh")
+                 if prediccion_dia.get(clave) is not None
+                 and not _finite(prediccion_dia.get(clave))),
+                None,
+            )
+            if malo:
+                problemas.append(f"V11: historico[{posicion}].prediccion.{malo} no es un número")
+                break
 
     # V12
-    if len(historico) < MIN_PUNTOS_HISTORICO:
+    observadas = sum(
+        1 for item in historico
+        if isinstance(item, dict) and _finite(item.get("eolica"))
+    )
+    if observadas < MIN_PUNTOS_HISTORICO:
         problemas.append(
-            f"V12: historico tiene {len(historico)} puntos; se exigen al menos {MIN_PUNTOS_HISTORICO}"
+            f"V12: historico tiene {observadas} días con generación real; "
+            f"se exigen al menos {MIN_PUNTOS_HISTORICO}"
         )
 
     return problemas
 
 
-def refresh(force: bool = False, hoy: date | None = None) -> dict:
+def refresh(force: bool = False, hoy: date | None = None,
+            snapshot_anterior: dict | None = None) -> dict:
     """Ejecuta la tarea diaria y devuelve el snapshot validado.
 
+    `snapshot_anterior` es el archivo durable de predicciones: el workflow envía
+    el último snapshot publicado para recuperar lo que la SQLite efímera perdió.
     Sin `force`, una segunda llamada para el mismo objetivo devuelve la ejecución
     cacheada. Solo se cachean las ejecuciones sin avisos bloqueantes: los de
     AVISOS_ESPERADOS no cuentan.
@@ -304,6 +431,23 @@ def refresh(force: bool = False, hoy: date | None = None) -> dict:
         ahora = datetime.now(timezone.utc)
         run_id = ahora.strftime("%Y-%m-%dT%H%M%SZ")
         logger.info("Snapshot %s: iniciando para %s", run_id, objetivo)
+
+        fuente = snapshot_anterior if snapshot_anterior is not None else (
+            _cache.get("snapshot") if _cache else None
+        )
+        if fuente:
+            try:
+                restauradas = restore_predictions(fuente, hoy)
+                if restauradas:
+                    logger.info(
+                        "Snapshot %s: %d predicciones históricas restauradas",
+                        run_id, restauradas,
+                    )
+            except Exception as error:
+                logger.warning(
+                    "Snapshot %s: no se pudieron restaurar predicciones históricas: %s",
+                    run_id, redact_secrets(error),
+                )
 
         avisos_previos = []
         if not scheduler_service.backfill_done.wait(timeout=BACKFILL_TIMEOUT_S):

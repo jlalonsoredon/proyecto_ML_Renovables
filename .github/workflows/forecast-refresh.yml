@@ -78,9 +78,15 @@ jobs:
           fi
           url="${BACKEND_URL%/}/api/internal/forecast/refresh"
           if [ "$FORCE" = "true" ]; then url="$url?force=true"; fi
+          body_args=()
+          if [ -s "$SNAPSHOT_PATH" ]; then
+            jq -c '{snapshot_anterior: .}' "$SNAPSHOT_PATH" > /tmp/snapshot-anterior.json
+            body_args=(-H "Content-Type: application/json" --data-binary @/tmp/snapshot-anterior.json)
+          fi
           set +e
           code=$(curl --silent --show-error --fail-with-body --max-time 1200 -X POST \
             -H "Authorization: Bearer $REFRESH_TOKEN" \
+            "${body_args[@]}" \
             -o /tmp/refresh.json -w '%{http_code}' "$url")
           curl_exit=$?
           set -e

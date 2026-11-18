@@ -13,6 +13,7 @@ from collections import deque
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from ..services import forecast_cache
 from ..services.redaction import redact_secrets
@@ -23,6 +24,12 @@ router = APIRouter(prefix="/api/internal", tags=["internal"], include_in_schema=
 
 MAX_FALLOS = 5
 VENTANA_S = 60
+
+
+class RefreshRequest(BaseModel):
+    """Snapshot publicado que el workflow envía como archivo de predicciones."""
+
+    snapshot_anterior: dict | None = None
 
 _fallos: dict[str, deque] = {}
 _fallos_lock = threading.Lock()
@@ -95,9 +102,12 @@ def require_token(request: Request) -> None:
 
 
 @router.post("/forecast/refresh", dependencies=[Depends(require_token)])
-def refresh_forecast(force: bool = False):
+def refresh_forecast(force: bool = False, body: RefreshRequest | None = None):
     try:
-        return forecast_cache.refresh(force=force)
+        return forecast_cache.refresh(
+            force=force,
+            snapshot_anterior=body.snapshot_anterior if body else None,
+        )
     except forecast_cache.RunInProgress:
         return JSONResponse(status_code=409, content={"detail": "run_in_progress"})
     except forecast_cache.SnapshotInvalid as error:

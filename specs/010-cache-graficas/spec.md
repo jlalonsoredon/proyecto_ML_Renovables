@@ -159,7 +159,36 @@ El usuario llamó a este archivo «previsiones.json». Se adopta `forecast-snaps
     "emitida_en": "2026-11-16T05:01:44+01:00"
   },
   "historico": [
-    { "fecha": "2026-10-17", "eolica": 123456.7 }
+    {
+      "fecha": "2026-11-17",
+      "eolica": 415200.0,
+      "aemet": {
+        "velmedia": 5.65,
+        "racha": 9.25,
+        "sol": 3.1,
+        "tmed": 14.2,
+        "origen": {
+          "velmedia": "prevision",
+          "racha": "prevision",
+          "sol": "observacion",
+          "tmed": "observacion"
+        }
+      },
+      "prediccion": {
+        "mwh": 403125.12,
+        "gwh": 403.13,
+        "fecha_emision": "2026-11-16",
+        "emitida_en": "2026-11-16T23:27:50+01:00",
+        "modelo": "Linear Regression",
+        "n_variables": 19
+      }
+    },
+    {
+      "fecha": "2026-11-18",
+      "eolica": null,
+      "aemet": { "velmedia": 5.85, "racha": 12.96, "sol": null, "tmed": null, "origen": { "velmedia": "prevision", "racha": "prevision", "sol": null, "tmed": null } },
+      "prediccion": { "mwh": 406957.95, "gwh": 406.96, "fecha_emision": "2026-11-17", "emitida_en": "2026-11-17T15:27:25+01:00", "modelo": "Linear Regression", "n_variables": 19 }
+    }
   ],
   "grafico": {
     "fechas_hist": ["…"],
@@ -172,7 +201,9 @@ El usuario llamó a este archivo «previsiones.json». Se adopta `forecast-snaps
     "vel_origen": ["observacion"],
     "racha_origen": ["prevision"],
     "manana": { "fecha": "2026-11-17", "pred_gwh": 278.46, "prediccion_mwh": 278461.37 },
-    "predicciones_propias": [],
+    "predicciones_propias": [
+      { "fecha_objetivo": "2026-11-19", "fecha_emision": "2026-11-18", "prediccion_mwh": 433630.0, "…": "trazabilidad completa" }
+    ],
     "avisos": []
   },
   "avisos": []
@@ -181,13 +212,14 @@ El usuario llamó a este archivo «previsiones.json». Se adopta `forecast-snaps
 
 ### 5.3 Reglas del contrato
 
-1. `prediccion` y `grafico` son **exactamente** los payloads que hoy devuelven `/api/prediction` y `/api/prediction-chart`, sin renombrar ni transformar campos. `historico` es la serie `{fecha, eolica}` de 45 días que ya consume la gráfica, obtenida de `get_historico_eolica`; no se usa `/api/historical` porque mezcla formatos de fecha y cae en datos simulados cuando la BD está vacía. Así la tarjeta y la gráfica no cambian de contrato.
+1. `prediccion` y `grafico` son **exactamente** los payloads que hoy devuelven `/api/prediction` y `/api/prediction-chart`, sin renombrar ni transformar campos. `historico` es la serie diaria unificada de 45 días naturales que termina hoy: cada entrada lleva `fecha`, `eolica` (generación real de REE en MWh, o `null` si REE aún no ha publicado el día), `aemet` (medias diarias observadas y, para el viento, previsión con origen declarado) y `prediccion` (última emisión propia para ese objetivo). Se construye con `get_generation_series`, `get_wind_for_dates`/`get_solar_for_dates`, `aemet_national_series` y `prediccion_propia`; no se usa `/api/historical` porque mezcla formatos de fecha y cae en datos simulados cuando la BD está vacía. Así la tarjeta y la gráfica no cambian de contrato y el histórico deja de depender de la SQLite efímera.
 2. `fecha_objetivo`, `fecha_emision` y `fecha_observacion` se repiten en la raíz para que la portada no tenga que leer tres objetos anidados.
-3. `fecha_observacion` es la fecha del último punto de `historico`, no la de generación.
+3. `fecha_observacion` es la fecha del último punto de `historico` con `eolica` numérica, no la de generación ni la última entrada si hoy aún no tiene dato de REE.
 4. `version` es el instante UTC de la generación, con formato `YYYY-MM-DDTHHMMSSZ`. Se usa en el mensaje de commit y en los logs.
 5. Los `avisos` de la raíz acumulan los pasos fallidos de la tarea diaria que no impidieron predecir. Se publican: son información, no ruido.
-6. Los rellenos de viento van declarados. AEMET publica el resumen diario de ayer con horas de retraso, así que los últimos días del gráfico suelen quedarse sin observación. En esos días `vel_ms` y `racha_ms` se rellenan con la previsión de AEMET, con la misma regla de elegibilidad que el pipeline (`aemet_national_series` sobre `prediccion_diaria`, elaboración no posterior al día objetivo ni a hoy). `vel_origen` y `racha_origen` declaran día a día si el valor es `observacion` o `prevision`; la gráfica pinta esos días más claros y lo dice en el tooltip.
-7. No hay otros campos opcionales: si un dato no está, el snapshot no se publica. `vel_origen` y `racha_origen` lo son para no invalidar los snapshots publicados antes de este relleno.
+6. Los rellenos de viento van declarados. AEMET publica el resumen diario de ayer con horas de retraso, así que los últimos días del gráfico suelen quedarse sin observación. En esos días `vel_ms` y `racha_ms` se rellenan con la previsión de AEMET, con la misma regla de elegibilidad que el pipeline (`aemet_national_series` sobre `prediccion_diaria`, elaboración no posterior al día objetivo ni a hoy). `vel_origen` y `racha_origen` declaran día a día si el valor es `observacion` o `prevision`; `historico[*].aemet.origen` hace lo mismo para el viento y distingue `sol`/`tmed` observados. La gráfica pinta esos días más claros y lo dice en el tooltip.
+7. `historico[*].aemet` y `historico[*].prediccion` siempre existen, pero sus valores pueden ser `null`. `eolica` también puede ser `null` para el día de hoy si REE aún no ha publicado el dato completo. No hay otros campos opcionales: si falta `prediccion` o `grafico`, el snapshot no se publica.
+8. `grafico.predicciones_propias` es el archivo durable de emisiones: cubre los 45 días del histórico más el objetivo de mañana, con la última emisión de cada `(fecha_objetivo, fecha_emision)`. El workflow envía el snapshot publicado en el cuerpo de `/api/internal/forecast/refresh`; el backend restaura con él las filas que falten en `prediccion_propia` antes de ejecutar la tarea diaria. La SQLite de Render es efímera y este archivo es lo que evita perder la predicción de cada día en cada reinicio.
 
 ## 6. Backend
 
@@ -197,17 +229,18 @@ El usuario llamó a este archivo «previsiones.json». Se adopta `forecast-snaps
 
 - `build_snapshot(hoy) -> dict`: llama a `scheduler_service.run_daily_task(hoy)` y compone el snapshot reutilizando las funciones internas.
 - `validate_snapshot(snapshot, hoy) -> list[str]`: devuelve la lista de problemas; vacía significa válido.
-- `refresh(force=False) -> dict`: orquesta, aplica el bloqueo y guarda el resultado en memoria.
+- `refresh(force=False, snapshot_anterior=None) -> dict`: orquesta, restaura las predicciones del snapshot anterior, aplica el bloqueo y guarda el resultado en memoria.
 - `cached() -> dict | None`: metadatos del snapshot en memoria, para el endpoint de estado.
 
-No se duplica ninguna función de cálculo: el histórico sale de `charts.get_historico_eolica` (ver 6.2) y la gráfica de `charts.build_prediction_chart_payload`.
+No se duplica ninguna función de cálculo: el histórico sale de `charts.build_historico` (ver 6.2) y la gráfica de `charts.build_prediction_chart_payload`.
 
 ### 6.2 Refactor mínimo en `charts.py`
 
-- `_get_historico_eolica` pasa a llamarse `get_historico_eolica` (pública) y se actualizan sus dos usos.
-- El cuerpo de `get_prediction_chart()` se extrae a `build_current_chart(hoy) -> dict`, que el endpoint sigue devolviendo tal cual y que `forecast_cache` reutiliza.
+- `build_historico(dias, hoy, emisiones=None)` compone la serie unificada: 45 días naturales terminados en hoy, con `eolica` de `db_ree.get_generation_series`, `aemet` de las observaciones y previsiones, y `prediccion` de la última emisión por objetivo.
+- `build_current_chart(hoy, dias_historico=30)` reutiliza `build_historico`, construye el `grafico` de siempre y añade `historico` a la respuesta de `/api/prediction-chart`.
+- `get_historico_eolica` se conserva como helper de la serie real, pero el snapshot ya no lo usa directamente.
 
-Sin cambios de comportamiento en `/api/historical` ni en `/api/prediction-chart`.
+Sin cambios de comportamiento en `/api/historical`. `/api/prediction-chart` solo gana la clave `historico`; el resto de campos no cambia.
 
 ### 6.3 Endpoint interno
 
@@ -217,6 +250,7 @@ Sin cambios de comportamiento en `/api/historical` ni en `/api/prediction-chart`
 - Si `REFRESH_TOKEN` no está configurada: `503` y log de error. No se ejecuta nada.
 - Token ausente o incorrecto: `401` con `WWW-Authenticate: Bearer`, una línea de log con la IP real (6.9), hora y motivo, y contador de fallos. A partir de 5 fallos por minuto y por IP: `429` durante un minuto.
 - `?force=true` ignora la caché en memoria.
+- Cuerpo opcional: `{"snapshot_anterior": {…}}`. El workflow envía el último snapshot publicado para que el backend restaure las predicciones que la SQLite efímera perdió. Sin cuerpo (scheduler interno), se usa el último snapshot de la caché en memoria si existe. Si el cuerpo no es JSON válido o no tiene la forma esperada, FastAPI responde `422` y no ejecuta nada; el workflow envía siempre el snapshot ya validado.
 - El router se registra con `include_in_schema=False`.
 - Respuesta `200`:
 
@@ -239,7 +273,7 @@ Sin cambios de comportamiento en `/api/historical` ni en `/api/prediction-chart`
 
 - **Bloqueo:** `threading.Lock` no bloqueante. Si hay una ejecución en curso, `409 {"detail": "run_in_progress"}`.
 - **Caché en memoria:** solo se guarda si la ejecución terminó **sin avisos bloqueantes**. Son esperables y no bloquean `capture_ree_forecast: fallo` (ESIOS aún sin D+1 de madrugada) ni `download_aemet_data: parcial` (AEMET aún sin el diario de ayer); la lista `AVISOS_ESPERADOS` está en `forecast_cache.py` y su espejo en `forecast.mjs`. Cualquier otro aviso sí bloquea. Sin `force`, una segunda llamada para la misma fecha objetivo devuelve `already_done` con el mismo snapshot y no vuelve a ejecutar la tarea. Si hubo avisos, la siguiente llamada recalcula: un reintento no debe heredar una ejecución degradada.
-- **Por qué en memoria y no en disco:** el disco de Render es efímero; persistir sería mentira. La memoria cubre el caso real: el scheduler de las 03:00 y la llamada de las 05:17 dentro del mismo contenedor despierto.
+- **Por qué en memoria y no en disco:** el disco de Render es efímero; persistir sería mentira. La memoria cubre el caso real: el scheduler de las 03:00 y la llamada de las 05:17 dentro del mismo contenedor despierto. La durabilidad de las predicciones no depende del disco: el snapshot publicado es el archivo y el workflow lo reenvía en cada ejecución para restaurar `prediccion_propia`.
 - **Idempotencia de publicación:** el workflow compara el hash del snapshot con el archivo del repositorio. Si coincide, no hace commit. Sin commit no hay rebuild ni versión nueva.
 
 ### 6.5 Validación (lista cerrada)
@@ -254,12 +288,12 @@ El snapshot se rechaza si cualquiera de estas condiciones falla:
 | V4 | `prediccion.modelo` no está vacío y `n_variables == 19`. |
 | V5 | `prediccion.prediccionMWh` es finito y mayor que cero. |
 | V6 | `vector_entrada` tiene las 19 claves de `FEATURE_COLS`, todas finitas, y `origenes` usa solo `observacion`, `prevision`, `mixta` o `estimada`. |
-| V7 | `historico` no está vacío, está ordenado y su última fecha es `fecha_observacion`, con `fecha_observacion >= hoy - 2`. |
+| V7 | `historico` no está vacío, está ordenado y `fecha_observacion` es la última fecha con `eolica` numérica, con `fecha_observacion >= hoy - 2`. |
 | V8 | `grafico.fechas_hist`, `real_gwh`, `pred_gwh`, `vel_norm`, `racha_norm`, `vel_ms` y `racha_ms` tienen la misma longitud. `vel_origen` y `racha_origen` son opcionales; si están, deben medir lo mismo que `fechas_hist` y solo contener `observacion`, `prevision` o `null`. |
 | V9 | `grafico.manana.fecha == fecha_objetivo` y `grafico.manana.prediccion_mwh` difiere de `prediccion.prediccionMWh` en menos de 1 MWh, con ambos valores finitos. El campo ya existe en el payload de `/api/prediction-chart`; la tolerancia es necesaria porque `prediccionMWh` se redondea a entero y el gráfico conserva el valor de la BD. |
 | V10 | `grafico.avisos` no contiene avisos de datos simulados ni de series no leídas. |
-| V11 | No hay `NaN`, `Infinity` ni `None` donde el contrato exige número. |
-| V12 | `historico` procede de `db_ree.get_generation_series`; el número de puntos es mayor o igual que 30. |
+| V11 | No hay `NaN` ni `Infinity`. En `historico`, `eolica`, `aemet.*` y `prediccion.mwh/gwh` pueden ser `null`, pero si tienen valor deben ser finitos. |
+| V12 | `historico` procede de `db_ree.get_generation_series` y tiene al menos 30 días con generación real. |
 
 ### 6.6 Espera al backfill del arranque
 
@@ -322,7 +356,7 @@ on:
 
 1. **Checkout** del repositorio.
 2. **Guardia de frescura** (solo para ejecuciones programadas): lee `frontend/src/data/forecast-snapshot.json`, calcula si `fecha_objetivo` es mañana en `Europe/Madrid` **y** si no quedan avisos bloqueantes (`avisosBloqueantes`), y escribe `skip=true|false` en `$GITHUB_OUTPUT`. Los pasos siguientes llevan `if: steps.guard.outputs.skip != 'true'`. No se compara con el texto del cron: la condición depende del estado del archivo, no de qué expresión lo disparó.
-3. **Petición**: `curl --fail-with-body --max-time 1200 -X POST "$BACKEND_URL/api/internal/forecast/refresh"` con el token, guardando la respuesta en `/tmp/refresh.json` y el código HTTP en un archivo.
+3. **Petición**: `curl --fail-with-body --max-time 1200 -X POST "$BACKEND_URL/api/internal/forecast/refresh"` con el token y, como cuerpo, `{"snapshot_anterior": <snapshot publicado>}` cuando el archivo existe; guarda la respuesta en `/tmp/refresh.json` y el código HTTP en un archivo.
 4. **Diagnóstico**: si el código no es 200, imprime el cuerpo redactado y termina con error.
 5. **Validación**: extrae `.snapshot` con `jq` y lo valida con el módulo del frontend:
 

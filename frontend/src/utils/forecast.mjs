@@ -137,6 +137,9 @@ function structuralProblems(snapshot) {
 
   // V7 (orden) y V12
   const dates = historico.map((row) => (isObject(row) ? row.fecha : undefined));
+  const observadas = historico
+    .filter((row) => isObject(row) && isFiniteNumber(row.eolica))
+    .map((row) => row.fecha);
   if (historico.length === 0) {
     problems.push("V7: historico vacío");
   } else if (!dates.every(isIsoDate)) {
@@ -145,12 +148,14 @@ function structuralProblems(snapshot) {
     if (dates.some((date, index) => index > 0 && date <= dates[index - 1])) {
       problems.push("V7: historico no está ordenado ni es estrictamente creciente");
     }
-    if (snapshot.fecha_observacion !== dates.at(-1)) {
-      problems.push("V7: fecha_observacion no es la última fecha del historico");
+    if (observadas.length === 0) {
+      problems.push("V7: historico no tiene ningún día con generación real");
+    } else if (snapshot.fecha_observacion !== observadas.at(-1)) {
+      problems.push("V7: fecha_observacion no es la última fecha con generación real");
     }
   }
-  if (historico.length < MIN_HISTORY_POINTS) {
-    problems.push(`V12: historico tiene ${historico.length} puntos; se exigen al menos ${MIN_HISTORY_POINTS}`);
+  if (observadas.length < MIN_HISTORY_POINTS) {
+    problems.push(`V12: historico tiene ${observadas.length} días con generación real; se exigen al menos ${MIN_HISTORY_POINTS}`);
   }
 
   // V8
@@ -200,8 +205,34 @@ function structuralProblems(snapshot) {
 
   // V11
   for (const path of nonFinitePaths(snapshot)) problems.push(`V11: valor no finito en ${path}`);
-  const badRow = historico.findIndex((row) => !isObject(row) || !isFiniteNumber(row.eolica));
-  if (badRow !== -1) problems.push(`V11: historico[${badRow}].eolica no es un número`);
+  const badRow = historico.findIndex(
+    (row) => !isObject(row) || (row.eolica !== null && !isFiniteNumber(row.eolica)),
+  );
+  if (badRow !== -1) problems.push(`V11: historico[${badRow}].eolica no es un número o null`);
+  for (const key of ["aemet", "prediccion"]) {
+    const badBlock = historico.findIndex(
+      (row) => isObject(row) && row[key] !== undefined && row[key] !== null && !isObject(row[key]),
+    );
+    if (badBlock !== -1) problems.push(`V11: historico[${badBlock}].${key} no es un objeto`);
+  }
+  const badAemet = historico.findIndex(
+    (row) =>
+      isObject(row) &&
+      isObject(row.aemet) &&
+      ["velmedia", "racha", "sol", "tmed"].some(
+        (key) => row.aemet[key] !== null && row.aemet[key] !== undefined && !isFiniteNumber(row.aemet[key]),
+      ),
+  );
+  if (badAemet !== -1) problems.push(`V11: historico[${badAemet}].aemet tiene un valor no numérico`);
+  const badPrediccion = historico.findIndex(
+    (row) =>
+      isObject(row) &&
+      isObject(row.prediccion) &&
+      ["mwh", "gwh"].some(
+        (key) => row.prediccion[key] !== null && row.prediccion[key] !== undefined && !isFiniteNumber(row.prediccion[key]),
+      ),
+  );
+  if (badPrediccion !== -1) problems.push(`V11: historico[${badPrediccion}].prediccion tiene un valor no numérico`);
 
   return problems;
 }

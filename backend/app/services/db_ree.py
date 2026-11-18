@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -434,6 +435,61 @@ def save_own_prediction(record: dict, conn=None) -> None:
         )
 
 
+def restore_own_predictions(records: list[dict]) -> int:
+    """Inserta emisiones históricas que falten sin sobrescribir las guardadas.
+
+    Se usa al inicio de cada refresh para recuperar las predicciones que la
+    SQLite efímera de Render perdió en un reinicio. El snapshot anterior es el
+    archivo durable; aquí solo se rellena lo que no exista ya.
+    """
+    inserts = []
+    for record in records or []:
+        try:
+            objetivo = _as_date(record.get("fecha_objetivo"))
+            emision = _as_date(record.get("fecha_emision"))
+            mwh = float(record.get("prediccion_mwh"))
+            n_variables = int(record.get("n_variables"))
+        except (TypeError, ValueError):
+            continue
+        modelo = str(record.get("modelo") or "").strip()
+        if (
+            objetivo is None
+            or emision is None
+            or not modelo
+            or n_variables <= 0
+            or not math.isfinite(mwh)
+            or mwh <= 0
+        ):
+            continue
+        emitida_en = str(record.get("emitida_en") or f"{emision.isoformat()}T00:00:00")
+        inserts.append((
+            objetivo.isoformat(),
+            emision.isoformat(),
+            emitida_en,
+            mwh,
+            modelo,
+            n_variables,
+            json.dumps(record.get("vector_entrada") or {}, ensure_ascii=False),
+            json.dumps(record.get("origenes") or {}, ensure_ascii=False),
+            record.get("real_mwh"),
+            record.get("error_mwh"),
+        ))
+
+    restauradas = 0
+    with _connection() as connection:
+        for values in inserts:
+            cursor = connection.execute(
+                """INSERT INTO prediccion_propia (
+                       fecha_objetivo, fecha_emision, emitida_en, prediccion_mwh,
+                       modelo, n_variables, vector_entrada, origenes, real_mwh, error_mwh
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT (fecha_objetivo, fecha_emision) DO NOTHING""",
+                values,
+            )
+            restauradas += max(cursor.rowcount, 0)
+    return restauradas
+
+
 def update_own_prediction_real(fecha_objetivo, real_mwh, conn=None) -> int:
     if real_mwh is None:
         return 0
@@ -525,34 +581,42 @@ def get_generation_for_dates(fechas: list[str]) -> dict[str, float]:
     return {day.isoformat(): value for day, value in series.items() if day in wanted}
 
 
-def get_wind_for_dates(fechas: list[str]) -> dict[str, dict]:
+def _observations_for_dates(fechas: list[str], estaciones, fields) -> dict[str, dict]:
+    """Media por fecha de las estaciones pedidas, restringida a las fechas dadas."""
     if not fechas:
         return {}
     wanted = {_as_date(fecha) for fecha in fechas}
     with _connection() as conn:
-        placeholders = ",".join("?" for _ in ESTACIONES_EOLICAS)
+        placeholders = ",".join("?" for _ in estaciones)
         rows = conn.execute(
-            f"""SELECT fecha, indicativo, velmedia, racha FROM aemet_diario
+            f"""SELECT fecha, indicativo, {', '.join(fields)} FROM aemet_diario
                 WHERE indicativo IN ({placeholders})""",
-            ESTACIONES_EOLICAS,
+            estaciones,
         ).fetchall()
     accum = {}
     for row in rows:
         day = _as_date(row["fecha"])
         if day not in wanted:
             continue
-        values = accum.setdefault(day, {"velmedia": [], "racha": []})
-        if row["velmedia"] is not None:
-            values["velmedia"].append(float(row["velmedia"]))
-        if row["racha"] is not None:
-            values["racha"].append(float(row["racha"]))
+        values = accum.setdefault(day, {field: [] for field in fields})
+        for field in fields:
+            if row[field] is not None:
+                values[field].append(float(row[field]))
     return {
         day.isoformat(): {
-            key: (sum(values[key]) / len(values[key]) if values[key] else None)
-            for key in ("velmedia", "racha")
+            field: (sum(values[field]) / len(values[field]) if values[field] else None)
+            for field in fields
         }
         for day, values in accum.items()
     }
+
+
+def get_wind_for_dates(fechas: list[str]) -> dict[str, dict]:
+    return _observations_for_dates(fechas, ESTACIONES_EOLICAS, ("velmedia", "racha"))
+
+
+def get_solar_for_dates(fechas: list[str]) -> dict[str, dict]:
+    return _observations_for_dates(fechas, ESTACIONES_SOLARES, ("sol", "tmed"))
 
 
 def get_predictions_for_dates(fechas: list[str]) -> dict[str, float]:

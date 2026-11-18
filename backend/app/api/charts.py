@@ -283,6 +283,21 @@ def _chart_api_prediction(row) -> dict:
     }
 
 
+def _latest_predictions(emisiones) -> dict[str, dict]:
+    """Última emisión por fecha objetivo, con la misma regla que la gráfica."""
+    ultimas = {}
+    for row in emisiones or []:
+        try:
+            item = _chart_api_prediction(row)
+        except (KeyError, TypeError, ValueError):
+            continue
+        target = item["fecha_objetivo"]
+        previous = ultimas.get(target)
+        if previous is None or _chart_prediction_key(item) > _chart_prediction_key(previous):
+            ultimas[target] = item
+    return ultimas
+
+
 def _wind_origin(viento, fecha: str, clave: str):
     """Origen declarado del viento de un día: observación, previsión o nada."""
     entrada = (viento or {}).get(fecha) or {}
@@ -292,7 +307,7 @@ def _wind_origin(viento, fecha: str, clave: str):
     return "observacion" if _chart_number(entrada.get(clave)) is not None else None
 
 
-def _wind_forecast(fechas: list[str], hoy) -> dict[str, dict]:
+def _forecast_for(fechas: list[str], hoy, uso: str = "eolica") -> dict[str, dict]:
     """Previsión AEMET por día, con la misma regla de elegibilidad que el pipeline."""
     if not fechas:
         return {}
@@ -300,31 +315,87 @@ def _wind_forecast(fechas: list[str], hoy) -> dict[str, dict]:
     try:
         with db_ree._connection() as conexion:
             filas = forecast_db.rows_between(conexion, min(dias), max(dias))
-        return aemet_national_series(filas, "eolica", hoy)
+        return aemet_national_series(filas, uso, hoy)
     except Exception as error:
-        logger.warning("No se pudieron leer las previsiones de viento: %s", error)
+        logger.warning("No se pudieron leer las previsiones AEMET (%s): %s", uso, error)
         return {}
 
 
-def _merge_wind_series(observado, previsto, fechas: list[str]) -> dict[str, dict]:
-    """Observación si existe; si falta, previsión de AEMET con el origen declarado."""
-    merged = {}
+def _aemet_history_day(observado, previsto) -> dict:
+    """Observación AEMET; si falta el viento, se rellena con la previsión."""
+    values = {}
+    origenes = {}
+    for clave, clave_observada, clave_prevista in (
+        ("velmedia", "velmedia", "viento_ms"),
+        ("racha", "racha", "racha_ms"),
+        ("sol", "sol", None),
+        ("tmed", "tmed", None),
+    ):
+        valor = _chart_number((observado or {}).get(clave_observada))
+        origen = "observacion" if valor is not None else None
+        if valor is None and clave_prevista:
+            valor = _chart_number((previsto or {}).get(clave_prevista))
+            origen = "prevision" if valor is not None else None
+        values[clave] = round(valor, 2) if valor is not None else None
+        origenes[clave] = origen
+    values["origen"] = origenes
+    return values
+
+
+def _prediction_summary(prediction) -> dict:
+    """Resumen de la última emisión de un día, sin el vector de entrada."""
+    mwh = _chart_number((prediction or {}).get("prediccion_mwh"))
+    return {
+        "mwh": round(mwh, 2) if mwh is not None else None,
+        "gwh": round(mwh / 1000, 2) if mwh is not None else None,
+        "fecha_emision": prediction.get("fecha_emision") if prediction else None,
+        "emitida_en": prediction.get("emitida_en") if prediction else None,
+        "modelo": prediction.get("modelo") if prediction else None,
+        "n_variables": prediction.get("n_variables") if prediction else None,
+    }
+
+
+def last_observation(historico) -> str | None:
+    """Última fecha con generación real; las demás pueden ser nulas."""
+    for row in reversed(historico or []):
+        if isinstance(row, dict) and _chart_number(row.get("eolica")) is not None:
+            return row.get("fecha")
+    return None
+
+
+def build_historico(dias: int, hoy, emisiones=None, avisos=None) -> List[dict]:
+    """Serie diaria con generación real, AEMET y la predicción de cada día."""
+    hoy = _chart_date(hoy)
+    desde = hoy - timedelta(days=int(dias) - 1)
+    fechas = [(desde + timedelta(days=offset)).isoformat() for offset in range(int(dias))]
+    try:
+        series = db_ree.get_generation_series(hoy=hoy, desde=desde)
+    except Exception as error:
+        logger.error("Error obteniendo datos históricos para el gráfico: %s", error)
+        series = {}
+        if avisos is not None:
+            avisos.append("No se pudieron leer datos históricos de generación")
+    try:
+        viento = db_ree.get_wind_for_dates(fechas)
+        solar = db_ree.get_solar_for_dates(fechas)
+    except Exception as error:
+        logger.warning("No se pudieron leer observaciones de AEMET: %s", error)
+        viento = {}
+        solar = {}
+        if avisos is not None:
+            avisos.append("No se pudieron leer datos de viento históricos")
+    prevision = _forecast_for(fechas, hoy, "eolica")
+    ultimas = _latest_predictions(emisiones)
+    resultado = []
     for fecha in fechas:
-        obs = observado.get(fecha) or {}
-        prev = previsto.get(fecha) or {}
-        entrada = {}
-        origenes = {}
-        for clave, clave_prevision in (("velmedia", "viento_ms"), ("racha", "racha_ms")):
-            valor = _chart_number(obs.get(clave))
-            origen = "observacion" if valor is not None else None
-            if valor is None:
-                valor = _chart_number(prev.get(clave_prevision))
-                origen = "prevision" if valor is not None else None
-            entrada[clave] = valor
-            origenes[clave] = origen
-        entrada["origen"] = origenes
-        merged[fecha] = entrada
-    return merged
+        valor = series.get(date.fromisoformat(fecha))
+        resultado.append({
+            "fecha": fecha,
+            "eolica": round(float(valor), 2) if valor is not None else None,
+            "aemet": _aemet_history_day(viento.get(fecha), prevision.get(fecha)),
+            "prediccion": _prediction_summary(ultimas.get(fecha)),
+        })
+    return resultado
 
 
 def build_prediction_chart_payload(
@@ -345,7 +416,6 @@ def build_prediction_chart_payload(
     normalizado = normalizado[-30:]
 
     fechas = [row["fecha"].isoformat() for row in normalizado]
-    fechas_set = set(fechas)
     viento = viento or {}
     vel_hist = [
         _chart_number((viento.get(fecha) or {}).get("velmedia"))
@@ -369,16 +439,11 @@ def build_prediction_chart_payload(
             _chart_emission_time(row["emitida_en"]),
         )
     )
-    emisiones_historicas = [
-        row for row in emisiones if row["fecha_objetivo"] in fechas_set
-    ]
+    # El archivo conserva también la emisión de mañana: es lo que permite
+    # recuperar la predicción de hoy cuando la SQLite efímera se reinicia.
+    emisiones_historicas = emisiones
 
-    ultima_por_objetivo = {}
-    for row in emisiones:
-        target = row["fecha_objetivo"]
-        previous = ultima_por_objetivo.get(target)
-        if previous is None or _chart_prediction_key(row) > _chart_prediction_key(previous):
-            ultima_por_objetivo[target] = row
+    ultima_por_objetivo = _latest_predictions(emisiones)
 
     pred_gwh = [
         (
@@ -470,53 +535,54 @@ def build_prediction_chart_payload(
     }
 
 
-def build_current_chart(hoy) -> dict:
+def build_current_chart(hoy, dias_historico: int = 30) -> dict:
     """Lee el histórico y las emisiones persistidas para `hoy`; no consulta fuentes."""
+    hoy = _chart_date(hoy)
     manana = hoy + timedelta(days=1)
+    desde = hoy - timedelta(days=int(dias_historico) - 1)
     avisos = []
     try:
-        historico = get_historico_eolica(30, hoy=hoy)
-    except Exception as error:
-        logger.error("Error obteniendo datos históricos para el gráfico: %s", error)
-        historico = []
-        avisos.append("No se pudieron leer datos históricos de generación")
-
-    fechas = [row["fecha"] for row in historico]
-    try:
-        viento = db_ree.get_wind_for_dates(fechas)
-    except Exception as error:
-        logger.warning("No se pudieron leer observaciones de viento: %s", error)
-        viento = {}
-        avisos.append("No se pudieron leer datos de viento históricos")
-
-    viento = _merge_wind_series(viento, _wind_forecast(fechas, hoy), fechas)
-    rellenos = sum(
-        1 for fecha in fechas
-        if "prevision" in (viento[fecha]["origen"] or {}).values()
-    )
-    if rellenos:
-        avisos.append(
-            f"{rellenos} día(s) del gráfico usan la previsión de AEMET: "
-            "aún no hay observación de viento"
-        )
-
-    try:
-        emisiones = db_ree.get_own_predictions(
-            desde=fechas[0] if fechas else manana,
-            hasta=manana,
-        )
+        emisiones = db_ree.get_own_predictions(desde=desde, hasta=manana)
     except Exception as error:
         logger.warning("No se pudieron leer predicciones propias: %s", error)
         emisiones = []
         avisos.append("No se pudieron leer predicciones propias guardadas")
 
-    return build_prediction_chart_payload(
-        historico,
+    historico = build_historico(
+        dias_historico, hoy, emisiones=emisiones, avisos=avisos
+    )
+    reales = [
+        {"fecha": row["fecha"], "eolica": row["eolica"]}
+        for row in historico if row["eolica"] is not None
+    ]
+    viento = {
+        row["fecha"]: {
+            "velmedia": row["aemet"]["velmedia"],
+            "racha": row["aemet"]["racha"],
+            "origen": {
+                "velmedia": row["aemet"]["origen"]["velmedia"],
+                "racha": row["aemet"]["origen"]["racha"],
+            },
+        }
+        for row in historico
+    }
+
+    grafico = build_prediction_chart_payload(
+        reales,
         viento,
         emisiones,
         hoy,
         avisos,
     )
+    rellenos = sum(1 for origen in grafico.get("vel_origen", []) if origen == "prevision")
+    if rellenos:
+        grafico["avisos"].append(
+            f"{rellenos} día(s) del gráfico usan la previsión de AEMET: "
+            "aún no hay observación de viento"
+        )
+    grafico["avisos"] = list(dict.fromkeys(grafico["avisos"]))
+    grafico["historico"] = historico
+    return grafico
 
 
 @router.get("/prediction-chart")
