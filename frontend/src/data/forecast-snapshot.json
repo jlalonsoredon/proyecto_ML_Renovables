@@ -1,39 +1,39 @@
 {
   "schema_version": 1,
-  "version": "2026-11-18T211710Z",
-  "fecha_generacion": "2026-11-18T22:17:10+01:00",
-  "fecha_objetivo": "2026-11-19",
-  "fecha_emision": "2026-11-18",
-  "fecha_observacion": "2026-11-17",
+  "version": "2026-11-22T062753Z",
+  "fecha_generacion": "2026-11-22T07:27:53+01:00",
+  "fecha_objetivo": "2026-11-23",
+  "fecha_emision": "2026-11-22",
+  "fecha_observacion": "2026-11-21",
   "prediccion": {
-    "fecha": "2026-11-19",
-    "prediccionMWh": 433630.0,
+    "fecha": "2026-11-23",
+    "prediccionMWh": 274242.0,
     "modelo": "Linear Regression",
     "features": {
-      "velmedia": 5.555714285714286,
-      "racha": 12.79757142857143
+      "velmedia": 3.1745714285714284,
+      "racha": 6.428571428571429
     },
     "n_variables": 19,
     "vector_entrada": {
-      "velmedia": 5.555714285714286,
-      "racha": 12.79757142857143,
+      "velmedia": 3.1745714285714284,
+      "racha": 6.428571428571429,
       "mes": 11.0,
-      "dia_semana": 3.0,
-      "dia_año": 323.0,
-      "eolica_lag1": 415197.3,
-      "eolica_lag2": 293477.5,
-      "eolica_lag3": 309457.3,
-      "eolica_lag7": 228793.2,
-      "vel_ma3": 5.853333333333334,
-      "vel_ma7": 4.343836734693878,
-      "vel_ma14": 3.985965986394558,
-      "racha_ma3": 11.999571428571429,
-      "racha_ma7": 10.741040816326532,
-      "racha_ma14": 11.202187074829933,
-      "eolica_ma7": 289537.6714285714,
-      "sol_lag1": 3.1176000000000004,
-      "tmed_lag1": 20.45,
-      "eolica_prev": 447300.7
+      "dia_semana": 0.0,
+      "dia_año": 327.0,
+      "eolica_lag1": 220304.6,
+      "eolica_lag2": 201800.8,
+      "eolica_lag3": 400439.7,
+      "eolica_lag7": 309457.3,
+      "vel_ma3": 2.6620476190476188,
+      "vel_ma7": 3.8580204081632656,
+      "vel_ma14": 3.7866292517006803,
+      "racha_ma3": 7.936571428571429,
+      "racha_ma7": 11.881887755102042,
+      "racha_ma14": 11.927372448979588,
+      "eolica_ma7": 321935.17142857146,
+      "sol_lag1": 9.60649868935999,
+      "tmed_lag1": 13.366666666666669,
+      "eolica_prev": 275675.8
     },
     "origenes": {
       "velmedia": "prevision",
@@ -54,108 +54,12 @@
       "eolica_ma7": "observacion",
       "sol_lag1": "estimada",
       "tmed_lag1": "prevision",
-      "eolica_prev": "prevision"
+      "eolica_prev": "estimada"
     },
-    "fecha_emision": "2026-11-18",
-    "emitida_en": "2026-11-18T14:19:15.322374+01:00"
+    "fecha_emision": "2026-11-22",
+    "emitida_en": "2026-11-22T07:38:42.960303+01:00"
   },
   "historico": [
-    {
-      "fecha": "2026-10-05",
-      "eolica": 66009.88,
-      "aemet": {
-        "velmedia": 3.5,
-        "racha": 10.28,
-        "sol": null,
-        "tmed": null,
-        "origen": {
-          "velmedia": "observacion",
-          "racha": "observacion",
-          "sol": null,
-          "tmed": null
-        }
-      },
-      "prediccion": {
-        "mwh": null,
-        "gwh": null,
-        "fecha_emision": null,
-        "emitida_en": null,
-        "modelo": null,
-        "n_variables": null
-      }
-    },
-    {
-      "fecha": "2026-10-06",
-      "eolica": 93021.82,
-      "aemet": {
-        "velmedia": 3.1,
-        "racha": 10.98,
-        "sol": null,
-        "tmed": null,
-        "origen": {
-          "velmedia": "observacion",
-          "racha": "observacion",
-          "sol": null,
-          "tmed": null
-        }
-      },
-      "prediccion": {
-        "mwh": null,
-        "gwh": null,
-        "fecha_emision": null,
-        "emitida_en": null,
-        "modelo": null,
-        "n_variables": null
-      }
-    },
-    {
-      "fecha": "2026-10-07",
-      "eolica": 139938.79,
-      "aemet": {
-        "velmedia": 2.88,
-        "racha": 9.8,
-        "sol": null,
-        "tmed": null,
-        "origen": {
-          "velmedia": "observacion",
-          "racha": "observacion",
-          "sol": null,
-          "tmed": null
-        }
-      },
-      "prediccion": {
-        "mwh": null,
-        "gwh": null,
-        "fecha_emision": null,
-        "emitida_en": null,
-        "modelo": null,
-        "n_variables": null
-      }
-    },
-    {
-      "fecha": "2026-10-08",
-      "eolica": 257561.82,
-      "aemet": {
-        "velmedia": 3.12,
-        "racha": 11.27,
-        "sol": null,
-        "tmed": null,
-        "origen": {
-          "velmedia": "observacion",
-          "racha": "observacion",
-          "sol": null,
-          "tmed": null
-        }
-      },
-      "prediccion": {
-        "mwh": null,
-        "gwh": null,
-        "fecha_emision": null,
-        "emitida_en": null,
-        "modelo": null,
-        "n_variables": null
-      }
-    },
     {
       "fecha": "2026-10-09",
       "eolica": 189764.91,
@@ -1048,13 +952,13 @@
       "fecha": "2026-11-15",
       "eolica": 309457.3,
       "aemet": {
-        "velmedia": 3.52,
-        "racha": 10.08,
+        "velmedia": 3.54,
+        "racha": 10.0,
         "sol": null,
         "tmed": null,
         "origen": {
-          "velmedia": "prevision",
-          "racha": "prevision",
+          "velmedia": "observacion",
+          "racha": "observacion",
           "sol": null,
           "tmed": null
         }
@@ -1072,13 +976,13 @@
       "fecha": "2026-11-16",
       "eolica": 293477.5,
       "aemet": {
-        "velmedia": 3.12,
-        "racha": 8.85,
+        "velmedia": 3.42,
+        "racha": 11.64,
         "sol": null,
         "tmed": null,
         "origen": {
-          "velmedia": "prevision",
-          "racha": "prevision",
+          "velmedia": "observacion",
+          "racha": "observacion",
           "sol": null,
           "tmed": null
         }
@@ -1096,13 +1000,13 @@
       "fecha": "2026-11-17",
       "eolica": 415197.3,
       "aemet": {
-        "velmedia": 5.65,
-        "racha": 9.25,
+        "velmedia": 5.98,
+        "racha": 15.94,
         "sol": null,
         "tmed": null,
         "origen": {
-          "velmedia": "prevision",
-          "racha": "prevision",
+          "velmedia": "observacion",
+          "racha": "observacion",
           "sol": null,
           "tmed": null
         }
@@ -1118,15 +1022,15 @@
     },
     {
       "fecha": "2026-11-18",
-      "eolica": null,
+      "eolica": 412869.0,
       "aemet": {
-        "velmedia": 3.52,
-        "racha": 13.25,
+        "velmedia": 5.5,
+        "racha": 16.34,
         "sol": null,
         "tmed": null,
         "origen": {
-          "velmedia": "prevision",
-          "racha": "prevision",
+          "velmedia": "observacion",
+          "racha": "observacion",
           "sol": null,
           "tmed": null
         }
@@ -1139,14 +1043,106 @@
         "modelo": "Linear Regression",
         "n_variables": 19
       }
+    },
+    {
+      "fecha": "2026-11-19",
+      "eolica": 400439.7,
+      "aemet": {
+        "velmedia": 4.96,
+        "racha": 15.97,
+        "sol": null,
+        "tmed": null,
+        "origen": {
+          "velmedia": "prevision",
+          "racha": "prevision",
+          "sol": null,
+          "tmed": null
+        }
+      },
+      "prediccion": {
+        "mwh": 433629.57,
+        "gwh": 433.63,
+        "fecha_emision": "2026-11-18",
+        "emitida_en": "2026-11-18T14:19:15.322374+01:00",
+        "modelo": "Linear Regression",
+        "n_variables": 19
+      }
+    },
+    {
+      "fecha": "2026-11-20",
+      "eolica": 201800.8,
+      "aemet": {
+        "velmedia": 2.58,
+        "racha": 11.11,
+        "sol": null,
+        "tmed": null,
+        "origen": {
+          "velmedia": "prevision",
+          "racha": "prevision",
+          "sol": null,
+          "tmed": null
+        }
+      },
+      "prediccion": {
+        "mwh": 189117.25,
+        "gwh": 189.12,
+        "fecha_emision": "2026-11-19",
+        "emitida_en": "2026-11-19T14:33:50.685358+01:00",
+        "modelo": "Linear Regression",
+        "n_variables": 19
+      }
+    },
+    {
+      "fecha": "2026-11-21",
+      "eolica": 220304.6,
+      "aemet": {
+        "velmedia": 1.54,
+        "racha": 7.42,
+        "sol": null,
+        "tmed": null,
+        "origen": {
+          "velmedia": "prevision",
+          "racha": "prevision",
+          "sol": null,
+          "tmed": null
+        }
+      },
+      "prediccion": {
+        "mwh": 271405.65,
+        "gwh": 271.41,
+        "fecha_emision": "2026-11-20",
+        "emitida_en": "2026-11-20T07:37:44.344694+01:00",
+        "modelo": "Linear Regression",
+        "n_variables": 19
+      }
+    },
+    {
+      "fecha": "2026-11-22",
+      "eolica": null,
+      "aemet": {
+        "velmedia": 3.27,
+        "racha": 9.96,
+        "sol": null,
+        "tmed": null,
+        "origen": {
+          "velmedia": "prevision",
+          "racha": "prevision",
+          "sol": null,
+          "tmed": null
+        }
+      },
+      "prediccion": {
+        "mwh": 281947.45,
+        "gwh": 281.95,
+        "fecha_emision": "2026-11-21",
+        "emitida_en": "2026-11-21T07:36:30.233225+01:00",
+        "modelo": "Linear Regression",
+        "n_variables": 19
+      }
     }
   ],
   "grafico": {
     "fechas_hist": [
-      "2026-10-19",
-      "2026-10-20",
-      "2026-10-21",
-      "2026-10-22",
       "2026-10-23",
       "2026-10-24",
       "2026-10-25",
@@ -1172,13 +1168,13 @@
       "2026-11-14",
       "2026-11-15",
       "2026-11-16",
-      "2026-11-17"
+      "2026-11-17",
+      "2026-11-18",
+      "2026-11-19",
+      "2026-11-20",
+      "2026-11-21"
     ],
     "real_gwh": [
-      128.82,
-      128.41,
-      159.31,
-      119.25,
       213.88,
       114.05,
       176.54,
@@ -1204,13 +1200,13 @@
       244.05,
       309.46,
       293.48,
-      415.2
+      415.2,
+      412.87,
+      400.44,
+      201.8,
+      220.3
     ],
     "pred_gwh": [
-      null,
-      null,
-      null,
-      null,
       null,
       null,
       null,
@@ -1236,77 +1232,77 @@
       227.77,
       289.19,
       278.54,
-      403.13
+      403.13,
+      406.96,
+      433.63,
+      189.12,
+      271.41
     ],
     "vel_norm": [
-      -1.027,
-      -0.434,
-      -0.09,
-      -0.766,
-      0.183,
-      -0.802,
-      -0.802,
-      -0.256,
-      -0.921,
-      -0.41,
-      -0.683,
-      -0.268,
-      -0.292,
-      0.159,
-      -0.529,
-      -0.849,
-      -0.944,
-      -0.671,
-      -1.205,
-      -0.553,
-      1.227,
-      1.191,
-      1.274,
-      1.31,
-      1.998,
-      -0.327,
-      0.574,
-      0.622,
-      0.147,
-      3.148
+      -0.018,
+      -0.803,
+      -0.803,
+      -0.368,
+      -0.897,
+      -0.491,
+      -0.708,
+      -0.377,
+      -0.396,
+      -0.037,
+      -0.585,
+      -0.841,
+      -0.916,
+      -0.699,
+      -1.124,
+      -0.604,
+      0.814,
+      0.785,
+      0.851,
+      0.88,
+      1.428,
+      -0.425,
+      0.294,
+      0.35,
+      0.237,
+      2.657,
+      2.203,
+      1.693,
+      -0.557,
+      -1.54
     ],
     "racha_norm": [
-      -0.691,
-      0.002,
-      -0.026,
-      -0.382,
-      0.625,
-      -0.626,
-      -0.529,
-      -0.913,
-      -0.391,
-      -0.696,
-      -0.659,
-      -1.143,
-      -0.857,
-      0.14,
-      -0.266,
-      -0.289,
-      -0.797,
-      -0.617,
-      -1.388,
-      -0.714,
-      0.759,
-      2.375,
-      1.65,
-      2.523,
-      2.19,
-      0.011,
-      0.685,
-      0.325,
-      -0.243,
-      -0.058
+      0.174,
+      -0.74,
+      -0.669,
+      -0.95,
+      -0.568,
+      -0.791,
+      -0.764,
+      -1.118,
+      -0.909,
+      -0.18,
+      -0.477,
+      -0.494,
+      -0.865,
+      -0.734,
+      -1.297,
+      -0.804,
+      0.272,
+      1.454,
+      0.924,
+      1.562,
+      1.319,
+      -0.275,
+      0.218,
+      -0.072,
+      0.482,
+      1.933,
+      2.068,
+      1.943,
+      0.303,
+      -0.943
     ],
     "vel_ms": [
-      2.13,
-      2.63,
-      2.92,
-      2.35,
       3.15,
       2.32,
       2.32,
@@ -1330,15 +1326,15 @@
       4.68,
       2.72,
       3.48,
-      3.52,
-      3.12,
-      5.65
+      3.54,
+      3.42,
+      5.98,
+      5.5,
+      4.96,
+      2.58,
+      1.54
     ],
     "racha_ms": [
-      7.88,
-      9.38,
-      9.32,
-      8.55,
       10.73,
       8.02,
       8.23,
@@ -1362,9 +1358,13 @@
       14.12,
       9.4,
       10.86,
-      10.08,
-      8.85,
-      9.25
+      10.0,
+      11.64,
+      15.94,
+      16.34,
+      15.97,
+      11.11,
+      7.42
     ],
     "vel_origen": [
       "observacion",
@@ -1431,37 +1431,37 @@
       "prevision"
     ],
     "manana": {
-      "fecha": "2026-11-19",
-      "pred_gwh": 433.63,
+      "fecha": "2026-11-23",
+      "pred_gwh": 274.24,
       "es_fallback": false,
       "estado": "disponible",
-      "vel_norm": 3.036,
-      "racha_norm": 1.58,
-      "velmedia": 5.6,
-      "racha": 12.8,
-      "prediccion_mwh": 433629.5745146149,
+      "vel_norm": 0.005,
+      "racha_norm": -1.277,
+      "velmedia": 3.2,
+      "racha": 6.4,
+      "prediccion_mwh": 274242.3729596826,
       "modelo": "Linear Regression",
       "n_variables": 19,
       "vector_entrada": {
-        "velmedia": 5.555714285714286,
-        "racha": 12.79757142857143,
+        "velmedia": 3.1745714285714284,
+        "racha": 6.428571428571429,
         "mes": 11.0,
-        "dia_semana": 3.0,
-        "dia_año": 323.0,
-        "eolica_lag1": 415197.3,
-        "eolica_lag2": 293477.5,
-        "eolica_lag3": 309457.3,
-        "eolica_lag7": 228793.2,
-        "vel_ma3": 5.853333333333334,
-        "vel_ma7": 4.343836734693878,
-        "vel_ma14": 3.985965986394558,
-        "racha_ma3": 11.999571428571429,
-        "racha_ma7": 10.741040816326532,
-        "racha_ma14": 11.202187074829933,
-        "eolica_ma7": 289537.6714285714,
-        "sol_lag1": 3.1176000000000004,
-        "tmed_lag1": 20.45,
-        "eolica_prev": 447300.7
+        "dia_semana": 0.0,
+        "dia_año": 327.0,
+        "eolica_lag1": 220304.6,
+        "eolica_lag2": 201800.8,
+        "eolica_lag3": 400439.7,
+        "eolica_lag7": 309457.3,
+        "vel_ma3": 2.6620476190476188,
+        "vel_ma7": 3.8580204081632656,
+        "vel_ma14": 3.7866292517006803,
+        "racha_ma3": 7.936571428571429,
+        "racha_ma7": 11.881887755102042,
+        "racha_ma14": 11.927372448979588,
+        "eolica_ma7": 321935.17142857146,
+        "sol_lag1": 9.60649868935999,
+        "tmed_lag1": 13.366666666666669,
+        "eolica_prev": 275675.8
       },
       "origenes": {
         "velmedia": "prevision",
@@ -1482,10 +1482,10 @@
         "eolica_ma7": "observacion",
         "sol_lag1": "estimada",
         "tmed_lag1": "prevision",
-        "eolica_prev": "prevision"
+        "eolica_prev": "estimada"
       },
-      "fecha_emision": "2026-11-18",
-      "emitida_en": "2026-11-18T14:19:15.322374+01:00"
+      "fecha_emision": "2026-11-22",
+      "emitida_en": "2026-11-22T07:38:42.960303+01:00"
     },
     "predicciones_propias": [
       {
@@ -2049,8 +2049,8 @@
           "tmed_lag1": "prevision",
           "eolica_prev": "prevision"
         },
-        "real_mwh": null,
-        "error_mwh": null
+        "real_mwh": 433388.6,
+        "error_mwh": 26430.647362667252
       },
       {
         "fecha_objetivo": "2026-11-19",
@@ -2101,6 +2101,214 @@
           "tmed_lag1": "prevision",
           "eolica_prev": "prevision"
         },
+        "real_mwh": 421209.1,
+        "error_mwh": -12420.474514614907
+      },
+      {
+        "fecha_objetivo": "2026-11-20",
+        "fecha_emision": "2026-11-19",
+        "emitida_en": "2026-11-19T14:33:50.685358+01:00",
+        "prediccion_mwh": 189117.25451504445,
+        "modelo": "Linear Regression",
+        "n_variables": 19,
+        "vector_entrada": {
+          "velmedia": 2.281571428571429,
+          "racha": 7.817428571428572,
+          "mes": 11.0,
+          "dia_semana": 4.0,
+          "dia_año": 324.0,
+          "eolica_lag1": 412869.0,
+          "eolica_lag2": 415197.3,
+          "eolica_lag3": 293477.5,
+          "eolica_lag7": 316375.3,
+          "vel_ma3": 4.431190476190476,
+          "vel_ma7": 4.156204081632653,
+          "vel_ma14": 3.944768707482994,
+          "racha_ma3": 11.192666666666668,
+          "racha_ma7": 10.361877551020408,
+          "racha_ma14": 11.229272108843537,
+          "eolica_ma7": 315834.21428571426,
+          "sol_lag1": 7.0030958705353,
+          "tmed_lag1": 15.575,
+          "eolica_prev": 191980.0
+        },
+        "origenes": {
+          "velmedia": "prevision",
+          "racha": "prevision",
+          "mes": "observacion",
+          "dia_semana": "observacion",
+          "dia_año": "observacion",
+          "eolica_lag1": "observacion",
+          "eolica_lag2": "observacion",
+          "eolica_lag3": "observacion",
+          "eolica_lag7": "observacion",
+          "vel_ma3": "prevision",
+          "vel_ma7": "mixta",
+          "vel_ma14": "mixta",
+          "racha_ma3": "prevision",
+          "racha_ma7": "mixta",
+          "racha_ma14": "mixta",
+          "eolica_ma7": "observacion",
+          "sol_lag1": "estimada",
+          "tmed_lag1": "prevision",
+          "eolica_prev": "prevision"
+        },
+        "real_mwh": 208670.5,
+        "error_mwh": 19553.24548495555
+      },
+      {
+        "fecha_objetivo": "2026-11-21",
+        "fecha_emision": "2026-11-20",
+        "emitida_en": "2026-11-20T07:37:44.344694+01:00",
+        "prediccion_mwh": 271405.6529518217,
+        "modelo": "Linear Regression",
+        "n_variables": 19,
+        "vector_entrada": {
+          "velmedia": 3.3731428571428568,
+          "racha": 7.063428571428571,
+          "mes": 11.0,
+          "dia_semana": 5.0,
+          "dia_año": 325.0,
+          "eolica_lag1": 400439.7,
+          "eolica_lag2": 412869.0,
+          "eolica_lag3": 415197.3,
+          "eolica_lag7": 219413.4,
+          "vel_ma3": 2.5298095238095235,
+          "vel_ma7": 3.722489795918367,
+          "vel_ma14": 3.7955306122448986,
+          "racha_ma3": 7.010571428571428,
+          "racha_ma7": 9.268673469387753,
+          "racha_ma14": 10.898860544217687,
+          "eolica_ma7": 329553.1414285715,
+          "sol_lag1": 7.554666666666665,
+          "tmed_lag1": 13.391666666666666,
+          "eolica_prev": 261341.93333333335
+        },
+        "origenes": {
+          "velmedia": "prevision",
+          "racha": "prevision",
+          "mes": "observacion",
+          "dia_semana": "observacion",
+          "dia_año": "observacion",
+          "eolica_lag1": "observacion",
+          "eolica_lag2": "observacion",
+          "eolica_lag3": "observacion",
+          "eolica_lag7": "observacion",
+          "vel_ma3": "prevision",
+          "vel_ma7": "mixta",
+          "vel_ma14": "mixta",
+          "racha_ma3": "prevision",
+          "racha_ma7": "mixta",
+          "racha_ma14": "mixta",
+          "eolica_ma7": "observacion",
+          "sol_lag1": "estimada",
+          "tmed_lag1": "prevision",
+          "eolica_prev": "estimada"
+        },
+        "real_mwh": 226336.6,
+        "error_mwh": -45069.05295182168
+      },
+      {
+        "fecha_objetivo": "2026-11-22",
+        "fecha_emision": "2026-11-21",
+        "emitida_en": "2026-11-21T07:36:30.233225+01:00",
+        "prediccion_mwh": 281947.4489990445,
+        "modelo": "Linear Regression",
+        "n_variables": 19,
+        "vector_entrada": {
+          "velmedia": 5.059571428571429,
+          "racha": 10.972285714285716,
+          "mes": 11.0,
+          "dia_semana": 6.0,
+          "dia_año": 326.0,
+          "eolica_lag1": 201800.8,
+          "eolica_lag2": 400439.7,
+          "eolica_lag3": 412869.0,
+          "eolica_lag7": 244049.7,
+          "vel_ma3": 2.9266190476190475,
+          "vel_ma7": 4.141918367346939,
+          "vel_ma14": 3.9700068027210884,
+          "racha_ma3": 7.698333333333333,
+          "racha_ma7": 11.372928571428572,
+          "racha_ma14": 11.878369047619048,
+          "eolica_ma7": 325327.3285714286,
+          "sol_lag1": 6.0523333333333325,
+          "tmed_lag1": 14.316666666666666,
+          "eolica_prev": 283440.65
+        },
+        "origenes": {
+          "velmedia": "prevision",
+          "racha": "prevision",
+          "mes": "observacion",
+          "dia_semana": "observacion",
+          "dia_año": "observacion",
+          "eolica_lag1": "observacion",
+          "eolica_lag2": "observacion",
+          "eolica_lag3": "observacion",
+          "eolica_lag7": "observacion",
+          "vel_ma3": "prevision",
+          "vel_ma7": "mixta",
+          "vel_ma14": "mixta",
+          "racha_ma3": "prevision",
+          "racha_ma7": "mixta",
+          "racha_ma14": "mixta",
+          "eolica_ma7": "observacion",
+          "sol_lag1": "estimada",
+          "tmed_lag1": "prevision",
+          "eolica_prev": "estimada"
+        },
+        "real_mwh": null,
+        "error_mwh": null
+      },
+      {
+        "fecha_objetivo": "2026-11-23",
+        "fecha_emision": "2026-11-22",
+        "emitida_en": "2026-11-22T07:38:42.960303+01:00",
+        "prediccion_mwh": 274242.3729596826,
+        "modelo": "Linear Regression",
+        "n_variables": 19,
+        "vector_entrada": {
+          "velmedia": 3.1745714285714284,
+          "racha": 6.428571428571429,
+          "mes": 11.0,
+          "dia_semana": 0.0,
+          "dia_año": 327.0,
+          "eolica_lag1": 220304.6,
+          "eolica_lag2": 201800.8,
+          "eolica_lag3": 400439.7,
+          "eolica_lag7": 309457.3,
+          "vel_ma3": 2.6620476190476188,
+          "vel_ma7": 3.8580204081632656,
+          "vel_ma14": 3.7866292517006803,
+          "racha_ma3": 7.936571428571429,
+          "racha_ma7": 11.881887755102042,
+          "racha_ma14": 11.927372448979588,
+          "eolica_ma7": 321935.17142857146,
+          "sol_lag1": 9.60649868935999,
+          "tmed_lag1": 13.366666666666669,
+          "eolica_prev": 275675.8
+        },
+        "origenes": {
+          "velmedia": "prevision",
+          "racha": "prevision",
+          "mes": "observacion",
+          "dia_semana": "observacion",
+          "dia_año": "observacion",
+          "eolica_lag1": "observacion",
+          "eolica_lag2": "observacion",
+          "eolica_lag3": "observacion",
+          "eolica_lag7": "observacion",
+          "vel_ma3": "prevision",
+          "vel_ma7": "mixta",
+          "vel_ma14": "mixta",
+          "racha_ma3": "prevision",
+          "racha_ma7": "mixta",
+          "racha_ma14": "mixta",
+          "eolica_ma7": "observacion",
+          "sol_lag1": "estimada",
+          "tmed_lag1": "prevision",
+          "eolica_prev": "estimada"
+        },
         "real_mwh": null,
         "error_mwh": null
       }
@@ -2110,8 +2318,7 @@
     ]
   },
   "avisos": [
-    "Paso capture_aemet_forecast: parcial",
-    "Paso download_aemet_data: parcial",
-    "Paso run_prediction: no_disponible"
+    "Paso capture_ree_forecast: fallo",
+    "Paso download_aemet_data: parcial"
   ]
 }
