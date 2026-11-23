@@ -323,3 +323,22 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     restauración AEMET/REE idempotente y bootstrap del 22/11 desde el snapshot
     del 23/11. `node --test backend/tests`: 35/36 (falla solo el hash
     preexistente del artefacto). Snapshot de 181 filas AEMET y 14 REE, ~45 KB.
+
+- [x] **T-10-22 — `sol_lag1` robusto ante capturas nocturnas** (RF-2, RNF-1)
+  - Origen: run manual #36 del 23/11 (HTTP 502). Tras el reinicio del deploy,
+    la recaptura de las 23:20 trajo el parte del día sin tramos de cielo
+    diurnos y `sol` del 23/11 quedó en null: `faltan=['sol_lag1']`. El viento
+    del 22/11 ya se recuperaba (T-10-21).
+  - `aemet_national_series` toma, por variable, el último valor no nulo entre
+    las elaboraciones elegibles (`_eligible_aemet_values`).
+  - `save_forecast_rows` usa `COALESCE` en las columnas de valor: recapturar
+    la misma elaboración no sustituye un valor guardado por null.
+  - `archivo_previsiones` guarda además la última revisión que conserva cada
+    variable que falte en la más reciente; la clave incluye `uso`.
+  - Último recurso: si no hay observación ni previsión, `sol_lag1`/`tmed_lag1`
+    usan la media observada de los 7 días anteriores (mínimo 3) con
+    `origen="estimada"`, `dias_media`, `desde` y `hasta`.
+  - Hecho cuando: las cuatro situaciones tienen test y la suite backend pasa
+    salvo el hash preexistente.
+  - Resultado: 4 tests nuevos; `node --test backend/tests` 39/40 (falla solo
+    el hash preexistente del artefacto de `src`) y `frontend/tests` 47/47.

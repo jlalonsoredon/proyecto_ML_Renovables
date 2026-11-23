@@ -237,6 +237,92 @@ test("la fila nacional no se promedia con las ubicaciones y solo cubre su día",
   assert.equal(conUbicacion["2026-11-22"].racha_ms, 12);
 });
 
+test("una revisión AEMET nocturna sin sol conserva el sol de la anterior", () => {
+  const series = probe({
+    action: "national_series",
+    rows: [
+      { objetivo: "2026-11-23", ubicacion: "A", uso: "solar", elaborado: "2026-11-23T06:00:00+01:00", capturado_en: "2026-11-23T06:10:00+01:00", viento_ms: 4, racha_ms: 9, tmed: 10, sol: 6.5 },
+      { objetivo: "2026-11-23", ubicacion: "A", uso: "solar", elaborado: "2026-11-23T22:00:00+01:00", capturado_en: "2026-11-23T22:10:00+01:00", viento_ms: 5, racha_ms: 11, tmed: 9, sol: null },
+    ],
+    uso: "solar",
+    hoy: "2026-11-23",
+  });
+  assert.equal(series["2026-11-23"].sol, 6.5);
+  assert.equal(series["2026-11-23"].tmed, 9);
+  assert.equal(series["2026-11-23"].viento_ms, 5);
+});
+
+test("sol_lag1 sin observación ni previsión usa una media observada declarada", () => {
+  const obsSolar = {};
+  for (let day = 16; day <= 22; day += 1) {
+    obsSolar[`2026-11-${day}`] = { sol: day - 14, tmed: 10 };
+  }
+  const result = probe({
+    action: "build_map",
+    hoy: "2026-11-23",
+    obs_meteo: {},
+    obs_solar: obsSolar,
+    obs_gen: {},
+    aemet_rows: [],
+    ree_rows: [],
+  });
+  assert.equal(result.mapa.sol_lag1.origen, "estimada");
+  assert.equal(result.mapa.sol_lag1.valor, 5);
+  assert.equal(result.mapa.sol_lag1.dias_media, 7);
+  assert.equal(result.mapa.sol_lag1.hasta, "2026-11-22");
+  assert.ok(!result.faltan.includes("sol_lag1"));
+  assert.ok(!result.faltan.includes("tmed_lag1"));
+
+  const sinDatos = probe({
+    action: "build_map",
+    hoy: "2026-11-23",
+    obs_meteo: {},
+    obs_solar: { "2026-11-22": { sol: 3 } },
+    obs_gen: {},
+    aemet_rows: [],
+    ree_rows: [],
+  });
+  assert.ok(sinDatos.faltan.includes("sol_lag1"));
+});
+
+test("el archivo guarda también la revisión que conserva el sol", (t) => {
+  const dir = mkdtempSync(resolve(tmpdir(), "aero-archivo-sol-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const archivo = probe({
+    action: "forecast_archive_rows",
+    db_path: resolve(dir, "test.db"),
+    hoy: "2026-11-23",
+    rows: [
+      { objetivo: "2026-11-23", ubicacion: "A", uso: "solar", elaborado: "2026-11-23T06:00:00+01:00", capturado_en: "2026-11-23T06:10:00+01:00", viento_ms: 4, racha_ms: 9, tmed: 10, sol: 6.5 },
+      { objetivo: "2026-11-23", ubicacion: "A", uso: "solar", elaborado: "2026-11-23T12:00:00+01:00", capturado_en: "2026-11-23T12:10:00+01:00", viento_ms: 4, racha_ms: 9, tmed: 10, sol: 6.1 },
+      { objetivo: "2026-11-23", ubicacion: "A", uso: "solar", elaborado: "2026-11-23T22:00:00+01:00", capturado_en: "2026-11-23T22:10:00+01:00", viento_ms: 5, racha_ms: 11, tmed: 9, sol: null },
+      { objetivo: "2026-11-23", ubicacion: "B", uso: "eolica", elaborado: "2026-11-23T22:00:00+01:00", capturado_en: "2026-11-23T22:10:00+01:00", viento_ms: 5, racha_ms: 11, tmed: 9, sol: 2 },
+    ],
+  });
+  const solar = archivo.aemet.filter((fila) => fila.uso === "solar");
+  assert.equal(solar.length, 2);
+  assert.deepEqual(solar.map((fila) => fila.sol), [6.1, null]);
+  assert.equal(archivo.aemet.filter((fila) => fila.uso === "eolica").length, 1);
+});
+
+test("recapturar la misma elaboración sin sol no borra el sol guardado", (t) => {
+  const dir = mkdtempSync(resolve(tmpdir(), "aero-recaptura-sol-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const fila = { objetivo: "2026-11-23", ubicacion: "A", uso: "solar", elaborado: "2026-11-23T06:00:00+01:00", viento_ms: 4, racha_ms: 9, tmed: 10 };
+  const archivo = probe({
+    action: "forecast_archive_rows",
+    db_path: resolve(dir, "test.db"),
+    hoy: "2026-11-23",
+    rows: [
+      { ...fila, capturado_en: "2026-11-23T06:10:00+01:00", sol: 6.5 },
+      { ...fila, capturado_en: "2026-11-23T22:10:00+01:00", sol: null, tmed: 9 },
+    ],
+  });
+  assert.equal(archivo.aemet.length, 1);
+  assert.equal(archivo.aemet[0].sol, 6.5);
+  assert.equal(archivo.aemet[0].tmed, 9);
+});
+
 test("el archivo durable restaura AEMET y REE sin duplicar", (t) => {
   const dir = mkdtempSync(resolve(tmpdir(), "aero-archivo-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));

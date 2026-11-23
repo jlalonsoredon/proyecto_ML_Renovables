@@ -69,6 +69,10 @@ COLUMNAS = (
     "tmax", "tmin", "tmed", "sol", "tramos_cielo", "orto", "ocaso",
     "uv_max", "eolica_mwh", "parte_json", "capturado_en",
 )
+COLUMNAS_VALOR = (
+    "viento_ms", "racha_ms", "tmax", "tmin", "tmed", "sol", "uv_max",
+    "eolica_mwh",
+)
 
 
 # ─────────────────────────────────────────────
@@ -185,8 +189,13 @@ def save_forecast_rows(conn, filas, fuente: str, parte: dict | None = None) -> i
         return 0
 
     marcadores = ", ".join("?" * len(COLUMNAS))
+    # Recapturar la misma elaboración de noche puede traer menos tramos de
+    # cielo y `sol` en null: un valor ya guardado no se sustituye por null.
     actualizaciones = ", ".join(
-        f"{columna} = excluded.{columna}" for columna in COLUMNAS
+        f"{columna} = COALESCE(excluded.{columna}, {columna})"
+        if columna in COLUMNAS_VALOR
+        else f"{columna} = excluded.{columna}"
+        for columna in COLUMNAS
         if columna not in ("fuente", "elaborado", "objetivo", "ubicacion")
     )
     sentencia = (

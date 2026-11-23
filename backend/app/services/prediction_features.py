@@ -81,6 +81,36 @@ def _normalized_series(series) -> dict[date, float]:
 
 def _eligible_aemet(rows, objetivo, ubicacion: str, hoy,
                     uso: str | None = None) -> dict | None:
+    candidates = _aemet_candidates(rows, objetivo, ubicacion, hoy, uso=uso)
+    return dict(candidates[0]) if candidates else None
+
+
+def _eligible_aemet_values(rows, objetivo, ubicacion: str, hoy, uso: str,
+                           names) -> dict | None:
+    """Último valor no nulo de cada variable entre las elaboraciones elegibles.
+
+    Un parte capturado de noche ya no trae el cielo de las horas de luz del
+    día en curso y deja `sol` en null; en ese caso se conserva el valor de la
+    elaboración anterior en vez de perder la variable.
+    """
+    candidates = _aemet_candidates(rows, objetivo, ubicacion, hoy, uso=uso)
+    if not candidates:
+        return None
+    values = {}
+    for name in names:
+        values[name] = next(
+            (
+                _number(row.get(name)) for row in candidates
+                if _number(row.get(name)) is not None
+            ),
+            None,
+        )
+    return values
+
+
+def _aemet_candidates(rows, objetivo, ubicacion: str, hoy,
+                      uso: str | None = None) -> list[dict]:
+    """Elaboraciones elegibles de una ubicación/día, de la más nueva a la más vieja."""
     objetivo = _date(objetivo)
     cutoff = min(objetivo, _date(hoy))
     candidates = []
@@ -98,9 +128,8 @@ def _eligible_aemet(rows, objetivo, ubicacion: str, hoy,
             continue
         capturado = _instant(row.get("capturado_en")) or elaborado
         candidates.append((elaborado, capturado, row))
-    if not candidates:
-        return None
-    return dict(max(candidates, key=lambda item: (item[0], item[1]))[2])
+    candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [row for _, _, row in candidates]
 
 
 def select_aemet_forecast(rows, objetivo, ubicacion: str, hoy,
@@ -156,20 +185,21 @@ def aemet_national_series(rows, uso: str, hoy) -> dict[str, dict]:
     for target in targets:
         day_values = {name: [] for name in names}
         for location in locations:
-            row = _eligible_aemet(rows, target, location, hoy, uso=uso)
-            if row is None:
+            values = _eligible_aemet_values(
+                rows, target, location, hoy, uso, names
+            )
+            if values is None:
                 continue
             for name in names:
-                value = _number(row.get(name))
-                if value is not None:
-                    day_values[name].append(value)
+                if values[name] is not None:
+                    day_values[name].append(values[name])
         if not any(day_values.values()):
-            national = _eligible_aemet(rows, target, "nacional", hoy, uso=uso)
+            national = _eligible_aemet_values(
+                rows, target, "nacional", hoy, uso, names
+            )
             if national is None:
                 continue
-            result[target] = {
-                name: _number(national.get(name)) for name in names
-            }
+            result[target] = national
             continue
         result[target] = {
             name: sum(values) / len(values) if values else None
@@ -406,6 +436,29 @@ def resolve_eolica_prev(rows, objetivo, hoy) -> dict | None:
     }
 
 
+LAG1_ESTIMATE_DAYS = 7
+LAG1_MIN_VALUES = 3
+
+
+def _recent_observed_mean(observed, key: str, dia, hoy) -> dict | None:
+    """Media observada de los siete días anteriores a `dia` (sin pasar de hoy)."""
+    hasta = min(_date(dia) - timedelta(days=1), _date(hoy))
+    desde = hasta - timedelta(days=LAG1_ESTIMATE_DAYS - 1)
+    values = []
+    for offset in range(LAG1_ESTIMATE_DAYS):
+        value = _number((observed.get(desde + timedelta(days=offset)) or {}).get(key))
+        if value is not None:
+            values.append(value)
+    if len(values) < LAG1_MIN_VALUES:
+        return None
+    return {
+        "valor": sum(values) / len(values),
+        "dias_media": len(values),
+        "desde": desde.isoformat(),
+        "hasta": hasta.isoformat(),
+    }
+
+
 def build_prediction_map(obs_meteo, obs_solar, obs_gen, aemet_rows, ree_rows, hoy) -> dict:
     """Construye el mapa LR-19, su vector ordenado y los faltantes."""
     hoy = _date(hoy)
@@ -476,13 +529,20 @@ def build_prediction_map(obs_meteo, obs_solar, obs_gen, aemet_rows, ree_rows, ho
             _number(solar_observation.get(key)) if yesterday <= hoy else None
         )
         forecast_value = _number(solar_forecast.get(key))
-        value = observed_value if observed_value is not None else forecast_value
-        origin = (
-            "observacion" if observed_value is not None
-            else forecast_origin if forecast_value is not None
-            else None
-        )
-        mapa[name] = _entry(value, origin)
+        if observed_value is not None:
+            mapa[name] = _entry(observed_value, "observacion")
+        elif forecast_value is not None:
+            mapa[name] = _entry(forecast_value, forecast_origin)
+        else:
+            # Sin observación ni previsión del día: media declarada de los
+            # últimos días observados, como hace `eolica_prev` con REE.
+            estimate = _recent_observed_mean(observed_solar, key, yesterday, hoy)
+            mapa[name] = (
+                _entry(estimate["valor"], "estimada",
+                       dias_media=estimate["dias_media"],
+                       desde=estimate["desde"], hasta=estimate["hasta"])
+                if estimate is not None else {"valor": None, "origen": None}
+            )
 
     generation = resolve_generation_features(obs_gen, ree_rows, objetivo, hoy)
     mapa.update(generation["entradas"])

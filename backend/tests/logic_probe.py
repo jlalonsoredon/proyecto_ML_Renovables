@@ -754,6 +754,18 @@ def _ejecutar(request):
             )
         return {"primera": primera, "segunda": segunda, "filas": filas}
 
+    if accion == "forecast_archive_rows":
+        if not request.get("db_path"):
+            raise ValueError("db_path es obligatorio para el archivo de previsiones")
+        os.environ["DB_PATH"] = request["db_path"]
+        from app.services import db_ree, forecast_db
+        from app.services.forecast_cache import _forecast_archive_rows
+
+        db_ree.DB_PATH = request["db_path"]
+        db_ree.init_db()
+        forecast_db.save_forecast_rows(None, request["rows"], "aemet")
+        return _forecast_archive_rows(date.fromisoformat(request["hoy"]))
+
     if accion in (
         "schema",
         "own_prediction_roundtrip",

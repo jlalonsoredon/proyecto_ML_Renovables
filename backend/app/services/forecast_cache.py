@@ -249,7 +249,7 @@ def _forecast_archive_rows(hoy: date) -> dict:
         filas = forecast_db.rows_between(conn, desde, hasta)
 
     minimo = datetime.min.replace(tzinfo=timezone.utc)
-    latest = {}
+    revisiones = {}
     for fila in filas:
         fuente = fila.get("fuente")
         objetivo = fila.get("objetivo")
@@ -262,17 +262,38 @@ def _forecast_archive_rows(hoy: date) -> dict:
             or elaborado is None
         ):
             continue
-        key = (fuente, objetivo.isoformat(), ubicacion)
+        key = (fuente, objetivo.isoformat(), ubicacion, fila.get("uso"))
         orden = (
             elaborado,
             _as_datetime(fila.get("capturado_en")) or minimo,
         )
-        previous = latest.get(key)
-        if previous is None or orden > previous[0]:
-            latest[key] = (orden, fila)
+        revisiones.setdefault(key, []).append((orden, fila))
+
+    # Última revisión de cada clave y, si le falta alguna variable, también la
+    # última que sí la trae (un parte nocturno deja `sol` del día en null).
+    elegidas = []
+    for (fuente, _, _, _), candidatas in revisiones.items():
+        candidatas.sort(key=lambda item: item[0], reverse=True)
+        elegidas.append((fuente, candidatas[0][1]))
+        if fuente != "aemet":
+            continue
+        extra = []
+        for campo in ("viento_ms", "racha_ms", "tmed", "sol"):
+            if _archive_value(candidatas[0][1].get(campo)) is not None:
+                continue
+            respaldo = next(
+                (
+                    fila for _, fila in candidatas[1:]
+                    if _archive_value(fila.get(campo)) is not None
+                ),
+                None,
+            )
+            if respaldo is not None and all(respaldo is not otra for otra in extra):
+                extra.append(respaldo)
+        elegidas.extend(("aemet", fila) for fila in extra)
 
     aemet, ree = [], []
-    for (fuente, _, _), (_, fila) in latest.items():
+    for fuente, fila in elegidas:
         if fuente == "aemet":
             aemet.append({
                 "objetivo": fila["objetivo"].isoformat(),
@@ -293,7 +314,10 @@ def _forecast_archive_rows(hoy: date) -> dict:
                 "capturado_en": _archive_iso(fila.get("capturado_en")),
                 "eolica_mwh": fila.get("eolica_mwh"),
             })
-    aemet.sort(key=lambda row: (row["objetivo"], row["ubicacion"], row.get("uso") or ""))
+    aemet.sort(key=lambda row: (
+        row["objetivo"], row["ubicacion"], row.get("uso") or "",
+        str(row.get("elaborado") or ""),
+    ))
     ree.sort(key=lambda row: (row["objetivo"], row["ubicacion"]))
     return {"aemet": aemet, "ree": ree}
 
