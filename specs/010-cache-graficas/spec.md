@@ -190,6 +190,14 @@ El usuario llamó a este archivo «previsiones.json». Se adopta `forecast-snaps
       "prediccion": { "mwh": 406957.95, "gwh": 406.96, "fecha_emision": "2026-11-17", "emitida_en": "2026-11-17T15:27:25+01:00", "modelo": "Linear Regression", "n_variables": 19 }
     }
   ],
+  "archivo_previsiones": {
+    "aemet": [
+      { "objetivo": "2026-11-22", "ubicacion": "9299X", "uso": "eolica", "elaborado": "2026-11-21T21:23:08+01:00", "capturado_en": "2026-11-22T06:38:00+01:00", "viento_ms": 3.27, "racha_ms": 9.96, "tmed": null, "sol": null }
+    ],
+    "ree": [
+      { "objetivo": "2026-11-24", "ubicacion": "peninsula", "elaborado": "2026-11-23T10:50:53+01:00", "capturado_en": "2026-11-23T11:15:00+01:00", "eolica_mwh": 248335.8 }
+    ]
+  },
   "grafico": {
     "fechas_hist": ["…"],
     "real_gwh": [1.23],
@@ -220,6 +228,7 @@ El usuario llamó a este archivo «previsiones.json». Se adopta `forecast-snaps
 6. Los rellenos de viento van declarados. AEMET publica el resumen diario de ayer con horas de retraso, así que los últimos días del gráfico suelen quedarse sin observación. En esos días `vel_ms` y `racha_ms` se rellenan con la previsión de AEMET, con la misma regla de elegibilidad que el pipeline (`aemet_national_series` sobre `prediccion_diaria`, elaboración no posterior al día objetivo ni a hoy). `vel_origen` y `racha_origen` declaran día a día si el valor es `observacion` o `prevision`; `historico[*].aemet.origen` hace lo mismo para el viento y distingue `sol`/`tmed` observados. La gráfica pinta esos días más claros y lo dice en el tooltip.
 7. `historico[*].aemet` y `historico[*].prediccion` siempre existen, pero sus valores pueden ser `null`. `eolica` también puede ser `null` para el día de hoy si REE aún no ha publicado el dato completo. No hay otros campos opcionales: si falta `prediccion` o `grafico`, el snapshot no se publica.
 8. `grafico.predicciones_propias` es el archivo durable de emisiones: cubre los 45 días del histórico más el objetivo de mañana, con la última emisión de cada `(fecha_objetivo, fecha_emision)`. El workflow envía el snapshot publicado en el cuerpo de `/api/internal/forecast/refresh`; el backend restaura con él las filas que falten en `prediccion_propia` antes de ejecutar la tarea diaria. La SQLite de Render es efímera y este archivo es lo que evita perder la predicción de cada día en cada reinicio.
+9. `archivo_previsiones` es el archivo durable de AEMET y REE: cubre desde `hoy - 20` hasta mañana y guarda, por cada `(fuente, objetivo, ubicación)`, solo la última revisión por `(elaborado, capturado_en)`. AEMET incluye las 12 ubicaciones y, si existe, la fila agregada `nacional`; REE incluye la península. El backend restaura estas filas con `INSERT OR IGNORE` antes del atajo de caché y recalcula si recuperó alguna. Es aditivo y opcional: los snapshots anteriores a V13 siguen siendo válidos y su `historico` se usa como bootstrap para el agregado nacional.
 
 ## 6. Backend
 
@@ -229,7 +238,8 @@ El usuario llamó a este archivo «previsiones.json». Se adopta `forecast-snaps
 
 - `build_snapshot(hoy) -> dict`: llama a `scheduler_service.run_daily_task(hoy)` y compone el snapshot reutilizando las funciones internas.
 - `validate_snapshot(snapshot, hoy) -> list[str]`: devuelve la lista de problemas; vacía significa válido.
-- `refresh(force=False, snapshot_anterior=None) -> dict`: orquesta, restaura las predicciones del snapshot anterior, aplica el bloqueo y guarda el resultado en memoria.
+- `refresh(force=False, snapshot_anterior=None) -> dict`: orquesta, restaura las predicciones y las previsiones AEMET/REE del snapshot anterior, aplica el bloqueo y guarda el resultado en memoria.
+- `restore_forecast_archive(snapshot_anterior, hoy) -> int`: repone las filas de `archivo_previsiones` con `INSERT OR IGNORE`; si el snapshot no lo tiene, recupera el agregado nacional del `historico` para los días sin filas AEMET.
 - `cached() -> dict | None`: metadatos del snapshot en memoria, para el endpoint de estado.
 
 No se duplica ninguna función de cálculo: el histórico sale de `charts.build_historico` (ver 6.2) y la gráfica de `charts.build_prediction_chart_payload`.
@@ -294,6 +304,7 @@ El snapshot se rechaza si cualquiera de estas condiciones falla:
 | V10 | `grafico.avisos` no contiene avisos de datos simulados ni de series no leídas. |
 | V11 | No hay `NaN` ni `Infinity`. En `historico`, `eolica`, `aemet.*` y `prediccion.mwh/gwh` pueden ser `null`, pero si tienen valor deben ser finitos. |
 | V12 | `historico` procede de `db_ree.get_generation_series` y tiene al menos 30 días con generación real. |
+| V13 | `archivo_previsiones` es opcional. Si existe, es un objeto con listas `aemet` (máximo 600 filas) y `ree` (máximo 60); cada fila declara `objetivo` dentro de `hoy - 20 .. hoy + 1`, `ubicacion` y `elaborado` legibles, y sus valores numéricos son finitos o `null`. |
 
 ### 6.6 Espera al backfill del arranque
 

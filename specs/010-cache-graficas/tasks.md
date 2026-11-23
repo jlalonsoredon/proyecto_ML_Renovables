@@ -302,3 +302,24 @@ Derivan de `spec.md` y `plan.md`. Estado: pendientes a 2026-11-16.
     revertir y los pendientes ajenos (008 en producción, rotación de la clave
     AEMET y de `REFRESH_TOKEN`, compatibilidad de scikit-learn). El filtro de
     build de Render y `healthCheckPath` siguen siendo manuales en el dashboard.
+
+## Bloque G — Durabilidad de AEMET/REE
+
+- [x] **T-10-21 — Archivo durable de previsiones en el snapshot** (V13; RF-2, RF-4, RNF-1)
+  - Añadir `archivo_previsiones` a `build_snapshot()`: AEMET (12 ubicaciones y
+    `nacional` si existe) y REE península, desde `hoy - 20` hasta mañana, con la
+    última revisión por `(elaborado, capturado_en)`.
+  - Restaurar antes del atajo de caché con `INSERT OR IGNORE`; no pisar jamás
+    una revisión más nueva. Si el snapshot no tiene el bloque, usar el
+    `historico` como bootstrap del agregado nacional.
+  - `aemet_national_series` usa la fila `nacional` sola, sin promediarla con las
+    ubicaciones.
+  - Hecho cuando: un arranque en frío con la semilla y el snapshot anterior
+    construye el vector de 19 variables y no duplica filas al repetir la
+    restauración.
+  - Resultado: `forecast_db.restore_forecast_rows`, `restore_forecast_archive`,
+    `_forecast_archive_rows`, `_bootstrap_archive_records` y V13 en
+    `forecast_cache.py`. Tests nuevos en `backend/tests`: fila nacional aislada,
+    restauración AEMET/REE idempotente y bootstrap del 22/11 desde el snapshot
+    del 23/11. `node --test backend/tests`: 35/36 (falla solo el hash
+    preexistente del artefacto). Snapshot de 181 filas AEMET y 14 REE, ~45 KB.

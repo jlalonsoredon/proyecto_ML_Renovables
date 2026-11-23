@@ -205,6 +205,36 @@ def save_forecast_rows(conn, filas, fuente: str, parte: dict | None = None) -> i
     return len(filas)
 
 
+def restore_forecast_rows(conn, filas, fuente: str) -> int:
+    """Repone filas del archivo durable sin sobrescribir lo ya guardado.
+
+    La restauración ocurre tras un reinicio de la SQLite efímera. Se usa
+    `INSERT OR IGNORE` para conservar la clave completa: una elaboración ya
+    presente no se toca y una nueva se añade. Devuelve solo las insertadas.
+    """
+    if fuente not in FUENTES:
+        raise ValueError(f"fuente desconocida: {fuente!r}")
+    filas = list(filas or [])
+    if not filas:
+        return 0
+
+    marcadores = ", ".join("?" * len(COLUMNAS))
+    sentencia = (
+        f"INSERT OR IGNORE INTO {TABLA} ({', '.join(COLUMNAS)}) "
+        f"VALUES ({marcadores})"
+    )
+    with _conexion(conn) as conexion:
+        antes = conexion.total_changes
+        conexion.executemany(
+            sentencia, [_fila_para_sql(fila, fuente, None) for fila in filas],
+        )
+        insertadas = conexion.total_changes - antes
+        conexion.commit()
+
+    logger.info("Archivo de previsiones %s: %d filas restauradas", fuente, insertadas)
+    return insertadas
+
+
 def save_forecast(conn, filas, parte: dict | None = None) -> int:
     """Compatibilidad interna del capturador AEMET con el esquema común."""
     return save_forecast_rows(conn, filas, "aemet", parte)

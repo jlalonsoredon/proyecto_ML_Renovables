@@ -203,6 +203,119 @@ test("el mapa completo devuelve exactamente 19 variables y sus orígenes", () =>
   assert.equal(result.mapa.sol_lag1.origen, "observacion");
 });
 
+test("la fila nacional no se promedia con las ubicaciones y solo cubre su día", () => {
+  const base = [
+    { objetivo: "2026-11-21", ubicacion: "A", uso: "eolica", elaborado: "2026-11-20T21:00:00+01:00", viento_ms: 2, racha_ms: 5 },
+    { objetivo: "2026-11-21", ubicacion: "B", uso: "eolica", elaborado: "2026-11-20T21:00:00+01:00", viento_ms: 4, racha_ms: 7 },
+  ];
+  const nacional = {
+    objetivo: "2026-11-22", ubicacion: "nacional", uso: "eolica",
+    elaborado: "2026-11-22T06:27:53+00:00", viento_ms: 3.27, racha_ms: 9.96,
+  };
+
+  const soloNacional = probe({
+    action: "national_series",
+    rows: [...base, nacional],
+    uso: "eolica",
+    hoy: "2026-11-22",
+  });
+  assert.equal(soloNacional["2026-11-21"].viento_ms, 3);
+  assert.equal(soloNacional["2026-11-22"].viento_ms, 3.27);
+  assert.equal(soloNacional["2026-11-22"].racha_ms, 9.96);
+
+  const conUbicacion = probe({
+    action: "national_series",
+    rows: [
+      ...base,
+      nacional,
+      { objetivo: "2026-11-22", ubicacion: "A", uso: "eolica", elaborado: "2026-11-22T06:00:00+01:00", viento_ms: 6, racha_ms: 12 },
+    ],
+    uso: "eolica",
+    hoy: "2026-11-22",
+  });
+  assert.equal(conUbicacion["2026-11-22"].viento_ms, 6);
+  assert.equal(conUbicacion["2026-11-22"].racha_ms, 12);
+});
+
+test("el archivo durable restaura AEMET y REE sin duplicar", (t) => {
+  const dir = mkdtempSync(resolve(tmpdir(), "aero-archivo-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dbPath = resolve(dir, "test.db");
+  const snapshot = {
+    fecha_generacion: "2026-11-23T07:00:00+01:00",
+    archivo_previsiones: {
+      aemet: [{
+        objetivo: "2026-11-22", ubicacion: "nacional", uso: "eolica",
+        elaborado: "2026-11-22T06:27:53+00:00",
+        capturado_en: "2026-11-22T06:27:53+00:00",
+        viento_ms: 3.27, racha_ms: 9.96, tmed: null, sol: null,
+      }],
+      ree: [{
+        objetivo: "2026-11-24", ubicacion: "peninsula",
+        elaborado: "2026-11-23T10:50:53+01:00",
+        capturado_en: "2026-11-23T10:50:53+01:00",
+        eolica_mwh: 248335.8,
+      }],
+    },
+  };
+
+  const result = probe({
+    action: "forecast_archive_restore",
+    db_path: dbPath,
+    snapshot,
+    hoy: "2026-11-23",
+    desde: "2026-11-22",
+    hasta: "2026-11-24",
+  });
+  assert.equal(result.primera, 2);
+  assert.equal(result.segunda, 0);
+  assert.equal(result.filas.length, 2);
+  assert.equal(result.filas.find((fila) => fila.fuente === "aemet").ubicacion, "nacional");
+  assert.equal(result.filas.find((fila) => fila.fuente === "aemet").viento_ms, 3.27);
+  assert.equal(result.filas.find((fila) => fila.fuente === "ree").eolica_mwh, 248335.8);
+});
+
+test("el bootstrap del snapshot viejo recupera el agregado nacional", (t) => {
+  const dir = mkdtempSync(resolve(tmpdir(), "aero-bootstrap-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dbPath = resolve(dir, "test.db");
+  const snapshot = {
+    fecha_generacion: "2026-11-22T07:38:42+01:00",
+    historico: [{
+      fecha: "2026-11-22",
+      eolica: null,
+      aemet: {
+        velmedia: 3.27,
+        racha: 9.96,
+        sol: null,
+        tmed: null,
+        origen: {
+          velmedia: "prevision",
+          racha: "prevision",
+          sol: null,
+          tmed: null,
+        },
+      },
+    }],
+  };
+
+  const result = probe({
+    action: "forecast_archive_restore",
+    db_path: dbPath,
+    snapshot,
+    hoy: "2026-11-23",
+    desde: "2026-11-22",
+    hasta: "2026-11-23",
+  });
+  assert.equal(result.primera, 1);
+  assert.equal(result.segunda, 0);
+  assert.equal(result.filas.length, 1);
+  assert.equal(result.filas[0].fuente, "aemet");
+  assert.equal(result.filas[0].ubicacion, "nacional");
+  assert.equal(result.filas[0].viento_ms, 3.27);
+  assert.equal(result.filas[0].elaborado, "2026-11-22T06:38:42+00:00");
+});
+
 test("la predicción se detiene con nombres explícitos si falta una feature", () => {
   const result = probe({
     action: "build_map",

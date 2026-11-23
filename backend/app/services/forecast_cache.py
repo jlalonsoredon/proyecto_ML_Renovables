@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 from ..api import charts
 from ..tasks.scheduler import scheduler_service
-from . import db_ree
+from . import db_ree, forecast_db
 from .model_loader import FEATURE_COLS
 from .prediction_service import prediction_service, today_in_madrid
 from .redaction import redact_secrets
@@ -40,6 +40,9 @@ AVISOS_ESPERADOS = frozenset({
     "Paso download_aemet_data: parcial",
 })
 BACKFILL_TIMEOUT_S = 600
+ARCHIVO_DIAS = 21
+ARCHIVO_MAX_AEMET = 600
+ARCHIVO_MAX_REE = 60
 
 # Fragmentos que delatan una gráfica construida sin datos reales (V10).
 MARCAS_DATOS_NO_REALES = (
@@ -73,6 +76,23 @@ def _as_date(value) -> date | None:
         return date.fromisoformat(str(value)[:10])
     except ValueError:
         return None
+
+
+def _as_datetime(value) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        instante = value
+    elif isinstance(value, date):
+        instante = datetime.combine(value, datetime.min.time())
+    else:
+        try:
+            instante = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if instante.tzinfo is None:
+        instante = instante.replace(tzinfo=MADRID)
+    return instante.astimezone(timezone.utc)
 
 
 def _finite(value) -> bool:
@@ -200,6 +220,278 @@ def restore_predictions(snapshot_anterior, hoy: date) -> int:
     return db_ree.restore_own_predictions(_prediction_records(snapshot_anterior, hoy))
 
 
+def _archive_value(value) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _archive_iso(value):
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    return value
+
+
+def _forecast_archive_rows(hoy: date) -> dict:
+    """Filas de previsiones que el snapshot conserva para sobrevivir a un reinicio.
+
+    Se guarda la última revisión de cada (fuente, objetivo, ubicación) en la
+    ventana que cubre las medias móviles de 14 días y los lags de 7. Es un
+    archivo pequeño: no incluye observaciones ni el parte original.
+    """
+    desde = hoy - timedelta(days=ARCHIVO_DIAS - 1)
+    hasta = hoy + timedelta(days=1)
+    with db_ree._get_conn() as conn:
+        filas = forecast_db.rows_between(conn, desde, hasta)
+
+    minimo = datetime.min.replace(tzinfo=timezone.utc)
+    latest = {}
+    for fila in filas:
+        fuente = fila.get("fuente")
+        objetivo = fila.get("objetivo")
+        ubicacion = fila.get("ubicacion")
+        elaborado = _as_datetime(fila.get("elaborado"))
+        if (
+            fuente not in ("aemet", "ree")
+            or objetivo is None
+            or not ubicacion
+            or elaborado is None
+        ):
+            continue
+        key = (fuente, objetivo.isoformat(), ubicacion)
+        orden = (
+            elaborado,
+            _as_datetime(fila.get("capturado_en")) or minimo,
+        )
+        previous = latest.get(key)
+        if previous is None or orden > previous[0]:
+            latest[key] = (orden, fila)
+
+    aemet, ree = [], []
+    for (fuente, _, _), (_, fila) in latest.items():
+        if fuente == "aemet":
+            aemet.append({
+                "objetivo": fila["objetivo"].isoformat(),
+                "ubicacion": fila["ubicacion"],
+                "uso": fila.get("uso"),
+                "elaborado": _archive_iso(fila.get("elaborado")),
+                "capturado_en": _archive_iso(fila.get("capturado_en")),
+                "viento_ms": fila.get("viento_ms"),
+                "racha_ms": fila.get("racha_ms"),
+                "tmed": fila.get("tmed"),
+                "sol": fila.get("sol"),
+            })
+        else:
+            ree.append({
+                "objetivo": fila["objetivo"].isoformat(),
+                "ubicacion": fila["ubicacion"],
+                "elaborado": _archive_iso(fila.get("elaborado")),
+                "capturado_en": _archive_iso(fila.get("capturado_en")),
+                "eolica_mwh": fila.get("eolica_mwh"),
+            })
+    aemet.sort(key=lambda row: (row["objetivo"], row["ubicacion"], row.get("uso") or ""))
+    ree.sort(key=lambda row: (row["objetivo"], row["ubicacion"]))
+    return {"aemet": aemet, "ree": ree}
+
+
+def _archive_records_from_block(archivo: dict, hoy: date) -> tuple[list[dict], list[dict]]:
+    desde = hoy - timedelta(days=ARCHIVO_DIAS - 1)
+    hasta = hoy + timedelta(days=1)
+    aemet, ree = [], []
+
+    for fila in archivo.get("aemet") or []:
+        if not isinstance(fila, dict):
+            continue
+        objetivo = _as_date(fila.get("objetivo"))
+        ubicacion = str(fila.get("ubicacion") or "").strip()
+        elaborado = _as_datetime(fila.get("elaborado"))
+        if (
+            objetivo is None
+            or not (desde <= objetivo <= hasta)
+            or not ubicacion
+            or elaborado is None
+        ):
+            continue
+        uso = str(fila.get("uso") or "eolica")
+        if uso not in ("eolica", "solar"):
+            continue
+        valores = {
+            "viento_ms": _archive_value(fila.get("viento_ms")),
+            "racha_ms": _archive_value(fila.get("racha_ms")),
+            "tmed": _archive_value(fila.get("tmed")),
+            "sol": _archive_value(fila.get("sol")),
+        }
+        if not any(value is not None for value in valores.values()):
+            continue
+        aemet.append({
+            "objetivo": objetivo,
+            "ubicacion": ubicacion,
+            "uso": uso,
+            "elaborado": elaborado,
+            "capturado_en": _as_datetime(fila.get("capturado_en")) or elaborado,
+            **valores,
+        })
+
+    for fila in archivo.get("ree") or []:
+        if not isinstance(fila, dict):
+            continue
+        objetivo = _as_date(fila.get("objetivo"))
+        elaborado = _as_datetime(fila.get("elaborado"))
+        valor = _archive_value(fila.get("eolica_mwh"))
+        if (
+            objetivo is None
+            or not (desde <= objetivo <= hasta)
+            or elaborado is None
+            or valor is None
+        ):
+            continue
+        ree.append({
+            "objetivo": objetivo,
+            "ubicacion": str(fila.get("ubicacion") or "peninsula"),
+            "uso": "eolica",
+            "elaborado": elaborado,
+            "capturado_en": _as_datetime(fila.get("capturado_en")) or elaborado,
+            "eolica_mwh": valor,
+        })
+    return aemet, ree
+
+
+def _bootstrap_archive_records(snapshot: dict, hoy: date) -> tuple[list[dict], list[dict]]:
+    """Recupera el agregado nacional que un snapshot viejo sí conserva.
+
+    Los snapshots publicados antes de V13 no tienen `archivo_previsiones`, pero
+    su `historico` guarda la media nacional con el origen de cada variable. Para
+    el 22/11 eso es suficiente: se repone una fila `nacional` y la media de las
+    ubicaciones no se inventa.
+    """
+    generado = _as_datetime(snapshot.get("fecha_generacion"))
+    generado_local = generado.astimezone(MADRID) if generado is not None else None
+    aemet = []
+    for row in snapshot.get("historico") or []:
+        if not isinstance(row, dict):
+            continue
+        objetivo = _as_date(row.get("fecha"))
+        if objetivo is None or not (hoy - timedelta(days=7) <= objetivo <= hoy):
+            continue
+        dia = row.get("aemet") or {}
+        origen = dia.get("origen") or {}
+        viento = (
+            _archive_value(dia.get("velmedia"))
+            if origen.get("velmedia") == "prevision" else None
+        )
+        racha = (
+            _archive_value(dia.get("racha"))
+            if origen.get("racha") == "prevision" else None
+        )
+        if viento is None and racha is None:
+            continue
+        if generado_local is not None and generado_local.date() == objetivo:
+            elaborado = generado
+        else:
+            # El snapshot no declara la elaboración de cada día; se usa el
+            # inicio del objetivo para que la fila sea elegible sin fingir una
+            # hora que no consta.
+            elaborado = datetime.combine(
+                objetivo, datetime.min.time(), tzinfo=MADRID
+            )
+        aemet.append({
+            "objetivo": objetivo,
+            "ubicacion": "nacional",
+            "uso": "eolica",
+            "elaborado": elaborado,
+            "capturado_en": generado or elaborado,
+            "viento_ms": viento,
+            "racha_ms": racha,
+            "tmed": None,
+            "sol": None,
+        })
+    return aemet, []
+
+
+def restore_forecast_archive(snapshot_anterior, hoy: date) -> int:
+    """Repone AEMET/REE desde el snapshot anterior antes de calcular.
+
+    Si el snapshot es anterior a V13, usa el agregado nacional del `historico`
+    solo para los días que no tengan ya ninguna fila AEMET. La inserción es
+    idempotente y nunca pisa una revisión existente.
+    """
+    if not isinstance(snapshot_anterior, dict):
+        return 0
+    archivo = snapshot_anterior.get("archivo_previsiones")
+    if isinstance(archivo, dict):
+        aemet_rows, ree_rows = _archive_records_from_block(archivo, hoy)
+    else:
+        aemet_rows, ree_rows = _bootstrap_archive_records(snapshot_anterior, hoy)
+        if aemet_rows:
+            existentes = forecast_db.archived_days(None, "aemet")
+            aemet_rows = [
+                row for row in aemet_rows if row["objetivo"] not in existentes
+            ]
+
+    restauradas = 0
+    if aemet_rows:
+        restauradas += forecast_db.restore_forecast_rows(None, aemet_rows, "aemet")
+    if ree_rows:
+        restauradas += forecast_db.restore_forecast_rows(None, ree_rows, "ree")
+    return restauradas
+
+
+def _validate_forecast_archive(archivo, hoy: date) -> list[str]:
+    if not isinstance(archivo, dict):
+        return ["V13: archivo_previsiones no es un objeto"]
+
+    problemas = []
+    desde = hoy - timedelta(days=ARCHIVO_DIAS - 1)
+    hasta = hoy + timedelta(days=1)
+    for clave, maximo in (
+        ("aemet", ARCHIVO_MAX_AEMET),
+        ("ree", ARCHIVO_MAX_REE),
+    ):
+        filas = archivo.get(clave)
+        if not isinstance(filas, list):
+            problemas.append(f"V13: archivo_previsiones.{clave} no es una lista")
+            continue
+        if len(filas) > maximo:
+            problemas.append(
+                f"V13: archivo_previsiones.{clave} supera {maximo} filas"
+            )
+        for posicion, fila in enumerate(filas):
+            if not isinstance(fila, dict):
+                problemas.append(
+                    f"V13: archivo_previsiones.{clave}[{posicion}] no es un objeto"
+                )
+                continue
+            objetivo = _as_date(fila.get("objetivo"))
+            if objetivo is None or not (desde <= objetivo <= hasta):
+                problemas.append(
+                    f"V13: archivo_previsiones.{clave}[{posicion}].objetivo fuera de rango"
+                )
+                continue
+            if not str(fila.get("ubicacion") or "").strip():
+                problemas.append(
+                    f"V13: archivo_previsiones.{clave}[{posicion}] sin ubicación"
+                )
+            if _as_datetime(fila.get("elaborado")) is None:
+                problemas.append(
+                    f"V13: archivo_previsiones.{clave}[{posicion}] sin elaborado"
+                )
+            campos = (
+                ("viento_ms", "racha_ms", "tmed", "sol")
+                if clave == "aemet" else ("eolica_mwh",)
+            )
+            for campo in campos:
+                valor = fila.get(campo)
+                if valor is not None and not _finite(valor):
+                    problemas.append(
+                        f"V13: archivo_previsiones.{clave}[{posicion}].{campo} no es finito"
+                    )
+    return problemas
+
+
 def build_snapshot(hoy: date, ahora: datetime | None = None, avisos=None) -> dict:
     """Compone el snapshot con las funciones internas; no ejecuta la tarea diaria."""
     ahora = ahora or datetime.now(timezone.utc)
@@ -216,6 +508,7 @@ def build_snapshot(hoy: date, ahora: datetime | None = None, avisos=None) -> dic
         "prediccion": prediccion,
         "historico": historico,
         "grafico": grafico,
+        "archivo_previsiones": _forecast_archive_rows(hoy),
         "avisos": list(avisos or []),
     }
 
@@ -404,6 +697,12 @@ def validate_snapshot(snapshot, hoy: date) -> list[str]:
             f"se exigen al menos {MIN_PUNTOS_HISTORICO}"
         )
 
+    # V13: el archivo es opcional para seguir aceptando snapshots anteriores.
+    if "archivo_previsiones" in snapshot:
+        problemas.extend(
+            _validate_forecast_archive(snapshot.get("archivo_previsiones"), hoy)
+        )
+
     return problemas
 
 
@@ -432,20 +731,34 @@ def refresh(force: bool = False, hoy: date | None = None,
         fuente = snapshot_anterior if snapshot_anterior is not None else (
             _cache.get("snapshot") if _cache else None
         )
-        restauradas = 0
+        restauradas_predicciones = 0
+        restauradas_previsiones = 0
         if fuente:
             try:
-                restauradas = restore_predictions(fuente, hoy)
-                if restauradas:
+                restauradas_predicciones = restore_predictions(fuente, hoy)
+                if restauradas_predicciones:
                     logger.info(
                         "%d predicciones históricas restauradas; se recalcula el snapshot",
-                        restauradas,
+                        restauradas_predicciones,
                     )
             except Exception as error:
                 logger.warning(
                     "No se pudieron restaurar predicciones históricas: %s",
                     redact_secrets(error),
                 )
+            try:
+                restauradas_previsiones = restore_forecast_archive(fuente, hoy)
+                if restauradas_previsiones:
+                    logger.info(
+                        "%d previsiones AEMET/REE restauradas; se recalcula el snapshot",
+                        restauradas_previsiones,
+                    )
+            except Exception as error:
+                logger.warning(
+                    "No se pudieron restaurar las previsiones AEMET/REE: %s",
+                    redact_secrets(error),
+                )
+        restauradas = restauradas_predicciones + restauradas_previsiones
 
         if (
             not force

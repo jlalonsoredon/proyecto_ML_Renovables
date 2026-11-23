@@ -133,34 +133,51 @@ def aggregate_observations(rows, station_ids, variable: str, hoy) -> dict[str, f
 
 
 def aemet_national_series(rows, uso: str, hoy) -> dict[str, dict]:
-    """Medias diarias de las ubicaciones AEMET elegibles del uso solicitado."""
+    """Medias diarias de las ubicaciones AEMET elegibles del uso solicitado.
+
+    Las filas `nacional` son un agregado durable que solo se usa cuando no hay
+    ninguna fila por ubicación para ese día. Así el bootstrap del snapshot no
+    se promedia con las ubicaciones ni duplica el valor.
+    """
+    rows = list(rows or [])
     locations = sorted({
-        row.get("ubicacion") for row in rows or []
+        row.get("ubicacion") for row in rows
         if row.get("fuente", "aemet") == "aemet"
-        and row.get("uso") == uso and row.get("ubicacion")
+        and row.get("uso") == uso
+        and row.get("ubicacion")
+        and row.get("ubicacion") != "nacional"
     })
     targets = sorted({
-        _date(row["objetivo"]) for row in rows or []
+        _date(row["objetivo"]) for row in rows
         if row.get("fuente", "aemet") == "aemet" and row.get("uso") == uso
     })
     names = ("viento_ms", "racha_ms", "sol", "tmed")
-    accum = {}
+    result = {}
     for target in targets:
+        day_values = {name: [] for name in names}
         for location in locations:
             row = _eligible_aemet(rows, target, location, hoy, uso=uso)
             if row is None:
                 continue
-            day_values = accum.setdefault(target, {name: [] for name in names})
             for name in names:
                 value = _number(row.get(name))
                 if value is not None:
                     day_values[name].append(value)
-    return {
-        target.isoformat(): {
+        if not any(day_values.values()):
+            national = _eligible_aemet(rows, target, "nacional", hoy, uso=uso)
+            if national is None:
+                continue
+            result[target] = {
+                name: _number(national.get(name)) for name in names
+            }
+            continue
+        result[target] = {
             name: sum(values) / len(values) if values else None
-            for name, values in by_name.items()
+            for name, values in day_values.items()
         }
-        for target, by_name in sorted(accum.items())
+    return {
+        target.isoformat(): values
+        for target, values in sorted(result.items())
     }
 
 

@@ -137,6 +137,13 @@ def _ejecutar(request):
             request["previsiones_ree"], request["objetivo"], request["hoy"]
         )
 
+    if accion == "national_series":
+        from app.services.prediction_features import aemet_national_series
+
+        return aemet_national_series(
+            request["rows"], request["uso"], request["hoy"]
+        )
+
     if accion == "build_map":
         from app.services.prediction_features import build_prediction_map
 
@@ -726,6 +733,26 @@ def _ejecutar(request):
         )
         emisiones = {row["fecha_objetivo"]: row for row in rows}
         return {"actualizadas": actualizadas, "emisiones": emisiones}
+
+    if accion == "forecast_archive_restore":
+        if not request.get("db_path"):
+            raise ValueError("db_path es obligatorio para restaurar previsiones")
+        os.environ["DB_PATH"] = request["db_path"]
+        from app.services import db_ree, forecast_db
+        from app.services.forecast_cache import restore_forecast_archive
+
+        db_ree.DB_PATH = request["db_path"]
+        db_ree.init_db()
+        hoy = date.fromisoformat(request["hoy"])
+        primera = restore_forecast_archive(request["snapshot"], hoy)
+        segunda = restore_forecast_archive(request["snapshot"], hoy)
+        with db_ree._get_conn() as conn:
+            filas = forecast_db.rows_between(
+                conn,
+                date.fromisoformat(request["desde"]),
+                date.fromisoformat(request["hasta"]),
+            )
+        return {"primera": primera, "segunda": segunda, "filas": filas}
 
     if accion in (
         "schema",
