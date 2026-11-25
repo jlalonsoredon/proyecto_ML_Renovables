@@ -1,6 +1,6 @@
 # Proyecto ML — Predicción de Generación Eólica Peninsular
 
-![Aero Predictor](aero.jpg)
+![Predicción de generación eólica para mañana en Aero Predictor](aero.png)
 
 Web en producción: [Aero Predictor](https://aero-predictor.joseluisalonsoredondo.es/resultados)
 
