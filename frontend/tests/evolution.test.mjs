@@ -221,14 +221,24 @@ test("las predicciones por modelo tienen 16 y 19 variables alineadas con la seri
   assert.equal(modelos.length, 8);
   assert.equal(protocolo16.variables, 16);
   assert.equal(protocolo19.variables, 19);
-  assert.equal(areComparable({ protocolo: protocolo16 }, { protocolo: protocolo19 }), false);
+  // Spec 011: las dos variantes comparten ventana y entrenamiento; solo cambia el número de variables.
+  for (const clave of ["desde", "hasta", "dias", "semanas", "entrenamiento_hasta", "dias_entrenamiento"]) {
+    assert.equal(protocolo16[clave], protocolo19[clave], clave);
+  }
+  assert.equal(semanas.length, protocolo19.semanas);
+  assert.equal(semanas[0], "2025-06-29");
+  assert.equal(semanas.at(-1), "2026-11-08");
   assert.equal(real.length, semanas.length);
   for (const m of modelos) {
-    assert.equal(m.pred16.length, semanas.length, m.modelo);
-    assert.equal(m.pred19.length, semanas.length, m.modelo);
-    assert.ok(m.pred19.some((v) => v !== null), `${m.modelo} sin serie de 19 variables`);
-    for (const metric of ["rmse", "mae", "r2", "mape"]) {
-      assert.ok(isPlausibleMetric(m.metricas19[metric], metric), `${m.modelo}.${metric}`);
+    // Cada línea cubre todo el eje, de la primera a la última semana.
+    for (const clave of ["pred16", "pred19"]) {
+      assert.equal(m[clave].length, semanas.length, `${m.modelo}.${clave}`);
+      assert.ok(m[clave].every((v) => Number.isFinite(v)), `${m.modelo}.${clave} tiene huecos`);
+    }
+    for (const clave of ["metricas16", "metricas19"]) {
+      for (const metric of ["rmse", "mae", "r2", "mape"]) {
+        assert.ok(isPlausibleMetric(m[clave][metric], metric), `${m.modelo}.${clave}.${metric}`);
+      }
     }
   }
   assert.ok(modelos.some((m) => m.modelo === "Linear Regression"), "falta el modelo vigente");

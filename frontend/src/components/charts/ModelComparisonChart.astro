@@ -6,10 +6,10 @@ import { formatMetric, formatNumber, formatDateEs } from "../../utils/evolution.
 
 const VIGENTE = "Linear Regression";
 
-const p16 = data.protocolo16;
-const p19 = data.protocolo19;
-const window16 = `16 variables · test del ${formatDateEs(p16.desde)} al ${formatDateEs(p16.hasta)} (46 semanas)`;
-const window19 = `19 variables · test del ${formatDateEs(p19.desde)} al ${formatDateEs(p19.hasta)} (${p19.dias} días)`;
+// Las dos variantes comparten ventana (spec 011): el test lo exige, así que se declara una sola vez.
+const p = data.protocolo19;
+const window16 = "16 variables";
+const window19 = "19 variables";
 const RECHAZADO = "LightGBM";
 
 const labels = data.semanas.map((iso) => {
@@ -40,13 +40,16 @@ const badge = "text-xs px-2 py-0.5 rounded-full whitespace-nowrap";
 <div class="space-y-6">
   <div class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
     <p>
-      Media semanal de la generación eólica real (negro) frente a la predicción de cada modelo con
-      16 variables (naranja) y con 19 variables (azul). Valores en GWh.
+      Media semanal (lunes a domingo, etiquetada por su domingo) de la generación eólica real (negro) frente a la
+      predicción de cada modelo con 16 variables (naranja) y con 19 variables (azul). Valores en GWh.
     </p>
     <p class="text-xs">
-      Las métricas de cada versión se midieron en periodos distintos, así que se muestran juntas pero no se restan.
-      Las de 19 variables proceden de la última ejecución del notebook, con un día más de datos que la evaluación
-      del modelo en producción (paso 6); por eso difieren ligeramente.
+      Las dos versiones se evalúan en la misma ventana: del {formatDateEs(p.desde)} al {formatDateEs(p.hasta)}
+      ({formatNumber(p.dias, 0)} días, {formatNumber(p.semanas, 0)} semanas). Cada modelo se entrenó solo con los
+      {formatNumber(p.dias_entrenamiento, 0)} días anteriores (hasta el {formatDateEs(p.entrenamiento_hasta)}) y predice
+      toda la ventana sin reentrenar, así que sus cifras sí se pueden comparar entre 16 y 19 variables. No son
+      comparables con la del modelo en producción (paso 6, otra ventana) ni con la línea base histórica de 16 variables,
+      medida con el pipeline anterior. SARIMAX solo usa viento y racha, por eso sus dos líneas coinciden.
     </p>
     <p class="text-xs">Fuentes: {data.fuente.pred19} {data.fuente.pred16} {data.fuente.real}</p>
   </div>
@@ -63,9 +66,9 @@ const badge = "text-xs px-2 py-0.5 rounded-full whitespace-nowrap";
           <div class="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-2">
             <dt class="font-semibold text-orange-800 dark:text-orange-200">{window16}</dt>
             <dd class="text-gray-700 dark:text-gray-300">
-              {m.m16
-                ? <>RMSE {formatMetric(m.m16.rmse, "rmse")} · R² {formatMetric(m.m16.r2, "r2")} · MAPE {formatMetric(m.m16.mape, "mape")}</>
-                : "no disponible"}
+              RMSE {formatMetric(m.m16.rmse, "rmse")} · MAE {formatMetric(m.m16.mae, "mae")} ·
+              R² {formatMetric(m.m16.r2, "r2")} · MAPE {formatMetric(m.m16.mape, "mape")} ·
+              Acierto por tramos {formatNumber(m.m16.accuracy, 1)} %
             </dd>
           </div>
           <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
