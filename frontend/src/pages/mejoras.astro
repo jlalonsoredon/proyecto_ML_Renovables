@@ -5,6 +5,7 @@ import Title from "../components/shared/Title.astro";
 import Paragraph from "../components/shared/Paragraph.astro";
 import Title2 from "../components/shared/Title2.astro";
 
+// `realizado` y `specs` solo se rellenan en las tareas completadas: dicen qué se hizo y dónde está documentado.
 const tareas = [
   {
     titulo: "Restyling completo del frontend",
@@ -15,8 +16,10 @@ const tareas = [
   {
     titulo: "Incluir datos de producción y previsión de energía solar",
     descripcion: "Incorporar datos de producción y previsión de energía solar para mejorar la precisión de las predicciones y permitir análisis más completos.",
-    estado: "pendiente",
-    prioridad: "alta"
+    estado: "completado",
+    prioridad: "alta",
+    realizado: "Integrada como variables del modelo eólico: horas de sol y temperatura del día anterior, más un archivo diario con las previsiones de AEMET.",
+    specs: "Specs 002 y 003"
   },
   {
     titulo: "Incluir datos de producción y previsión de energía hidráulica",
@@ -27,15 +30,27 @@ const tareas = [
   {
     titulo: "Integrar la previsión de demanda eléctrica de REE",
     descripcion: "Incorporar datos de previsión de demanda eléctrica para mejorar la precisión de las predicciones y permitir análisis más completos.",
-    estado: "pendiente",
-    prioridad: "alta"
+    estado: "completado",
+    prioridad: "alta",
+    realizado: "Integrada la previsión de REE para el día que se predice (previsión eólica D+1) como variable del modelo.",
+    specs: "Specs 004 y 005"
   },
   {
     titulo: "Mejorar el modelo con todos los nuevos datos integrados",
     descripcion: "Incorporar todos los nuevos datos de producción y previsión de energía para mejorar la precisión de las predicciones y permitir análisis más completos.",
-    estado: "pendiente",
-    prioridad: "alta"
+    estado: "completado",
+    prioridad: "alta",
+    realizado: "El modelo pasó de 16 a 19 variables y su error se redujo a la mitad al incorporar la previsión de REE.",
+    specs: "Specs 002, 005 y 006"
   }
+];
+
+const realizadas = tareas.filter((tarea) => tarea.estado === "completado");
+const pendientes = tareas.filter((tarea) => tarea.estado !== "completado");
+const porcentaje = Math.round((realizadas.length / tareas.length) * 100);
+const grupos = [
+  { id: "pendientes", titulo: "Pendientes", items: pendientes },
+  { id: "realizadas", titulo: "Realizadas", items: realizadas }
 ];
 
 const getEstadoBadge = (estado: string) => {
@@ -63,41 +78,115 @@ const getPrioridadBadge = (prioridad: string) => {
       <div class="py-12 text-center">
         <Title>Mejoras y Futuro</Title>
         <Paragraph>
-          Próximas funcionalidades y mejoras planificadas para el proyecto AeroPredictor.
-          Estas son las áreas de desarrollo que ampliarán las capacidades del sistema.
+          Qué mejoras del proyecto AeroPredictor ya están hechas y cuáles quedan por hacer.
+          Las casillas son solo informativas: reflejan el estado real del proyecto y no se pueden editar.
         </Paragraph>
+
+        <div class="max-w-xl mx-auto mt-8 text-left">
+          <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <span>{realizadas.length} de {tareas.length} mejoras realizadas</span>
+            <span>{porcentaje} %</span>
+          </div>
+          <div
+            class="h-3 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden"
+            role="progressbar"
+            aria-label="Mejoras realizadas"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow={porcentaje}
+          >
+            <div class="h-full rounded-full bg-green-600" style={`width: ${porcentaje}%`}></div>
+          </div>
+        </div>
       </div>
     </Container>
 
-    <Container>
-      <section class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {tareas.map((tarea) => {
-          const estadoBadge = getEstadoBadge(tarea.estado);
-          const prioridadBadge = getPrioridadBadge(tarea.prioridad);
-          
-          return (
-            <article class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow duration-300">
-              <div class="flex flex-wrap gap-2 mb-4">
-                <span class={`px-3 py-1 rounded-full text-xs font-semibold ${estadoBadge.class}`}>
-                  {estadoBadge.label}
-                </span>
-                <span class={`px-3 py-1 rounded-full text-xs font-semibold ${prioridadBadge.class}`}>
-                  Prioridad {prioridadBadge.label}
-                </span>
-              </div>
-              
-              <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                {tarea.titulo}
-              </h3>
-              
-              <p class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                {tarea.descripcion}
-              </p>
-            </article>
-          );
-        })}
-      </section>
-    </Container>
+    {grupos.map((grupo) => grupo.items.length > 0 && (
+      <Container>
+        <section aria-labelledby={`grupo-${grupo.id}`}>
+          <div id={`grupo-${grupo.id}`}>
+            <Title2>{grupo.titulo} ({grupo.items.length})</Title2>
+          </div>
+
+          <ul class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {grupo.items.map((tarea) => {
+              const hecha = tarea.estado === "completado";
+              const estadoBadge = getEstadoBadge(tarea.estado);
+              const prioridadBadge = getPrioridadBadge(tarea.prioridad);
+
+              return (
+                <li
+                  class={`rounded-xl shadow-lg p-5 sm:p-6 border transition-shadow duration-300 hover:shadow-xl ${
+                    hecha
+                      ? "bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-800"
+                      : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                  }`}
+                >
+                  <div class="flex items-start gap-4">
+                    <span
+                      role="checkbox"
+                      aria-checked={hecha ? "true" : "false"}
+                      aria-readonly="true"
+                      aria-label={`${hecha ? "Realizada" : "Pendiente"}: ${tarea.titulo}`}
+                      class={`mt-1 shrink-0 flex items-center justify-center w-6 h-6 rounded-md border-2 select-none ${
+                        hecha
+                          ? "bg-green-600 border-green-600 text-white"
+                          : "bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600"
+                      }`}
+                    >
+                      {hecha && (
+                        <svg
+                          class="w-4 h-4"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M3.5 8.5l3 3 6-7"></path>
+                        </svg>
+                      )}
+                    </span>
+
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap gap-2 mb-3">
+                        <span class={`px-3 py-1 rounded-full text-xs font-semibold ${estadoBadge.class}`}>
+                          {estadoBadge.label}
+                        </span>
+                        <span class={`px-3 py-1 rounded-full text-xs font-semibold ${prioridadBadge.class}`}>
+                          Prioridad {prioridadBadge.label}
+                        </span>
+                      </div>
+
+                      <h3 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3">
+                        {tarea.titulo}
+                      </h3>
+
+                      <p class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                        {tarea.descripcion}
+                      </p>
+
+                      {hecha && tarea.realizado && (
+                        <div class="mt-4 pt-4 border-t border-green-200 dark:border-green-800 text-sm">
+                          <p class="text-green-900 dark:text-green-200 leading-relaxed">
+                            <span class="font-semibold">Qué se hizo:</span> {tarea.realizado}
+                          </p>
+                          {tarea.specs && (
+                            <p class="mt-1 text-xs text-green-800/80 dark:text-green-300/80">{tarea.specs}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      </Container>
+    ))}
 
     <Container>
       <section class="bg-gradient-to-r from-green-600 to-green-800 rounded-xl p-8 text-white">
