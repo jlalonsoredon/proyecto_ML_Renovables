@@ -11,9 +11,9 @@ const { variant = "full" } = Astro.props;
 const { lineaBase, referencia, filas, fuentes } = metrics;
 
 const STATUS_CLASSES: Record<string, string> = {
-  [STATUS.CURRENT]: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-  [STATUS.HISTORICAL]: "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
-  [STATUS.UNAVAILABLE]: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+  [STATUS.CURRENT]: "bg-brand text-brandink",
+  [STATUS.HISTORICAL]: "bg-surface2 text-ink",
+  [STATUS.UNAVAILABLE]: "border border-line text-ink",
 };
 
 type Protocolo = { variables: number; desde: string | null; hasta: string | null; dias: number | null };
@@ -36,27 +36,27 @@ const mainCards = [lineaBase, referencia];
     <div class="space-y-4">
       <div class="grid gap-4 md:grid-cols-2">
         {mainCards.map((card) => (
-          <article class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-700">
+          <article class="bg-surface rounded-2xl p-6 border border-line border border-line">
             <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <h3 class="text-lg font-bold text-gray-900 dark:text-white">{card.etiqueta}</h3>
+              <h3 class="text-lg font-bold text-ink">{card.etiqueta}</h3>
               <span class={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_CLASSES[rowStatus(card)]}`}>
                 {rowStatus(card)}
               </span>
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <p class="text-sm text-muted mb-4">
               {card.modelo} · {card.protocolo.variables} variables · {card.protocolo.descripcion}
             </p>
             <dl class="grid grid-cols-2 gap-3 text-sm">
-              <div><dt class="text-gray-500 dark:text-gray-400">RMSE</dt><dd class="text-xl font-bold text-gray-900 dark:text-white">{formatMetric(card.rmse, "rmse")}</dd></div>
-              <div><dt class="text-gray-500 dark:text-gray-400">R²</dt><dd class="text-xl font-bold text-gray-900 dark:text-white">{formatMetric(card.r2, "r2")}</dd></div>
-              <div><dt class="text-gray-500 dark:text-gray-400">MAE</dt><dd class="font-semibold text-gray-900 dark:text-white">{formatMetric(card.mae, "mae")}</dd></div>
-              <div><dt class="text-gray-500 dark:text-gray-400">MAPE</dt><dd class="font-semibold text-gray-900 dark:text-white">{formatMetric(card.mape, "mape")}</dd></div>
+              <div><dt class="text-muted">RMSE</dt><dd class="text-xl font-bold text-ink">{formatMetric(card.rmse, "rmse")}</dd></div>
+              <div><dt class="text-muted">R²</dt><dd class="text-xl font-bold text-ink">{formatMetric(card.r2, "r2")}</dd></div>
+              <div><dt class="text-muted">MAE</dt><dd class="font-semibold text-ink">{formatMetric(card.mae, "mae")}</dd></div>
+              <div><dt class="text-muted">MAPE</dt><dd class="font-semibold text-ink">{formatMetric(card.mape, "mape")}</dd></div>
             </dl>
           </article>
         ))}
       </div>
 
-      <div class="rounded-xl border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-gray-800 dark:text-gray-200" role="note">
+      <div class="rounded-2xl border-l-4 border-amber-500 bg-surface2 p-4 text-sm text-ink" role="note">
         <p class="font-semibold mb-1">Por qué no restamos estas dos cifras</p>
         <p>
           Se midieron de forma distinta: la primera con 16 variables y un periodo de prueba que no quedó
@@ -70,12 +70,12 @@ const mainCards = [lineaBase, referencia];
 
   <div>
     {variant === "full" && (
-      <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Todos los modelos evaluados</h3>
+      <h3 class="text-lg font-bold text-ink mb-2">Todos los modelos evaluados</h3>
     )}
-    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700" tabindex="0" aria-label="Tabla de modelos, desplazable en horizontal">
+    <div class="overflow-x-auto rounded-lg border border-line" tabindex="0" aria-label="Tabla de modelos, desplazable en horizontal">
       <table class="w-full text-sm text-left">
         <caption class="sr-only">Métricas de los modelos: estado, variables, ventana de evaluación y errores</caption>
-        <thead class="bg-gray-100 dark:bg-gray-700">
+        <thead class="bg-surface2">
           <tr>
             <th scope="col" class="px-3 py-2">Modelo</th>
             <th scope="col" class="px-3 py-2">Estado</th>
@@ -92,10 +92,10 @@ const mainCards = [lineaBase, referencia];
             const estado = rowStatus(fila);
             const isCurrent = estado === STATUS.CURRENT;
             return (
-              <tr class={`border-t border-gray-200 dark:border-gray-700 ${isCurrent ? "bg-green-50 dark:bg-green-900/20 font-semibold" : ""}`}>
+              <tr class={`border-t border-line ${isCurrent ? "bg-surface2 font-semibold" : ""}`}>
                 <th scope="row" class="px-3 py-2 whitespace-nowrap font-medium">
                   {fila.modelo}
-                  {fila.decision === "rechazado" && <span class="block text-xs font-normal text-gray-600 dark:text-gray-400">Rechazado</span>}
+                  {fila.decision === "rechazado" && <span class="block text-xs font-normal text-muted">Rechazado</span>}
                 </th>
                 <td class="px-3 py-2">
                   <span class={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${STATUS_CLASSES[estado]}`}>{estado}</span>
@@ -112,15 +112,15 @@ const mainCards = [lineaBase, referencia];
         </tbody>
       </table>
     </div>
-    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+    <p class="mt-2 text-xs text-muted">
       Solo las filas con las mismas variables y la misma ventana se pueden comparar entre sí.
       «{STATUS.UNAVAILABLE}» indica que la métrica no se registró en esa evaluación.
     </p>
   </div>
 
   {variant === "full" && vigente && rechazada && (
-    <div class="bg-gray-100 dark:bg-gray-800 rounded-xl p-5 text-sm text-gray-700 dark:text-gray-300 space-y-2">
-      <h3 class="text-base font-bold text-gray-900 dark:text-white">¿Por qué no se usa LightGBM?</h3>
+    <div class="bg-surface2 rounded-2xl p-5 text-sm text-ink space-y-2">
+      <h3 class="text-base font-bold text-ink">¿Por qué no se usa LightGBM?</h3>
       {delta !== null && (
         <p>
           Con las mismas 19 variables y los mismos 354 días, LightGBM tiene un RMSE
@@ -129,7 +129,7 @@ const mainCards = [lineaBase, referencia];
         </p>
       )}
       <p>{rechazada.motivo}</p>
-      <p class="text-xs text-gray-500 dark:text-gray-400">Criterio de adopción: {fuentes.criterio}</p>
+      <p class="text-xs text-muted">Criterio de adopción: {fuentes.criterio}</p>
     </div>
   )}
 </div>

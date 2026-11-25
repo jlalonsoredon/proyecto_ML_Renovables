@@ -2,85 +2,50 @@
 import snapshot from "../data/forecast-snapshot.json";
 import { cardView } from "../utils/live-prediction.mjs";
 import Layout from "../layouts/Layout.astro";
-import Container from "../components/shared/Container.astro";
-import Title from "../components/shared/Title.astro";
-import Title2 from "../components/shared/Title2.astro";
-import Title3 from "../components/shared/Title3.astro";
-import Paragraph from "../components/shared/Paragraph.astro";
+import PrediccionCard from "../components/shared/PrediccionCard.astro";
 import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
 import PredictionChart from "../components/charts/PredictionChart.astro";
 const view = cardView(snapshot);
 ---
 
-<Layout title="Resultados - Predicción Eólica ML">
-  <main class="flex flex-col gap-y-12 md:gap-y-20 overflow-hidden pb-20">
-    <Container>
-      <div class="py-12 text-center">
-        <Title>Resultados y Predicciones</Title>
-        <Paragraph>
-          Visualización de datos históricos, comparación de modelos y predicciones actuales
-        </Paragraph>
+<Layout title="Resultados">
+  <main>
+    <section class="a-section" style="padding-top: 72px; padding-bottom: 56px">
+      <div class="a-wrap" style="display: flex; flex-direction: column; gap: 22px">
+        <p class="a-eyebrow">Resultados y predicciones</p>
+        <h1 class="a-h1" style="max-width: 16ch">Qué ha pasado y qué se espera</h1>
+        <p class="a-lead">Datos históricos, comparación de modelos y la predicción vigente para mañana.</p>
       </div>
-    </Container>
+    </section>
 
-    <Container>
-      <section
-        class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white mb-12"
-        id="prediction-section"
-        data-live-prediction
-        data-state={view.estado}
-      >
-        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div>
-            <Title3>Predicción para Mañana</Title3>
-            <p class="text-blue-100 text-sm mt-1">Fecha objetivo: <span data-field="fecha">{view.campos.fecha}</span></p>
-            <p class="text-blue-100 text-sm">Emitida: <span data-field="emision">{view.campos.emision}</span></p>
-          </div>
-          <div class="text-center">
-            <div class="text-5xl font-bold" data-field="valor">{view.campos.valor}</div>
-            <div class="text-blue-200">MWh</div>
-          </div>
-          <div class="md:text-right text-sm">
-            <p><strong>Modelo:</strong> <span data-field="familia">{view.campos.familia}</span></p>
-            <p><strong>Variables:</strong> <span data-field="variables">{view.campos.variables}</span></p>
-            <p><strong>Velocidad viento:</strong> <span data-field="velmedia">{view.campos.velmedia}</span></p>
-            <p><strong>Ráfagas:</strong> <span data-field="racha">{view.campos.racha}</span></p>
-          </div>
-        </div>
-        <p class="text-xs text-blue-100 mt-4 text-center" data-field="estado" data-tone="none" data-base-class="text-xs text-blue-100 mt-4 text-center" role="status" aria-live="polite">
-              {view.mensaje}
-            </p>
-        <p class="text-xs text-blue-200 mt-1 text-center" data-field="version">{view.campos.version}</p>
-      </section>
-    </Container>
+    <section class="a-section">
+      <div class="a-wrap"><PrediccionCard view={view} completa /></div>
+    </section>
 
-    <Container>
-      <section class="mb-12">
-        <Title2>Predicción vs Real</Title2>
-        <Paragraph>
-          Producción eólica real de los últimos 30 días completos frente a las predicciones del modelo.
-          El rombo morado es la predicción para mañana. Los días cuyo dato de REE aún está incompleto no se muestran.
-        </Paragraph>
-        <div class="mt-6">
-          <PredictionChart />
-        </div>
-      </section>
-    </Container>
+    <section class="a-section">
+      <div class="a-wrap">
+        <p class="a-eyebrow">Predicción vs real</p>
+        <h2 class="a-h2" style="margin: 14px 0">Lo previsto frente a lo que pasó</h2>
+        <p class="a-lead">
+          Producción eólica real de los últimos 30 días completos frente a las predicciones del modelo. El rombo violeta es la predicción para mañana.
+          Los días cuyo dato de REE aún está incompleto no se muestran.
+        </p>
+        <div style="margin-top: 28px"><PredictionChart /></div>
+      </div>
+    </section>
 
-    <Container>
-      <section class="mb-12">
-        <Title2>Comparación de Modelos de Machine Learning</Title2>
-        <Paragraph>
-          Linear Regression con 19 variables es el modelo vigente: R² de 0,9308 y RMSE de 23.108,4 MWh
-          en un test de 354 días (del 22 de noviembre de 2025 al 10 de noviembre de 2026). Los modelos de
-          16 variables se midieron con otra ventana y se muestran como referencia histórica.
-          <a href="/proceso#evolucion" class="underline text-primary">Ver cómo ha evolucionado el modelo</a>.
-        </Paragraph>
-        <div class="mt-6">
-          <ModelComparisonChart />
-        </div>
-      </section>
-    </Container>
+    <section class="a-section">
+      <div class="a-wrap">
+        <p class="a-eyebrow">Modelos</p>
+        <h2 class="a-h2" style="margin: 14px 0">Comparación de modelos de Machine Learning</h2>
+        <p class="a-lead" style="margin-bottom: 28px">
+          Linear Regression con 19 variables es el modelo vigente: R² de 0,9308 y RMSE de 23.108,4 MWh en un test de 354 días (del 22 de noviembre de 2025 al 10 de noviembre de 2026).
+          Las comparativas de 16 y 19 variables comparten ventana.
+          <a class="a-link" href="/proceso#evolucion">Ver cómo ha evolucionado el modelo</a>.
+        </p>
+        <ModelComparisonChart />
+      </div>
+    </section>
   </main>
 </Layout>
 

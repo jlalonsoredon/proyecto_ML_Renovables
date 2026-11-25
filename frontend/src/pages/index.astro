@@ -2,96 +2,142 @@
 import snapshot from "../data/forecast-snapshot.json";
 import { cardView } from "../utils/live-prediction.mjs";
 import Layout from "../layouts/Layout.astro";
-import Hero from "../components/sections/hero/Hero.astro";
-import KeyServices from "../components/sections/services/KeyServices.astro";
-import GetInvolved from "../components/sections/cta/GetInvolved.astro";
-import Container from "../components/shared/Container.astro";
-import Title2 from "../components/shared/Title2.astro";
-import Title3 from "../components/shared/Title3.astro";
-import Paragraph from "../components/shared/Paragraph.astro";
-import CtaButton from "../components/shared/CtaButton.astro";
+import PrediccionCard from "../components/shared/PrediccionCard.astro";
+import PredictionChart from "../components/charts/PredictionChart.astro";
+
 const view = cardView(snapshot);
+
+const pasos = [
+  { n: "01", t: "Obtención de datos", d: "Generación eléctrica por tecnología desde enero de 2022 (REE) y observaciones de 11 estaciones y previsiones de 12 ubicaciones (AEMET)." },
+  { n: "02", t: "Preprocesamiento", d: "Limpieza, interpolación de nulos, conversión de km/h a m/s y fusión por fecha. De ahí salen las 19 variables del modelo." },
+  { n: "03", t: "Modelos de Machine Learning", d: "Ocho familias de modelos comparadas con 16 y con 19 variables. Linear Regression con 19 variables es el modelo vigente." },
+  { n: "04", t: "Predicción y actualización", d: "Cada día se capturan las previsiones, se construyen las variables y se publica la cifra en MWh. Si falta un dato, no se publica ninguna." },
+];
 ---
 
-<Layout title="Predicción Eólica ML">
-  <main class="flex flex-col gap-y-20 md:gap-y-40 overflow-hidden">
-    <!-- 1. CABECERA (Hero original) -->
-    <Hero />
-
-    <!-- 2. BLOQUE "Discover Our Cutting-edge Green Energy Technologies" -->
-    <!-- <KeyServices /> -->
-
-    <!-- 3. TARJETAS DE RESULTADOS (estilo GetInvolved/Join Us) -->
-    <GetInvolved />
-
-    <!-- 4. SECCIÓN DE PREDICCIÓN ACTUAL -->
-    <Container>
-      <section class="py-12 text-center">
-        <Title2>Predicción para Mañana</Title2>
-        <div class="grid md:grid-cols-2 gap-8 items-center">
-          <div class="text-left">
-            <Paragraph>
-              Nuestro modelo predictivo utiliza datos meteorológicos de AEMET y
-              datos históricos de generación de la API de Red Eléctrica de España
-              para estimar la producción eólica del día siguiente.
-            </Paragraph>
-            <div class="mt-6 text-center">
-              <a href="/resultados" class="inline-block bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors">
-                Ver Todos los Gráficos
-              </a>
-            </div>
-          </div>
-          <div
-            class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white text-left"
-            id="prediction-card"
-            data-live-prediction
-            data-state={view.estado}
-          >
-            <Title3 className="text-white">Producción Eólica Prevista</Title3>
-            <p class="text-blue-100 text-sm mb-4">Fecha objetivo: <span data-field="fecha">{view.campos.fecha}</span></p>
-            <div class="text-5xl font-bold" data-field="valor">{view.campos.valor}</div>
-            <div class="text-blue-200 text-xl mt-2">MWh</div>
-            <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span class="text-blue-200">Velocidad viento:</span>
-                <div class="font-semibold" data-field="velmedia">{view.campos.velmedia}</div>
-              </div>
-              <div>
-                <span class="text-blue-200">Ráfagas:</span>
-                <div class="font-semibold" data-field="racha">{view.campos.racha}</div>
-              </div>
-            </div>
-            <p class="text-xs text-blue-100 mt-4">
-              Modelo: <span data-field="familia">{view.campos.familia}</span> · Variables: <span data-field="variables">{view.campos.variables}</span>
-            </p>
-            <p class="text-xs text-blue-100 mt-2" data-field="estado" data-tone="none" data-base-class="text-xs text-blue-100 mt-2" role="status" aria-live="polite">
-              {view.mensaje}
-            </p>
+<Layout title="Predicción eólica de mañana">
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="a-grid-bg" aria-hidden="true"></div>
+      <div class="a-wrap hero-in">
+        <div class="hero-txt">
+          <p class="a-eyebrow">Machine Learning · AEMET · Red Eléctrica de España</p>
+          <h1 class="a-h1">Predicción de producción <span style="color: var(--accent)">eólica</span> de mañana</h1>
+          <p class="a-lead">
+            Estimaciones diarias de la generación eólica peninsular, calculadas con modelos de Machine Learning a partir de los datos de AEMET y REE.
+          </p>
+          <div class="hero-btns">
+            <a class="a-btn" href="/resultados">Ver la predicción de mañana →</a>
+            <a class="a-btn a-btn-ghost" href="/proceso">Cómo funciona</a>
           </div>
         </div>
-      </section>
-    </Container>
+        <PrediccionCard view={view} />
+      </div>
+    </section>
 
-    <!-- 5. SECCIÓN DE PROCESO (CTA final) -->
-    <Container>
-      <section class="py-12 text-center bg-gray-100 dark:bg-gray-800 rounded-xl">
-        <Title2>¿Quieres Saber Cómo Funciona?</Title2>
-        <Paragraph>
-          Descubre el proceso completo: desde la obtención de datos de las APIs
-          hasta la predicción con Machine Learning.
-        </Paragraph>
-        <div class="flex justify-center mt-6 gap-4">
-          <a href="/proceso" class="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors">
-            Ver el Proceso
-          </a>
-          <a href="/resultados" class="inline-flex items-center gap-2 bg-secondary text-white px-6 py-3 rounded-lg hover:bg-secondary-dark transition-colors">
-            Ver Resultados
-          </a>
+    <!-- Tres razones para fiarse -->
+    <section class="a-section">
+      <div class="a-wrap">
+        <p class="a-eyebrow">Resultados del modelo</p>
+        <h2 class="a-h2" style="margin: 14px 0 36px; max-width: 20ch">Tres razones para fiarse de la cifra de mañana</h2>
+        <div class="bento">
+          <div class="a-card bento-a">
+            <p class="a-eyebrow">Precisión del modelo</p>
+            <p class="num font-display bento-big"><span>0,9308</span><small>R²</small></p>
+            <p class="a-p" style="max-width: 56ch">
+              Linear Regression con 19 variables explica el 93&nbsp;% de la variación de la producción eólica en un test de 354 días (nov. 2025 – nov. 2026).
+            </p>
+          </div>
+          <div class="bento-col">
+            <div class="a-card">
+              <p class="a-eyebrow">Datos históricos</p>
+              <p class="num font-display bento-mid"><span>4+</span><small>años</small></p>
+              <p class="a-p">Analizamos más de 4 años de datos de generación eléctrica y meteorológicos para entrenar los modelos.</p>
+            </div>
+            <div class="a-card">
+              <p class="a-eyebrow">Predicción diaria</p>
+              <p class="num font-display bento-mid"><span>Cada día</span></p>
+              <p class="a-p">Se genera la predicción de mañana con la previsión meteorológica de AEMET y la previsión eólica de REE.</p>
+            </div>
+          </div>
         </div>
-      </section>
-    </Container>
+      </div>
+    </section>
+
+    <!-- Predicción vs real (interactiva) -->
+    <section class="a-section">
+      <div class="a-wrap">
+        <div class="vs-head">
+          <div style="max-width: 700px">
+            <p class="a-eyebrow">Predicción vs real</p>
+            <h2 class="a-h2" style="margin: 14px 0">Lo previsto frente a lo que pasó, día a día</h2>
+            <p class="a-lead">
+              Producción eólica real de los últimos 30 días completos frente a las predicciones del modelo. Los días cuyo dato de REE aún está incompleto no se muestran.
+            </p>
+          </div>
+          <a class="a-btn a-btn-ghost" href="/resultados">Ver todos los gráficos →</a>
+        </div>
+        <div style="margin-top: 32px"><PredictionChart /></div>
+      </div>
+    </section>
+
+    <!-- Proceso -->
+    <section class="a-section">
+      <div class="a-wrap">
+        <p class="a-eyebrow">El proceso</p>
+        <h2 class="a-h2" style="margin: 14px 0 40px; max-width: 24ch">De las APIs a una cifra en MWh, en cuatro pasos</h2>
+        <ol class="pasos">
+          {pasos.map((p) => (
+            <li>
+              <span class="num font-display paso-n">{p.n}</span>
+              <h3 class="a-h3" style="margin: 14px 0 10px">{p.t}</h3>
+              <p class="a-p" style="font-size: 15px">{p.d}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
+    <!-- Cierre -->
+    <section class="a-section" style="padding-bottom: 112px">
+      <div class="a-wrap">
+        <div class="cierre">
+          <h2 class="a-h2" style="max-width: 18ch">¿Quieres saber cómo funciona?</h2>
+          <p class="a-lead" style="color: var(--ink); margin-top: 18px">
+            Descubre el proceso completo: desde la obtención de datos de las APIs hasta la predicción con Machine Learning.
+          </p>
+          <div class="hero-btns">
+            <a class="a-btn" href="/proceso">Ver el proceso →</a>
+            <a class="a-btn a-btn-ghost" href="/resultados">Ver resultados</a>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 </Layout>
+
+<style>
+  .hero { position: relative; overflow: hidden; padding: 64px 0 88px; }
+  .hero-in { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 56px; align-items: center; }
+  .hero-txt { display: flex; flex-direction: column; gap: 26px; }
+  .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+  .bento { display: flex; flex-wrap: wrap; gap: 20px; }
+  .bento-a { flex: 2 1 520px; display: flex; flex-direction: column; gap: 18px; justify-content: center; }
+  .bento-col { flex: 1 1 280px; display: flex; flex-direction: column; gap: 20px; }
+  .bento-col .a-card { display: flex; flex-direction: column; gap: 14px; }
+  .bento-big { line-height: 1; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 0; }
+  .bento-big span { font-size: clamp(56px, 6vw, 92px); font-weight: 700; letter-spacing: -0.04em; }
+  .bento-big small { font-size: 22px; color: var(--muted); font-weight: 500; }
+  .bento-mid { line-height: 1; display: flex; align-items: baseline; gap: 10px; margin: 0; }
+  .bento-mid span { font-size: clamp(40px, 4.4vw, 60px); font-weight: 700; letter-spacing: -0.04em; }
+  .bento-mid small { font-size: 20px; color: var(--muted); font-weight: 500; }
+  .vs-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+  .pasos { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 28px; }
+  .pasos li { border-top: 1px solid var(--line); padding-top: 22px; }
+  .paso-n { font-size: 14px; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; }
+  .cierre { background: var(--surface2); border: 1px solid var(--line); border-radius: 32px; padding: clamp(32px, 6vw, 72px); }
+</style>
 
 <script>
   import snapshot from "../data/forecast-snapshot.json";

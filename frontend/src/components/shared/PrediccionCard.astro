@@ -1,0 +1,76 @@
+---
+// Tarjeta de la previsión publicada (spec 012, D-12-5). Muestra los cuatro estados reales:
+// vigente, pendiente, caducada y no disponible. Los campos [data-field] los recalcula
+// initLivePrediction con la fecha de hoy; si no hay snapshot válido no se muestra ninguna cifra.
+import type { cardView } from "../../utils/live-prediction.mjs";
+
+interface Props {
+  view: ReturnType<typeof cardView>;
+  completa?: boolean;
+}
+const { view, completa = false } = Astro.props;
+---
+
+<section class="a-pred" data-live-prediction data-state={view.estado} aria-labelledby="pred-titulo">
+  <div class="a-pred-top">
+    <p class="a-eyebrow" id="pred-titulo">Predicción para mañana</p>
+    <span class="a-pred-chip" aria-hidden="true"></span>
+  </div>
+  <p class="num a-pred-fecha">Fecha objetivo: <span data-field="fecha">{view.campos.fecha}</span></p>
+  <p class="num a-pred-valor font-display">
+    <span class="a-pred-num" data-field="valor">{view.campos.valor}</span>
+    <span class="a-pred-unidad">MWh</span>
+  </p>
+  <dl class="a-pred-datos">
+    {completa && (
+      <div>
+        <dt>Emitida</dt>
+        <dd data-field="emision">{view.campos.emision}</dd>
+      </div>
+    )}
+    <div>
+      <dt>Modelo</dt>
+      <dd data-field="familia">{view.campos.familia}</dd>
+    </div>
+    <div>
+      <dt>Variables</dt>
+      <dd data-field="variables">{view.campos.variables}</dd>
+    </div>
+    <div>
+      <dt>Viento medio</dt>
+      <dd data-field="velmedia">{view.campos.velmedia}</dd>
+    </div>
+    <div>
+      <dt>Ráfagas</dt>
+      <dd data-field="racha">{view.campos.racha}</dd>
+    </div>
+  </dl>
+  <p class="a-pred-msg" data-field="estado" data-tone="none" data-base-class="a-pred-msg" role="status" aria-live="polite">{view.mensaje}</p>
+  {completa && <p class="a-pred-ver" data-field="version">{view.campos.version}</p>}
+</section>
+
+<style>
+  .a-pred { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 32px; box-shadow: 0 40px 90px -60px rgba(0, 0, 0, 0.65); }
+  .a-pred-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .a-pred-chip { border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; border: 1px solid var(--accent); color: var(--accent); }
+  .a-pred-chip::before { content: "Vigente"; }
+  [data-state="pendiente"] .a-pred-chip { border-color: var(--warm); color: var(--warm); }
+  [data-state="pendiente"] .a-pred-chip::before { content: "Pendiente"; }
+  [data-state="caducado"] .a-pred-chip { border-color: var(--coral); color: var(--coral); }
+  [data-state="caducado"] .a-pred-chip::before { content: "Caducada"; }
+  [data-state="no_disponible"] .a-pred-chip { border-color: var(--coral); color: var(--coral); }
+  [data-state="no_disponible"] .a-pred-chip::before { content: "No disponible"; }
+  .a-pred-fecha { margin: 14px 0 0; color: var(--muted); }
+  .a-pred-valor { margin: 6px 0 0; line-height: 1; display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; }
+  .a-pred-num { font-size: clamp(56px, 7vw, 100px); font-weight: 700; letter-spacing: -0.045em; }
+  .a-pred-unidad { font-size: 26px; font-weight: 500; color: var(--muted); }
+  [data-state="no_disponible"] .a-pred-num { font-size: clamp(34px, 4.4vw, 56px); color: var(--muted); letter-spacing: -0.03em; }
+  [data-state="no_disponible"] .a-pred-unidad { display: none; }
+  [data-state="no_disponible"] [data-field="fecha"],
+  [data-state="no_disponible"] dd { color: var(--muted); }
+  .a-pred-datos { margin: 26px 0 0; padding-top: 22px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 18px; }
+  .a-pred-datos dt { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .a-pred-datos dd { margin: 4px 0 0; font-family: "Space Grotesk", sans-serif; font-size: 18px; font-weight: 600; }
+  .a-pred-msg { margin: 18px 0 0; font-size: 14px; color: var(--ink); text-wrap: pretty; }
+  .a-pred-ver { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+</style>

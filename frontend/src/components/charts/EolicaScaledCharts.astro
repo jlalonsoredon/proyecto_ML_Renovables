@@ -45,26 +45,27 @@ function corrBg(v: number): string {
 
 
 <script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script is:inline src="/js/chart-tema.js"></script>
 
 <div class="space-y-6 mt-4">
-  <p class="text-sm text-gray-500 dark:text-gray-400 italic">
+  <p class="text-sm text-muted italic">
     Variables normalizadas con Standard Scaling (μ=0, σ=1). Valores positivos indican por encima de la media, negativos por debajo.
   </p>
-  <p class="text-xs text-gray-500 dark:text-gray-400">
+  <p class="text-xs text-muted">
     Periodo: {series.exploracion.periodo}. {series.exploracion.fuente}
   </p>
 
   <!-- Scatter + Heatmap -->
   <div class="grid md:grid-cols-2 gap-6">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-      <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+    <div class="bg-surface rounded-2xl p-4 border border-line min-w-0">
+      <h4 class="font-semibold text-sm text-ink mb-3">
         Scatter: Velocidad Viento vs Generación Eólica (Escalados)
       </h4>
       <canvas id="scaledScatterChart" style="height:270px"></canvas>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-      <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+    <div class="bg-surface rounded-2xl p-4 border border-line min-w-0">
+      <h4 class="font-semibold text-sm text-ink mb-3">
         Mapa de Calor de Correlación
       </h4>
       <div class="overflow-auto mt-4">
@@ -73,19 +74,19 @@ function corrBg(v: number): string {
             <tr>
               <th class="p-2"></th>
               {CORR_LABELS.map(l => (
-                <th class="p-2 text-xs text-gray-600 dark:text-gray-300 font-medium">{l}</th>
+                <th class="p-2 text-xs text-muted font-medium">{l}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {CORR_MATRIX.map((row, i) => (
               <tr>
-                <td class="p-2 text-xs text-gray-600 dark:text-gray-300 font-medium text-right pr-3">
+                <td class="p-2 text-xs text-muted font-medium text-right pr-3">
                   {CORR_LABELS[i]}
                 </td>
                 {row.map(v => (
                   <td
-                    class="p-4 rounded font-bold text-base"
+                    class="p-2 sm:p-4 rounded font-bold text-sm sm:text-base"
                     style={`background-color:${corrBg(v)};color:${Math.abs(v) > 0.5 ? '#fff' : '#374151'}`}
                   >
                     {v.toFixed(2)}
@@ -100,30 +101,30 @@ function corrBg(v: number): string {
   </div>
 
   <!-- Histograma -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-    <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+  <div class="bg-surface rounded-2xl p-4 border border-line min-w-0">
+    <h4 class="font-semibold text-sm text-ink mb-3">
       Distribución de Velmedia Scaled, Racha Scaled y Eólica Scaled
     </h4>
     <canvas id="scaledHistChart" style="height:280px"></canvas>
   </div>
 
   <!-- Series temporales -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-    <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+  <div class="bg-surface rounded-2xl p-4 border border-line min-w-0">
+    <h4 class="font-semibold text-sm text-ink mb-3">
       Evolución Temporal — Serie Completa (2022–2024)
     </h4>
     <canvas id="scaledTimeFullChart" style="height:280px"></canvas>
   </div>
 
   <div class="grid md:grid-cols-2 gap-6">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-      <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+    <div class="bg-surface rounded-2xl p-4 border border-line min-w-0">
+      <h4 class="font-semibold text-sm text-ink mb-3">
         Evolución Temporal — Últimos 2 años
       </h4>
       <canvas id="scaledTime2yChart" style="height:270px"></canvas>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-      <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-200 mb-3">
+    <div class="bg-surface rounded-2xl p-4 border border-line min-w-0">
+      <h4 class="font-semibold text-sm text-ink mb-3">
         Evolución Temporal — Último año
       </h4>
       <canvas id="scaledTime1yChart" style="height:270px"></canvas>

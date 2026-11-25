@@ -10,10 +10,10 @@ const rows = importancia.valores.map((v) => ({
 }));
 ---
 
-<figure class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md">
+<figure class="bg-surface rounded-2xl p-4 border border-line">
   <figcaption class="mb-3">
-    <span class="block text-base font-semibold text-gray-800 dark:text-white">Peso de cada variable en el modelo vigente</span>
-    <span class="block text-xs text-gray-500 dark:text-gray-400 mt-1">{importancia.periodo}. {importancia.fuente}</span>
+    <span class="block text-base font-semibold text-ink">Peso de cada variable en el modelo vigente</span>
+    <span class="block text-xs text-muted mt-1">{importancia.periodo}. {importancia.fuente}</span>
   </figcaption>
   <div style="position:relative;height:520px;">
     <canvas id="featureImportanceChart" role="img" aria-label="Gráfica de barras con el peso de las 19 variables" data-rows={JSON.stringify(rows)}></canvas>
@@ -25,6 +25,7 @@ const rows = importancia.valores.map((v) => ({
 
 <script>
   import { Chart, registerables } from "chart.js";
+  import "../../utils/charts-tema";
 
   Chart.register(...registerables);
 

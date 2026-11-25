@@ -1,6 +1,6 @@
 # Spec 012 — Migración del rediseño al frontend real (Astro)
 
-Estado: propuesta (25/11/2026). Sin implementar.
+Estado: implementada (25/11/2026). Pendiente comprobar en tableta y en Vercel.
 
 ## Contexto
 

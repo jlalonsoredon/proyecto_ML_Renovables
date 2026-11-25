@@ -7,6 +7,15 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Tokens del rediseño (spec 012): cambian con el tema vía variables CSS.
+        bg: "var(--bg)",
+        surface: "var(--surface)",
+        surface2: "var(--surface2)",
+        line: "var(--line)",
+        ink: "var(--ink)",
+        muted: "var(--muted)",
+        brand: "var(--accent)",
+        brandink: "var(--accentInk)",
         base: {
           50: "#f9f9f9",
           100: "#efefef",
@@ -103,7 +112,8 @@ export default {
         dark: "inset 0 1px 0 0 #ffffff0d",
       },
       fontFamily: {
-        sans: ["Raleway", ...defaultTheme.fontFamily.sans],
+        sans: ["Inter", ...defaultTheme.fontFamily.sans],
+        display: ["Space Grotesk", "Inter", ...defaultTheme.fontFamily.sans],
       },
     },
   },

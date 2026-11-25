@@ -8,15 +8,15 @@ const baseStatusClass = "text-sm font-medium";
 ---
 
 <section
-  class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-700"
+  class="bg-surface rounded-2xl p-6 border border-line border border-line"
   aria-labelledby="estado-actual-titulo"
   data-live-prediction
   data-state={view.estado}
 >
-  <h3 id="estado-actual-titulo" class="text-xl font-bold text-gray-900 dark:text-white mb-1">
+  <h3 id="estado-actual-titulo" class="text-xl font-bold text-ink mb-1">
     Estado actual: predicción de mañana
   </h3>
-  <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+  <p class="text-sm text-muted mb-4">
     Previsión publicada por el servicio de predicción. Se actualiza una vez al día.
   </p>
 
@@ -26,30 +26,30 @@ const baseStatusClass = "text-sm font-medium";
 
   <dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
     <div>
-      <dt class="text-gray-500 dark:text-gray-400">Producción prevista</dt>
-      <dd class="text-2xl font-bold text-gray-900 dark:text-white">
+      <dt class="text-muted">Producción prevista</dt>
+      <dd class="text-2xl font-bold text-ink">
         <span data-field="valor">{view.campos.valor}</span> <span class="text-base font-normal">MWh</span>
       </dd>
     </div>
     <div>
-      <dt class="text-gray-500 dark:text-gray-400">Fecha objetivo</dt>
-      <dd class="font-semibold text-gray-900 dark:text-white" data-field="fecha">{view.campos.fecha}</dd>
+      <dt class="text-muted">Fecha objetivo</dt>
+      <dd class="font-semibold text-ink" data-field="fecha">{view.campos.fecha}</dd>
     </div>
     <div>
-      <dt class="text-gray-500 dark:text-gray-400">Fecha de emisión</dt>
-      <dd class="font-semibold text-gray-900 dark:text-white" data-field="emision">{view.campos.emision}</dd>
+      <dt class="text-muted">Fecha de emisión</dt>
+      <dd class="font-semibold text-ink" data-field="emision">{view.campos.emision}</dd>
     </div>
     <div>
-      <dt class="text-gray-500 dark:text-gray-400">Familia del modelo</dt>
-      <dd class="font-semibold text-gray-900 dark:text-white" data-field="familia">{view.campos.familia}</dd>
+      <dt class="text-muted">Familia del modelo</dt>
+      <dd class="font-semibold text-ink" data-field="familia">{view.campos.familia}</dd>
     </div>
     <div>
-      <dt class="text-gray-500 dark:text-gray-400">Número de variables</dt>
-      <dd class="font-semibold text-gray-900 dark:text-white" data-field="variables">{view.campos.variables}</dd>
+      <dt class="text-muted">Número de variables</dt>
+      <dd class="font-semibold text-ink" data-field="variables">{view.campos.variables}</dd>
     </div>
   </dl>
 
-  <p class="mt-4 text-sm text-gray-600 dark:text-gray-400" data-field="version">{view.campos.version}</p>
+  <p class="mt-4 text-sm text-muted" data-field="version">{view.campos.version}</p>
 
 </section>
 

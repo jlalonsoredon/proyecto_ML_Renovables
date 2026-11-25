@@ -38,9 +38,9 @@ const badge = "text-xs px-2 py-0.5 rounded-full whitespace-nowrap";
 ---
 
 <div class="space-y-6">
-  <div class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+  <div class="text-sm text-muted space-y-1" style="max-width: 80ch">
     <p>
-      Media semanal (lunes a domingo, etiquetada por su domingo) de la generación eólica real (negro) frente a la
+      Media semanal (lunes a domingo, etiquetada por su domingo) de la generación eólica real (línea continua) frente a la
       predicción de cada modelo con 16 variables (naranja) y con 19 variables (azul). Valores en GWh.
     </p>
     <p class="text-xs">
@@ -55,25 +55,25 @@ const badge = "text-xs px-2 py-0.5 rounded-full whitespace-nowrap";
   </div>
 
   {models.map((m) => (
-    <figure class={`bg-white dark:bg-gray-900 rounded-xl p-4 shadow border ${m.vigente ? "border-green-500" : "border-gray-100 dark:border-gray-700"}`}>
+    <figure class="a-card" style={m.vigente ? "border-color: var(--accent)" : ""}>
       <figcaption class="mb-3 space-y-2">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="font-semibold text-gray-800 dark:text-white text-base">{m.nombre}</span>
-          {m.vigente && <span class={`${badge} bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200 font-semibold`}>Modelo vigente</span>}
-          {m.rechazado && <span class={`${badge} bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 font-semibold`}>Rechazado: mejora en 1 de 4 años</span>}
+          <span class="font-display font-semibold text-ink text-lg">{m.nombre}</span>
+          {m.vigente && <span class={`${badge} font-semibold" style="background: var(--accent); color: var(--accentInk)`}>Modelo vigente</span>}
+          {m.rechazado && <span class={`${badge} font-semibold" style="border: 1px solid var(--warm); color: var(--warm)`}>Rechazado: mejora en 1 de 4 años</span>}
         </div>
         <dl class="grid gap-2 sm:grid-cols-2 text-xs">
-          <div class="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-2">
-            <dt class="font-semibold text-orange-800 dark:text-orange-200">{window16}</dt>
-            <dd class="text-gray-700 dark:text-gray-300">
+          <div class="rounded-lg p-3" style="border: 1px solid var(--coral)">
+            <dt class="font-semibold" style="color: var(--coral)">{window16}</dt>
+            <dd class="text-ink">
               RMSE {formatMetric(m.m16.rmse, "rmse")} · MAE {formatMetric(m.m16.mae, "mae")} ·
               R² {formatMetric(m.m16.r2, "r2")} · MAPE {formatMetric(m.m16.mape, "mape")} ·
               Acierto por tramos {formatNumber(m.m16.accuracy, 1)} %
             </dd>
           </div>
-          <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
-            <dt class="font-semibold text-blue-800 dark:text-blue-200">{window19}</dt>
-            <dd class="text-gray-700 dark:text-gray-300">
+          <div class="rounded-lg p-3" style="border: 1px solid var(--sky)">
+            <dt class="font-semibold" style="color: var(--sky)">{window19}</dt>
+            <dd class="text-ink">
               RMSE {formatMetric(m.m19.rmse, "rmse")} · MAE {formatMetric(m.m19.mae, "mae")} ·
               R² {formatMetric(m.m19.r2, "r2")} · MAPE {formatMetric(m.m19.mape, "mape")} ·
               Acierto por tramos {formatNumber(m.m19.accuracy, 1)} %
@@ -81,7 +81,7 @@ const badge = "text-xs px-2 py-0.5 rounded-full whitespace-nowrap";
           </div>
         </dl>
       </figcaption>
-      <div style="position:relative;height:220px;">
+      <div style="position:relative;height:clamp(260px, 42vw, 380px);">
         <canvas
           id={m.id}
           data-series={JSON.stringify(m.series)}
@@ -89,12 +89,27 @@ const badge = "text-xs px-2 py-0.5 rounded-full whitespace-nowrap";
           aria-label={`${m.nombre}: generación real y predicciones semanales con 16 y 19 variables`}
         ></canvas>
       </div>
+      <details class="a-tabla">
+        <summary>Ver los datos en tabla</summary>
+        <div class="a-tabla-wrap">
+          <table>
+            <caption class="sr-only">{m.nombre}: GWh por semana</caption>
+            <thead><tr><th scope="col">Semana</th><th scope="col">Real</th><th scope="col">16 variables</th><th scope="col">19 variables</th></tr></thead>
+            <tbody>
+              {m.series.labels.map((l, i) => (
+                <tr><th scope="row" style="font-weight:400;color:var(--ink)">{l}</th><td>{formatNumber(m.series.real[i] ?? 0, 1)}</td><td>{formatNumber(m.series.pred16[i] ?? 0, 1)}</td><td>{formatNumber(m.series.pred19[i] ?? 0, 1)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </figure>
   ))}
 </div>
 
 <script>
   import { Chart, registerables } from "chart.js";
+  import "../../utils/charts-tema";
 
   Chart.register(...registerables);
 
@@ -107,10 +122,10 @@ const badge = "text-xs px-2 py-0.5 rounded-full whitespace-nowrap";
       data: {
         labels: s.labels,
         datasets: [
-          { label: "Real", data: s.real, borderColor: "#374151", borderWidth: 1.8, pointRadius: 0, tension: 0.3 },
-          { label: "16 variables", data: s.pred16, borderColor: "tomato", borderWidth: 1.2, pointRadius: 0, tension: 0.3 },
-          { label: "19 variables", data: s.pred19, borderColor: "#2563EB", borderWidth: 1.4, pointRadius: 0, tension: 0.3 },
-        ],
+          { label: "Real", tokenColor: "ink", data: s.real, borderColor: "#374151", borderWidth: 2.2, pointRadius: 0, tension: 0.3 },
+          { label: "16 variables", tokenColor: "coral", data: s.pred16, borderColor: "tomato", borderWidth: 2, pointRadius: 0, tension: 0.3 },
+          { label: "19 variables", tokenColor: "sky", data: s.pred19, borderColor: "#2563EB", borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        ] as any[],
       },
       options: {
         responsive: true,

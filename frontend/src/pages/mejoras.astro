@@ -1,215 +1,163 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import Container from "../components/shared/Container.astro";
-import Title from "../components/shared/Title.astro";
-import Paragraph from "../components/shared/Paragraph.astro";
-import Title2 from "../components/shared/Title2.astro";
+import linea from "../data/spec-timeline.json";
+
+// Títulos de las specs: los diez primeros salen de spec-timeline.json; las posteriores se declaran aquí.
+const titulos: Record<string, string> = Object.fromEntries(linea.hitos.map((h) => [h.numero, h.titulo]));
+titulos["011"] = "Ventana común de las comparativas";
+titulos["012"] = "Rediseño de la interfaz";
 
 // `realizado` y `specs` solo se rellenan en las tareas completadas: dicen qué se hizo y dónde está documentado.
 const tareas = [
   {
+    titulo: "Incluir datos de producción y previsión de energía hidráulica",
+    descripcion: "Incorporar datos de producción y previsión de energía hidráulica para mejorar la precisión de las predicciones y permitir análisis más completos.",
+    estado: "pendiente",
+    prioridad: "Alta",
+    realizado: "",
+    specs: [] as string[],
+  },
+  {
     titulo: "Restyling completo del frontend",
     descripcion: "Actualizar el diseño y la experiencia de usuario del frontend para hacerlo más moderno y atractivo.",
     estado: "completado",
-    prioridad: "media",
-    realizado: "Rediseño completo de Inicio, Resultados, Proceso y Mejoras: estilo más moderno, gráficas interactivas, tema claro y oscuro, versión móvil y contenidos más didácticos.",
-    specs: "Rediseño de la interfaz"
+    prioridad: "Media",
+    realizado: "Rediseño completo de Inicio, Resultados, Proceso y Mejoras: estilo más moderno, gráficas interactivas con Chart.js, tema claro y oscuro, versión móvil y contenidos más didácticos.",
+    specs: ["012"],
   },
   {
     titulo: "Incluir datos de producción y previsión de energía solar",
     descripcion: "Incorporar datos de producción y previsión de energía solar para mejorar la precisión de las predicciones y permitir análisis más completos.",
     estado: "completado",
-    prioridad: "alta",
+    prioridad: "Alta",
     realizado: "Integrada como variables del modelo eólico: horas de sol y temperatura del día anterior, más un archivo diario con las previsiones de AEMET.",
-    specs: "Specs 002 y 003"
-  },
-  {
-    titulo: "Incluir datos de producción y previsión de energía hidráulica",
-    descripcion: "Incorporar datos de producción y previsión de energía hidráulica para mejorar la precisión de las predicciones y permitir análisis más completos.",
-    estado: "pendiente",
-    prioridad: "alta"
+    specs: ["002", "003"],
   },
   {
     titulo: "Integrar la previsión de demanda eléctrica de REE",
     descripcion: "Incorporar datos de previsión de demanda eléctrica para mejorar la precisión de las predicciones y permitir análisis más completos.",
     estado: "completado",
-    prioridad: "alta",
+    prioridad: "Alta",
     realizado: "Integrada la previsión de REE para el día que se predice (previsión eólica D+1) como variable del modelo.",
-    specs: "Specs 004 y 005"
+    specs: ["004", "005"],
   },
   {
     titulo: "Mejorar el modelo con todos los nuevos datos integrados",
     descripcion: "Incorporar todos los nuevos datos de producción y previsión de energía para mejorar la precisión de las predicciones y permitir análisis más completos.",
     estado: "completado",
-    prioridad: "alta",
+    prioridad: "Alta",
     realizado: "El modelo pasó de 16 a 19 variables y su error se redujo a la mitad al incorporar la previsión de REE.",
-    specs: "Specs 002, 005 y 006"
-  }
+    specs: ["002", "005", "006"],
+  },
 ];
 
-const realizadas = tareas.filter((tarea) => tarea.estado === "completado");
-const pendientes = tareas.filter((tarea) => tarea.estado !== "completado");
-const porcentaje = Math.round((realizadas.length / tareas.length) * 100);
-const grupos = [
-  { id: "pendientes", titulo: "Pendientes", items: pendientes },
-  { id: "realizadas", titulo: "Realizadas", items: realizadas }
-];
-
-const getEstadoBadge = (estado: string) => {
-  const estados = {
-    pendiente: { label: "Pendiente", class: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300" },
-    en_progreso: { label: "En Progreso", class: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-    completado: { label: "Completado", class: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" }
-  };
-  return estados[estado as keyof typeof estados] || estados.pendiente;
-};
-
-const getPrioridadBadge = (prioridad: string) => {
-  const prioridades = {
-    alta: { label: "Alta", class: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" },
-    media: { label: "Media", class: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" },
-    baja: { label: "Baja", class: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" }
-  };
-  return prioridades[prioridad as keyof typeof prioridades] || prioridades.media;
-};
+const realizadas = tareas.filter((t) => t.estado === "completado").length;
+const porcentaje = Math.round((realizadas / tareas.length) * 100);
 ---
 
-<Layout title="Mejoras - AeroPredictor">
-  <main class="flex flex-col gap-y-12 md:gap-y-20 overflow-hidden pb-20">
-    <Container>
-      <div class="py-12 text-center">
-        <Title>Mejoras y Futuro</Title>
-        <Paragraph>
-          Qué mejoras del proyecto AeroPredictor ya están hechas y cuáles quedan por hacer.
-          Las casillas son solo informativas: reflejan el estado real del proyecto y no se pueden editar.
-        </Paragraph>
-
-        <div class="max-w-xl mx-auto mt-8 text-left">
-          <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            <span>{realizadas.length} de {tareas.length} mejoras realizadas</span>
-            <span>{porcentaje} %</span>
+<Layout title="Mejoras">
+  <main>
+    <section class="a-section" style="padding-top: 72px; padding-bottom: 56px">
+      <div class="a-wrap" style="display: flex; flex-direction: column; gap: 22px; max-width: 880px">
+        <p class="a-eyebrow">Mejoras y futuro</p>
+        <h1 class="a-h1">Hoja de ruta del proyecto</h1>
+        <p class="a-lead">
+          Qué mejoras de AeroPredictor ya están hechas, cuáles quedan por hacer y en qué specs se desarrolló cada una.
+          Las marcas son solo informativas: reflejan el estado real del proyecto y no se pueden editar.
+        </p>
+        <div style="max-width: 520px; margin-top: 10px">
+          <div class="num" style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 600; margin-bottom: 10px">
+            <span>{realizadas} de {tareas.length} mejoras realizadas</span>
+            <span style="color: var(--muted)">{porcentaje} %</span>
           </div>
-          <div
-            class="h-3 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden"
-            role="progressbar"
-            aria-label="Mejoras realizadas"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow={porcentaje}
-          >
-            <div class="h-full rounded-full bg-green-600" style={`width: ${porcentaje}%`}></div>
+          <div role="progressbar" aria-label="Mejoras realizadas" aria-valuemin="0" aria-valuemax="100" aria-valuenow={porcentaje} style="height: 12px; border-radius: 999px; background: var(--surface2); overflow: hidden">
+            <div style={`height: 100%; width: ${porcentaje}%; background: var(--accent); border-radius: 999px`}></div>
           </div>
         </div>
       </div>
-    </Container>
+    </section>
 
-    {grupos.map((grupo) => grupo.items.length > 0 && (
-      <Container>
-        <section aria-labelledby={`grupo-${grupo.id}`}>
-          <div id={`grupo-${grupo.id}`}>
-            <Title2>{grupo.titulo} ({grupo.items.length})</Title2>
-          </div>
-
-          <ul class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {grupo.items.map((tarea) => {
-              const hecha = tarea.estado === "completado";
-              const estadoBadge = getEstadoBadge(tarea.estado);
-              const prioridadBadge = getPrioridadBadge(tarea.prioridad);
-
-              return (
-                <li
-                  class={`rounded-xl shadow-lg p-5 sm:p-6 border transition-shadow duration-300 hover:shadow-xl ${
-                    hecha
-                      ? "bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-800"
-                      : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                  }`}
+    <section class="a-section">
+      <div class="a-wrap">
+        <div style="display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 28px">
+          <h2 class="a-h2">De lo próximo a lo hecho</h2>
+          <span class="a-p" style="font-size: 14px">Arriba lo pendiente; debajo, lo ya realizado.</span>
+        </div>
+        <ol class="ruta">
+          {tareas.map((t, i) => {
+            const hecha = t.estado === "completado";
+            return (
+              <li class="paso" data-hecha={hecha ? "si" : "no"}>
+                {i < tareas.length - 1 && <span class="riel" aria-hidden="true"></span>}
+                <span
+                  class="nodo"
+                  role="checkbox"
+                  aria-checked={hecha ? "true" : "false"}
+                  aria-readonly="true"
+                  aria-label={`${hecha ? "Realizada" : "Pendiente"}: ${t.titulo}`}
                 >
-                  <div class="flex items-start gap-4">
-                    <span
-                      role="checkbox"
-                      aria-checked={hecha ? "true" : "false"}
-                      aria-readonly="true"
-                      aria-label={`${hecha ? "Realizada" : "Pendiente"}: ${tarea.titulo}`}
-                      class={`mt-1 shrink-0 flex items-center justify-center w-6 h-6 rounded-md border-2 select-none ${
-                        hecha
-                          ? "bg-green-600 border-green-600 text-white"
-                          : "bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600"
-                      }`}
-                    >
-                      {hecha && (
-                        <svg
-                          class="w-4 h-4"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2.5"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M3.5 8.5l3 3 6-7"></path>
-                        </svg>
-                      )}
-                    </span>
-
-                    <div class="min-w-0">
-                      <div class="flex flex-wrap gap-2 mb-3">
-                        <span class={`px-3 py-1 rounded-full text-xs font-semibold ${estadoBadge.class}`}>
-                          {estadoBadge.label}
-                        </span>
-                        <span class={`px-3 py-1 rounded-full text-xs font-semibold ${prioridadBadge.class}`}>
-                          Prioridad {prioridadBadge.label}
-                        </span>
-                      </div>
-
-                      <h3 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3">
-                        {tarea.titulo}
-                      </h3>
-
-                      <p class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                        {tarea.descripcion}
-                      </p>
-
-                      {hecha && tarea.realizado && (
-                        <div class="mt-4 pt-4 border-t border-green-200 dark:border-green-800 text-sm">
-                          <p class="text-green-900 dark:text-green-200 leading-relaxed">
-                            <span class="font-semibold">Qué se hizo:</span> {tarea.realizado}
-                          </p>
-                          {tarea.specs && (
-                            <p class="mt-1 text-xs text-green-800/80 dark:text-green-300/80">{tarea.specs}</p>
-                          )}
+                  {hecha && (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>
+                  )}
+                </span>
+                <div class="tarjeta">
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                    <span class="est">{hecha ? "Completado" : "Pendiente"}</span>
+                    <span class="a-chip">Prioridad {t.prioridad}</span>
+                  </div>
+                  <h3 class="a-h3" style="font-size: 21px">{t.titulo}</h3>
+                  <p class="a-p" style="font-size: 15px">{t.descripcion}</p>
+                  {hecha && (
+                    <div class="nota">
+                      <p style="font-size: 14px"><b>Qué se hizo:</b> {t.realizado}</p>
+                      {t.specs.length > 0 && (
+                        <div>
+                          <p class="mini">Specs relacionadas</p>
+                          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px">
+                            {t.specs.map((s) => (
+                              <a class="spec" href="/proceso#evolucion"><b class="num">{s}</b>{titulos[s]}</a>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      </Container>
-    ))}
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <p style="margin-top: 8px"><a class="a-link" href="/proceso#evolucion">Ver todas las specs del proyecto →</a></p>
+      </div>
+    </section>
 
-    <Container>
-      <section class="bg-gradient-to-r from-green-600 to-green-800 rounded-xl p-8 text-white">
-        <Title2 className="text-white mb-4">¿Tienes sugerencias?</Title2>
-        <Paragraph className="text-green-100">
-          Si tienes ideas para mejorar el proyecto o quieres contribuir, no dudes en contactarme
-          a través de LinkedIn.
-        </Paragraph>
-        <div class="mt-6">
-          <a 
-            href="https://www.linkedin.com/in/jose-luis-alonso-redondo/" 
-            target="_blank"
-            class="inline-flex items-center gap-2 bg-white text-green-700 px-6 py-3 rounded-lg font-semibold hover:bg-green-50 transition-colors"
-          >
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854V1.146zm4.943 12.248V6.169H2.542v7.225h2.401zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248-.822 0-1.359.54-1.359 1.248 0 .694.521 1.248 1.327 1.248h.016zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016a5.54 5.54 0 0 1 .016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225h2.4z"/>
-            </svg>
-            Contactar en LinkedIn
-          </a>
+    <section class="a-section" style="padding-bottom: 112px">
+      <div class="a-wrap">
+        <div class="contacto">
+          <h2 class="a-h2">¿Tienes sugerencias?</h2>
+          <p class="a-lead" style="color: var(--ink); margin: 16px 0 24px">
+            Si tienes ideas para mejorar el proyecto o quieres contribuir, no dudes en contactarme a través de LinkedIn.
+          </p>
+          <a class="a-btn" href="https://www.linkedin.com/in/jose-luis-alonso-redondo/" target="_blank" rel="noopener noreferrer">Contactar en LinkedIn →</a>
         </div>
-      </section>
-    </Container>
+      </div>
+    </section>
   </main>
 </Layout>
+
+<style>
+  .ruta { margin: 0; padding: 0; max-width: 860px; list-style: none; }
+  .paso { position: relative; padding: 0 0 24px 56px; }
+  .riel { position: absolute; left: 13px; top: 54px; bottom: -24px; width: 2px; background: var(--line); }
+  .nodo { position: absolute; left: 0; top: 22px; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--bg); border: 2px dashed var(--warm); }
+  .paso[data-hecha="si"] .nodo { background: var(--accent); border: 2px solid var(--accent); color: var(--accentInk); }
+  .tarjeta { background: var(--surface); border: 1px solid var(--warm); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .paso[data-hecha="si"] .tarjeta { border-color: var(--accent); }
+  .est { border: 1px solid var(--warm); color: var(--warm); border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; }
+  .paso[data-hecha="si"] .est { border-color: var(--accent); color: var(--accent); }
+  .nota { margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+  .mini { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  .spec { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; text-decoration: none; }
+  .spec b { color: var(--accent); }
+  .contacto { background: var(--surface2); border: 1px solid var(--line); border-radius: 32px; padding: clamp(32px, 6vw, 64px); }
+</style>

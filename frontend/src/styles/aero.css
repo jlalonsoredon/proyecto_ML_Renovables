@@ -1,0 +1,94 @@
+/* Rediseño (spec 012). Tema claro en :root; el oscuro se activa con html.dark (es el predeterminado de la web). */
+:root {
+  --bg: #F3F7F4; --surface: #FFFFFF; --surface2: #E8F0EB; --line: rgba(10,40,25,0.13);
+  --ink: #0C1A13; --muted: #465B50; --accent: #14783A; --accentInk: #FFFFFF;
+  --warm: #8A5200; --sky: #1565C0; --coral: #B4411F; --violet: #5B3FB5; --grid: rgba(10,40,25,0.10);
+  color-scheme: light;
+}
+html.dark {
+  --bg: #0A120E; --surface: #101A15; --surface2: #16231C; --line: rgba(190,235,210,0.13);
+  --ink: #E9F3ED; --muted: #9DB5A8; --accent: #5BE08B; --accentInk: #052012;
+  --warm: #F2B84B; --sky: #6CB8FF; --coral: #FF8A6B; --violet: #B79CFF; --grid: rgba(190,235,210,0.10);
+  color-scheme: dark;
+}
+
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Inter", system-ui, sans-serif; line-height: 1.6; }
+h1, h2, h3, .font-display { font-family: "Space Grotesk", "Inter", system-ui, sans-serif; }
+.num { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+/* Estructura */
+.a-wrap { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.a-section { padding-bottom: 88px; }
+@media (max-width: 640px) { .a-wrap { padding: 0 18px; } .a-section { padding-bottom: 64px; } }
+
+/* Tipografía */
+.a-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.a-h1 { font-size: clamp(40px, 5.6vw, 76px); line-height: 0.98; letter-spacing: -0.04em; font-weight: 600; text-wrap: balance; }
+.a-h2 { font-size: clamp(26px, 3.2vw, 40px); line-height: 1.1; letter-spacing: -0.03em; font-weight: 600; text-wrap: balance; }
+.a-h3 { font-size: 20px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 600; }
+.a-lead { font-size: 18px; line-height: 1.6; color: var(--muted); max-width: 62ch; text-wrap: pretty; }
+.a-p { color: var(--muted); text-wrap: pretty; }
+.a-link { color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Tarjetas y botones */
+.a-card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 28px; }
+.a-card-sm { background: var(--surface2); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+.a-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 22px; border-radius: 999px; font-weight: 600; font-size: 15px; text-decoration: none; background: var(--accent); color: var(--accentInk); border: 1px solid var(--accent); transition: transform .15s; }
+.a-btn:hover { transform: translateY(-1px); }
+.a-btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.a-chip { display: inline-flex; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; }
+
+/* Cabecera */
+.a-nav { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+.a-nav-in { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 64px; }
+.a-logo { display: inline-flex; align-items: center; gap: 10px; font-family: "Space Grotesk", sans-serif; font-size: 20px; font-weight: 700; text-decoration: none; letter-spacing: -0.02em; }
+.a-logo span { font-weight: 400; color: var(--muted); }
+.a-links { display: flex; gap: 4px; align-items: center; }
+.a-links a { padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 500; text-decoration: none; color: var(--muted); }
+.a-links a:hover { color: var(--ink); background: var(--surface2); }
+.a-links a[aria-current="page"] { color: var(--ink); background: var(--surface2); }
+.a-tema { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; }
+.a-tema:hover { background: var(--surface2); }
+@media (max-width: 720px) {
+  .a-nav-in { flex-wrap: wrap; padding: 10px 0; }
+  .a-links { order: 3; width: 100%; overflow-x: auto; }
+  .a-tema-txt { display: none; }
+}
+
+/* Pie */
+.a-foot { border-top: 1px solid var(--line); padding: 56px 0; }
+.a-foot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 32px; }
+.a-foot h4 { font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.a-foot a { display: block; padding: 4px 0; color: var(--ink); text-decoration: none; font-size: 14px; }
+.a-foot a:hover { color: var(--accent); }
+
+/* Tabla de datos desplegable de cada gráfica */
+details.a-tabla { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.a-tabla summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); min-height: 32px; display: flex; align-items: center; }
+details.a-tabla .a-tabla-wrap { max-height: 280px; overflow: auto; margin-top: 8px; }
+details.a-tabla table { width: 100%; border-collapse: collapse; font-size: 13px; }
+details.a-tabla th, details.a-tabla td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+details.a-tabla th:first-child, details.a-tabla td:first-child { text-align: left; }
+details.a-tabla th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 600; }
+
+/* Acordeón */
+details.a-acc { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 0 20px; }
+details.a-acc + details.a-acc { margin-top: 10px; }
+details.a-acc > summary { cursor: pointer; padding: 16px 0; font-weight: 600; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; }
+details.a-acc > summary::-webkit-details-marker { display: none; }
+details.a-acc > summary::after { content: "+"; color: var(--accent); font-size: 22px; line-height: 1; }
+details.a-acc[open] > summary::after { content: "–"; }
+details.a-acc .a-acc-body { padding: 0 0 18px; color: var(--muted); }
+
+/* Fondo decorativo del hero */
+.a-grid-bg { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 72px 72px; -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 88%); mask-image: linear-gradient(180deg, #000 0%, transparent 88%); }
+
+#windMap { border: 1px solid var(--line); }
