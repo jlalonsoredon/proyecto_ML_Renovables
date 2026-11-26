@@ -55,26 +55,25 @@ typography:
 rounded:
   control: "999px"
   card-small: "16px"
-  card: "24px"
+  card: "20px"
   feature: "28px"
 spacing:
-  section: "88px"
+  section: "104px"
   section-mobile: "64px"
-  gutter: "24px"
-  gutter-mobile: "18px"
-  container: "1200px"
+  gutter: "clamp(20px, 5vw, 72px)"
+  container: "1240px"
 components:
   button-primary:
     backgroundColor: "{colors.wind-green}"
     textColor: "{colors.wind-green-ink}"
     rounded: "{rounded.control}"
-    padding: "0 22px"
-    height: "44px"
+    padding: "0 24px"
+    height: "48px"
   button-ghost:
     textColor: "{colors.night-ink}"
     rounded: "{rounded.control}"
-    padding: "0 22px"
-    height: "44px"
+    padding: "0 24px"
+    height: "48px"
   card:
     backgroundColor: "{colors.night-surface}"
     rounded: "{rounded.card}"
@@ -148,7 +147,7 @@ Paleta de noche verdosa con un verde eléctrico; cada color tiene su pareja para
 
 ## Layout
 
-Contenedor de 1.200 px con márgenes de 24 px (18 px en móvil). Secciones separadas 88 px (64 px en móvil). Rejillas `auto-fit` con `minmax(min(Npx, 100%), 1fr)` para que nada desborde. La navegación se pega arriba y en móvil pasa los enlaces a una segunda fila desplazable.
+Contenedor de 1.240 px de contenido con márgenes de clamp(20 px, 5vw, 72 px), como el lienzo de diseño. Secciones separadas unos 104 px (64 px en móvil). Rejillas `auto-fit` con `minmax(min(Npx, 100%), 1fr)` para que nada desborde. La navegación se pega arriba y en móvil pasa los enlaces a una segunda fila desplazable.
 
 ## Elevation & Depth
 
@@ -156,12 +155,12 @@ Plano por defecto: la profundidad la dan las superficies tonales (suelo → supe
 
 ## Shapes
 
-Controles en píldora (999 px). Tarjetas a 24 px y la tarjeta de predicción a 28 px; tarjetas pequeñas y notas a 16 px. Bordes de 1 px, nunca de color grueso a un lado.
+Controles en píldora (999 px). Tarjetas a 20 px (las de los modelos a 24 px) y la tarjeta de predicción a 28 px; tarjetas pequeñas y notas a 16 px. Bordes de 1 px, nunca de color grueso a un lado.
 
 ## Components
 
 ### Buttons
-- **Shape:** píldora (999 px), 44 px de alto.
+- **Shape:** píldora (999 px), 48 px de alto.
 - **Primary:** fondo verde, texto oscuro; se eleva 1 px al pasar el cursor.
 - **Ghost:** transparente con borde de línea y texto en tinta.
 - **Focus:** contorno de 2 px en el verde, separado 3 px.
@@ -173,7 +172,10 @@ Controles en píldora (999 px). Tarjetas a 24 px y la tarjeta de predicción a 2
 - **Internal Padding:** 28 px (16 px las pequeñas).
 
 ### Navigation
-- Cabecera fija con desenfoque del fondo, logotipo, enlaces en píldora (el activo con `aria-current` y superficie elevada) y selector de tema con icono; en móvil el texto del selector se oculta.
+- Cabecera fija sobre el suelo, logo (rotor de tres palas + «AERO»«Predictor»), enlaces en píldora (el activo con `aria-current` y superficie elevada) y selector de tema de dos botones, Oscuro y Claro, con el activo en el acento; en móvil los enlaces pasan a una segunda fila y el selector solo muestra los iconos.
+
+### Logo y favicon
+- Rotor de tres palas en el acento con el centro en tinta (`src/components/shared/Logo.astro`). El favicon es el mismo rotor sobre el suelo, en un cuadrado redondeado.
 
 ### Gráficas (componente propio)
 Criterios comunes de todas las gráficas:

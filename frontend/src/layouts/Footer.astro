@@ -1,37 +1,52 @@
 ---
-const nav = [
-  { href: "/", texto: "Inicio" },
-  { href: "/resultados", texto: "Resultados" },
-  { href: "/proceso", texto: "Proceso" },
-  { href: "/mejoras", texto: "Mejoras" },
+// Pie del lienzo de diseño (spec 017): logo, descripción, tres columnas y franja inferior.
+import Logo from "../components/shared/Logo.astro";
+
+const columnas = [
+  { t: "Navegación", enlaces: [{ t: "Inicio", h: "/" }, { t: "Resultados", h: "/resultados" }, { t: "Proceso", h: "/proceso" }, { t: "Mejoras", h: "/mejoras" }] },
+  { t: "Fuentes de datos", enlaces: [{ t: "AEMET OpenData", h: "https://opendata.aemet.es/" }, { t: "Red Eléctrica de España", h: "https://www.ree.es/es/datos/apidata" }] },
+  { t: "Contacto", enlaces: [{ t: "Mi web", h: "https://joseluisalonsoredondo.es/" }, { t: "GitHub", h: "https://github.com/jlalonsoredon" }, { t: "LinkedIn", h: "https://www.linkedin.com/in/jose-luis-alonso-redondo/" }] },
 ];
+const externo = (h: string) => h.startsWith("http");
 ---
 
-<footer class="a-foot">
-  <div class="a-wrap">
-    <div class="a-foot-grid">
-      <div style="max-width: 32ch">
-        <p class="a-logo" style="margin: 0 0 12px">AERO<span>Predictor</span></p>
-        <p class="a-p" style="font-size: 14px">
-          Predicción diaria de la generación eólica peninsular con Machine Learning, a partir de datos de AEMET y Red Eléctrica de España.
-        </p>
-        <p class="a-p" style="font-size: 13px; margin-top: 12px">Proyecto realizado para el bootcamp de Data Science de KeepCoding.</p>
+<footer class="pie">
+  <div class="pie-in">
+    <div class="pie-arriba">
+      <div class="pie-marca">
+        <Logo tam={24} />
+        <p>Predicción diaria de la generación eólica peninsular con Machine Learning, a partir de datos de AEMET y Red Eléctrica de España.</p>
       </div>
-      <div>
-        <h4>Navegación</h4>
-        {nav.map((n) => <a href={n.href}>{n.texto}</a>)}
+      <div class="pie-cols">
+        {columnas.map((c) => (
+          <div>
+            <p class="pie-tit">{c.t}</p>
+            <ul>
+              {c.enlaces.map((e) => (
+                <li><a href={e.h} {...(externo(e.h) ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{e.t}</a></li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
-      <div>
-        <h4>Fuentes de datos</h4>
-        <a href="https://opendata.aemet.es/" target="_blank" rel="noopener noreferrer">AEMET OpenData</a>
-        <a href="https://www.ree.es/es/datos/apidata" target="_blank" rel="noopener noreferrer">Red Eléctrica de España</a>
-      </div>
-      <div>
-        <h4>Contacto</h4>
-        <a href="https://joseluisalonsoredondo.es/" target="_blank" rel="noopener noreferrer">Mi web</a>
-        <a href="https://github.com/jlalonsoredon" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://www.linkedin.com/in/jose-luis-alonso-redondo/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-      </div>
+    </div>
+    <div class="pie-abajo">
+      <span>AeroPredictor · Proyecto de Machine Learning para energías renovables · Bootcamp de Data Science de KeepCoding</span>
+      <span>Los datos pertenecen a sus fuentes oficiales.</span>
     </div>
   </div>
 </footer>
+
+<style>
+  .pie { background: var(--bg); color: var(--ink); border-top: 1px solid var(--line); padding: 64px 0 36px; }
+  .pie-in { max-width: calc(1240px + 2 * clamp(20px, 5vw, 72px)); margin: 0 auto; padding: 0 clamp(20px, 5vw, 72px); display: flex; flex-direction: column; gap: 48px; }
+  .pie-arriba { display: flex; flex-wrap: wrap; gap: 40px 64px; justify-content: space-between; }
+  .pie-marca { display: flex; flex-direction: column; gap: 16px; max-width: 360px; }
+  .pie-marca p { margin: 0; font-size: 15px; color: var(--muted); text-wrap: pretty; }
+  .pie-cols { display: flex; flex-wrap: wrap; gap: 40px 72px; }
+  .pie-tit { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+  .pie ul { margin: 10px 0 0; padding: 0; list-style: none; }
+  .pie li a { display: inline-flex; min-height: 36px; align-items: center; font-size: 15px; color: var(--muted); text-decoration: none; }
+  .pie li a:hover { color: var(--accent); }
+  .pie-abajo { padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+</style>

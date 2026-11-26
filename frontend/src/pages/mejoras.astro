@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import linea from "../data/spec-timeline.json";
+import Corrientes from "../components/shared/Corrientes.astro";
 
 // Títulos de las specs: los diez primeros salen de spec-timeline.json; las posteriores se declaran aquí.
 const titulos: Record<string, string> = Object.fromEntries(linea.hitos.map((h) => [h.numero, h.titulo]));
@@ -114,7 +115,7 @@ const porcentaje = Math.round((realizadas / tareas.length) * 100);
                           <p class="mini">Specs relacionadas</p>
                           <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px">
                             {t.specs.map((s) => (
-                              <a class="spec" href="/proceso#evolucion"><b class="num">{s}</b>{titulos[s]}</a>
+                              <a class="spec" href="/proceso#sdd"><b class="num">{s}</b>{titulos[s]}</a>
                             ))}
                           </div>
                         </div>
@@ -126,18 +127,21 @@ const porcentaje = Math.round((realizadas / tareas.length) * 100);
             );
           })}
         </ol>
-        <p style="margin-top: 8px"><a class="a-link" href="/proceso#evolucion">Ver todas las specs del proyecto →</a></p>
+        <p style="margin-top: 8px"><a class="a-link" href="/proceso#sdd">Ver todas las specs del proyecto →</a></p>
       </div>
     </section>
 
     <section class="a-section" style="padding-bottom: 112px">
       <div class="a-wrap">
         <div class="contacto">
+          <div class="contacto-viento" aria-hidden="true"><Corrientes ancho={600} alto={340} n={11} semilla={9} /></div>
+          <div class="contacto-txt">
           <h2 class="a-h2">¿Tienes sugerencias?</h2>
           <p class="a-lead" style="color: var(--ink); margin: 16px 0 24px">
             Si tienes ideas para mejorar el proyecto o quieres contribuir, no dudes en contactarme a través de LinkedIn.
           </p>
           <a class="a-btn" href="https://www.linkedin.com/in/jose-luis-alonso-redondo/" target="_blank" rel="noopener noreferrer">Contactar en LinkedIn →</a>
+          </div>
         </div>
       </div>
     </section>
@@ -158,5 +162,7 @@ const porcentaje = Math.round((realizadas / tareas.length) * 100);
   .mini { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0; }
   .spec { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; text-decoration: none; }
   .spec b { color: var(--accent); }
-  .contacto { background: var(--surface2); border: 1px solid var(--line); border-radius: 32px; padding: clamp(32px, 6vw, 64px); }
+  .contacto { position: relative; overflow: hidden; background: var(--surface2); border: 1px solid var(--line); border-radius: 32px; padding: clamp(32px, 6vw, 64px); }
+  .contacto-viento { position: absolute; top: 0; right: 0; width: 55%; height: 100%; opacity: 0.7; overflow: hidden; }
+  .contacto-txt { position: relative; max-width: 600px; }
 </style>

@@ -1,76 +1,138 @@
 ---
-// Tarjeta de la previsión publicada (spec 012, D-12-5). Muestra los cuatro estados reales:
-// vigente, pendiente, caducada y no disponible. Los campos [data-field] los recalcula
-// initLivePrediction con la fecha de hoy; si no hay snapshot válido no se muestra ninguna cifra.
+// Tarjeta de la previsión publicada (specs 012 y 017). Cuatro estados reales: vigente, pendiente,
+// caducada y no disponible. Los [data-field] los recalcula initLivePrediction con la fecha de hoy;
+// si no hay snapshot válido no se muestra ninguna cifra.
+// Variantes del lienzo: «instrumento» (Inicio, con minigráfica de 14 días) y «completa» (Resultados, dos columnas).
 import type { cardView } from "../../utils/live-prediction.mjs";
+import snapshot from "../../data/forecast-snapshot.json";
+import Corrientes from "./Corrientes.astro";
+import { smoothPath } from "../../utils/curvas.mjs";
 
 interface Props {
   view: ReturnType<typeof cardView>;
-  completa?: boolean;
+  variante?: "instrumento" | "completa";
 }
-const { view, completa = false } = Astro.props;
+const { view, variante = "instrumento" } = Astro.props;
+
+// Minigráfica: real frente a modelo en los últimos 14 días completos del snapshot.
+const DIAS = 14;
+const g = (snapshot as { grafico?: { real_gwh?: (number | null)[]; pred_gwh?: (number | null)[] } }).grafico ?? {};
+const real = (g.real_gwh ?? []).slice(-DIAS);
+const modelo = (g.pred_gwh ?? []).slice(-DIAS);
+const valores = [...real, ...modelo].filter((v): v is number => typeof v === "number");
+const W = 520;
+const H = 96;
+const ymax = valores.length ? Math.max(...valores) * 1.05 : 1;
+const ymin = valores.length ? Math.min(...valores) * 0.9 : 0;
+const puntos = (serie: (number | null)[]) =>
+  serie.map((v, i) => (typeof v === "number" ? [4 + ((W - 8) * i) / Math.max(1, serie.length - 1), H - 8 - ((H - 16) * (v - ymin)) / (ymax - ymin)] : null));
+const dReal = smoothPath(puntos(real));
+const dModelo = smoothPath(puntos(modelo));
+const filas = [
+  { k: "Fecha objetivo", campo: "fecha" },
+  { k: "Emitida", campo: "emision" },
+  { k: "Modelo", campo: "familia" },
+  { k: "Variables", campo: "variables" },
+  { k: "Velocidad del viento", campo: "velmedia" },
+  { k: "Ráfagas", campo: "racha" },
+] as const;
 ---
 
-<section class="a-pred" data-live-prediction data-state={view.estado} aria-labelledby="pred-titulo">
-  <div class="a-pred-top">
-    <p class="a-eyebrow" id="pred-titulo">Predicción para mañana</p>
-    <span class="a-pred-chip" aria-hidden="true"></span>
-  </div>
-  <p class="num a-pred-fecha">Fecha objetivo: <span data-field="fecha">{view.campos.fecha}</span></p>
-  <p class="num a-pred-valor font-display">
-    <span class="a-pred-num" data-field="valor">{view.campos.valor}</span>
-    <span class="a-pred-unidad">MWh</span>
-  </p>
-  <dl class="a-pred-datos">
-    {completa && (
-      <div>
-        <dt>Emitida</dt>
-        <dd data-field="emision">{view.campos.emision}</dd>
+{variante === "instrumento" ? (
+  <section class="tp tp-inst" data-live-prediction data-state={view.estado} aria-labelledby="pred-titulo">
+    <div class="tp-top">
+      <p class="a-eyebrow" id="pred-titulo">Predicción para mañana</p>
+      <span class="tp-chip" aria-hidden="true"></span>
+    </div>
+    <p class="num tp-fecha" data-field="fecha">{view.campos.fecha}</p>
+    <p class="num tp-valor font-display">
+      <span class="tp-num" data-field="valor">{view.campos.valor}</span>
+      <span class="tp-unidad">MWh</span>
+    </p>
+    <dl class="tp-stats">
+      <div><dt>Viento medio</dt><dd class="num font-display" data-field="velmedia">{view.campos.velmedia}</dd></div>
+      <div><dt>Ráfagas</dt><dd class="num font-display" data-field="racha">{view.campos.racha}</dd></div>
+      <div><dt>Modelo</dt><dd class="font-display" data-field="familia">{view.campos.familia}</dd></div>
+    </dl>
+    {valores.length > 0 && (
+      <div class="tp-mini">
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Real frente a modelo en los últimos ${DIAS} días`}>
+          <path d={dModelo} fill="none" stroke-width="2.2" stroke-dasharray="5 4" stroke-linecap="round" style="stroke: var(--accent)" />
+          <path d={dReal} fill="none" stroke-width="2.2" stroke-linecap="round" style="stroke: var(--ink)" />
+        </svg>
+        <p>Últimos {DIAS} días: real (línea continua) y modelo (discontinua)</p>
       </div>
     )}
-    <div>
-      <dt>Modelo</dt>
-      <dd data-field="familia">{view.campos.familia}</dd>
+    <p class="tp-msg" data-field="estado" data-tone="none" data-base-class="tp-msg" role="status" aria-live="polite">{view.mensaje}</p>
+  </section>
+) : (
+  <section class="tp tp-comp" data-live-prediction data-state={view.estado} aria-labelledby="pred-titulo">
+    <div class="tp-izq">
+      <div class="tp-fondo" aria-hidden="true"><Corrientes ancho={640} alto={360} n={10} semilla={5} /></div>
+      <div class="tp-top">
+        <p class="a-eyebrow" id="pred-titulo">Predicción para mañana</p>
+        <span class="tp-chip" aria-hidden="true"></span>
+      </div>
+      <div class="tp-cifra">
+        <p class="num tp-valor font-display">
+          <span class="tp-num tp-num-xl" data-field="valor">{view.campos.valor}</span>
+          <span class="tp-unidad">MWh</span>
+        </p>
+        <p class="tp-msg" data-field="estado" data-tone="none" data-base-class="tp-msg" role="status" aria-live="polite">{view.mensaje}</p>
+      </div>
     </div>
-    <div>
-      <dt>Variables</dt>
-      <dd data-field="variables">{view.campos.variables}</dd>
+    <div class="tp-der">
+      <dl class="tp-lista">
+        {filas.map((f) => <div><dt>{f.k}</dt><dd class="num" data-field={f.campo}>{view.campos[f.campo]}</dd></div>)}
+      </dl>
+      <p class="num tp-version">Versión del snapshot: {(snapshot as { version?: string }).version ?? "no disponible"}</p>
     </div>
-    <div>
-      <dt>Viento medio</dt>
-      <dd data-field="velmedia">{view.campos.velmedia}</dd>
-    </div>
-    <div>
-      <dt>Ráfagas</dt>
-      <dd data-field="racha">{view.campos.racha}</dd>
-    </div>
-  </dl>
-  <p class="a-pred-msg" data-field="estado" data-tone="none" data-base-class="a-pred-msg" role="status" aria-live="polite">{view.mensaje}</p>
-  {completa && <p class="a-pred-ver" data-field="version">{view.campos.version}</p>}
-</section>
+  </section>
+)}
 
 <style>
-  .a-pred { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 32px; box-shadow: 0 40px 90px -60px rgba(0, 0, 0, 0.65); }
-  .a-pred-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .a-pred-chip { border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; border: 1px solid var(--accent); color: var(--accent); }
-  .a-pred-chip::before { content: "Vigente"; }
-  [data-state="pendiente"] .a-pred-chip { border-color: var(--warm); color: var(--warm); }
-  [data-state="pendiente"] .a-pred-chip::before { content: "Pendiente"; }
-  [data-state="caducado"] .a-pred-chip { border-color: var(--coral); color: var(--coral); }
-  [data-state="caducado"] .a-pred-chip::before { content: "Caducada"; }
-  [data-state="no_disponible"] .a-pred-chip { border-color: var(--coral); color: var(--coral); }
-  [data-state="no_disponible"] .a-pred-chip::before { content: "No disponible"; }
-  .a-pred-fecha { margin: 14px 0 0; color: var(--muted); }
-  .a-pred-valor { margin: 6px 0 0; line-height: 1; display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; }
-  .a-pred-num { font-size: clamp(56px, 7vw, 100px); font-weight: 700; letter-spacing: -0.045em; }
-  .a-pred-unidad { font-size: 26px; font-weight: 500; color: var(--muted); }
-  [data-state="no_disponible"] .a-pred-num { font-size: clamp(34px, 4.4vw, 56px); color: var(--muted); letter-spacing: -0.03em; }
-  [data-state="no_disponible"] .a-pred-unidad { display: none; }
-  [data-state="no_disponible"] [data-field="fecha"],
+  .tp { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; }
+  .tp p, .tp dl, .tp dd { margin: 0; }
+  .tp-top { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .tp-chip { border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; border: 1px solid var(--accent); color: var(--accent); }
+  .tp-chip::before { content: "Vigente"; }
+  [data-state="pendiente"] .tp-chip { border-color: var(--sky); color: var(--sky); }
+  [data-state="pendiente"] .tp-chip::before { content: "Pendiente"; }
+  [data-state="caducado"] .tp-chip { border-color: var(--warm); color: var(--warm); }
+  [data-state="caducado"] .tp-chip::before { content: "Caducada"; }
+  [data-state="no_disponible"] .tp-chip { border-color: var(--coral); color: var(--coral); }
+  [data-state="no_disponible"] .tp-chip::before { content: "No disponible"; }
+  .tp-valor { line-height: 1; display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; }
+  .tp-num { font-size: clamp(60px, 7.4vw, 108px); font-weight: 700; letter-spacing: -0.045em; color: var(--ink); }
+  .tp-unidad { font-size: 26px; font-weight: 500; color: var(--muted); }
+  [data-state="no_disponible"] .tp-num { opacity: 0.5; font-size: clamp(34px, 5vw, 64px); }
+  [data-state="no_disponible"] .tp-unidad { display: none; }
   [data-state="no_disponible"] dd { color: var(--muted); }
-  .a-pred-datos { margin: 26px 0 0; padding-top: 22px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 18px; }
-  .a-pred-datos dt { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-  .a-pred-datos dd { margin: 4px 0 0; font-family: "Space Grotesk", sans-serif; font-size: 18px; font-weight: 600; }
-  .a-pred-msg { margin: 18px 0 0; font-size: 14px; color: var(--ink); text-wrap: pretty; }
-  .a-pred-ver { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+  .tp-msg { font-size: 14px; color: var(--ink); text-wrap: pretty; }
+
+  /* Inicio: instrumento */
+  .tp-inst { padding: 32px; box-shadow: 0 40px 90px -50px rgba(0, 0, 0, 0.65); display: flex; flex-direction: column; }
+  .tp-fecha { margin-top: 14px !important; color: var(--muted); }
+  .tp-inst .tp-valor { margin-top: 6px; }
+  .tp-stats { margin-top: 26px !important; padding-top: 22px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr)); gap: 18px; }
+  .tp-stats dt { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .tp-stats dd { margin-top: 4px !important; font-size: 19px; font-weight: 600; color: var(--ink); }
+  .tp-mini { margin-top: 26px; }
+  .tp-mini svg { display: block; width: 100%; height: auto; }
+  .tp-mini p { margin-top: 8px !important; font-size: 12px; color: var(--muted); }
+  .tp-inst .tp-msg { margin-top: 14px !important; font-size: 13px; }
+
+  /* Resultados: dos columnas */
+  .tp-comp { display: flex; flex-wrap: wrap; overflow: hidden; }
+  .tp-izq { position: relative; flex: 1.2 1 380px; padding: clamp(24px, 4vw, 44px); overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; gap: 28px; min-height: 340px; }
+  .tp-fondo { position: absolute; inset: 0; opacity: 0.5; overflow: hidden; }
+  .tp-cifra { position: relative; }
+  .tp-num-xl { font-size: clamp(56px, 8vw, 112px); letter-spacing: -0.05em; }
+  .tp-comp .tp-msg { margin-top: 14px !important; font-size: 15px; max-width: 46ch; }
+  .tp-der { flex: 1 1 300px; padding: clamp(24px, 4vw, 44px); border-left: 1px solid var(--line); }
+  .tp-lista div { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-top: 1px solid var(--line); }
+  .tp-lista dt { font-size: 14px; color: var(--muted); }
+  .tp-lista dd { font-size: 15px; font-weight: 600; text-align: right; color: var(--ink); }
+  .tp-version { margin-top: 18px !important; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+  @media (max-width: 720px) { .tp-der { border-left: 0; border-top: 1px solid var(--line); } }
 </style>

@@ -1,50 +1,69 @@
 ---
+// Resultados (spec 017): misma composición y textos que el lienzo de diseño.
 import snapshot from "../data/forecast-snapshot.json";
+import modelos from "../data/model-predictions.json";
 import { cardView } from "../utils/live-prediction.mjs";
+import { formatNumber } from "../utils/evolution.mjs";
 import Layout from "../layouts/Layout.astro";
 import PrediccionCard from "../components/shared/PrediccionCard.astro";
 import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
 import PredictionChart from "../components/charts/PredictionChart.astro";
+
 const view = cardView(snapshot);
+const p = modelos.protocolo19;
+const fechaLarga = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
 ---
 
 <Layout title="Resultados">
   <main>
-    <section class="a-section" style="padding-top: 72px; padding-bottom: 56px">
-      <div class="a-wrap" style="display: flex; flex-direction: column; gap: 22px">
-        <h1 class="a-h1" style="max-width: 16ch">Qué ha pasado y qué se espera</h1>
-        <p class="a-lead">Datos históricos, comparación de modelos y la predicción vigente para mañana.</p>
+    <section class="a-section cab">
+      <div class="a-wrap">
+        <div class="cab-txt">
+          <h1 class="a-h1">Resultados y predicciones</h1>
+          <p class="a-lead">Visualización de datos históricos, comparación de modelos y predicciones actuales. Las gráficas son interactivas: oculta series, cambia el periodo, pasa el ratón o toca para ver los valores, o consulta los datos en tabla.</p>
+        </div>
       </div>
     </section>
 
-    <section class="a-section">
-      <div class="a-wrap"><PrediccionCard view={view} completa /></div>
+    <section class="a-section seccion">
+      <div class="a-wrap"><PrediccionCard view={view} variante="completa" /></div>
     </section>
 
-    <section class="a-section">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 0 0 14px">Lo previsto frente a lo que pasó</h2>
-        <p class="a-lead">
-          Producción eólica real de los últimos 30 días completos frente a las predicciones del modelo. El rombo violeta es la predicción para mañana.
-          Los días cuyo dato de REE aún está incompleto no se muestran.
-        </p>
-        <div style="margin-top: 28px"><PredictionChart /></div>
+    <section class="a-section seccion">
+      <div class="a-wrap col">
+        <div class="txt">
+          <h2 class="a-h2 titulo">Producción real y predicha, últimos 30 días completos</h2>
+          <p class="a-lead">Producción eólica real de los últimos 30 días completos frente a las predicciones del modelo. El rombo verde es la predicción para mañana. Los días cuyo dato de REE aún está incompleto no se muestran.</p>
+        </div>
+        <div class="a-card tarjeta-26"><PredictionChart /></div>
       </div>
     </section>
 
-    <section class="a-section">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 0 0 14px">Comparación de modelos de Machine Learning</h2>
-        <p class="a-lead" style="margin-bottom: 28px">
-          Linear Regression con 19 variables es el modelo vigente: R² de 0,9308 y RMSE de 23.108,4 MWh en un test de 354 días (del 22 de noviembre de 2025 al 10 de noviembre de 2026).
-          Las comparativas de 16 y 19 variables comparten ventana.
-          <a class="a-link" href="/proceso#evolucion">Ver cómo ha evolucionado el modelo</a>.
-        </p>
+    <section class="a-section seccion" style="padding-bottom: 112px">
+      <div class="a-wrap col">
+        <div class="txt" style="max-width: 820px">
+          <h2 class="a-h2 titulo">Ocho familias, con 16 y con 19 variables</h2>
+          <p class="a-lead">Linear Regression con 19 variables es el modelo vigente: R² de 0,9308 y RMSE de 23.108,4 MWh en un test de 354 días (del 22 de noviembre de 2025 al 10 de noviembre de 2026).</p>
+          <p class="a-lead">Las gráficas de abajo comparan las dos versiones de cada modelo en la misma ventana: del {fechaLarga(p.desde)} al {fechaLarga(p.hasta)} ({formatNumber(p.dias, 0)} días, {p.semanas} semanas). Cada modelo se entrenó solo con los {formatNumber(p.dias_entrenamiento, 0)} días anteriores y predice toda la ventana sin reentrenar, así que sus cifras se pueden comparar entre sí, pero no con la del modelo vigente.</p>
+          <a class="a-link" href="/proceso#modelos">Ver cómo ha evolucionado el modelo →</a>
+        </div>
         <ModelComparisonChart />
       </div>
     </section>
   </main>
 </Layout>
+
+<style>
+  .cab { padding-top: 72px; padding-bottom: 48px; }
+  .cab-txt { display: flex; flex-direction: column; gap: 18px; max-width: 760px; }
+  .cab-txt .a-lead { margin: 0; }
+  .seccion { padding-bottom: 104px; }
+  .col { display: flex; flex-direction: column; gap: 32px; }
+  .txt { display: flex; flex-direction: column; gap: 14px; max-width: 760px; }
+  .txt .a-lead { margin: 0; }
+  .titulo { margin: 0; font-size: clamp(30px, 3.6vw, 48px); line-height: 1.05; }
+  .tarjeta-26 { padding: 26px; }
+</style>
 
 <script>
   import snapshot from "../data/forecast-snapshot.json";

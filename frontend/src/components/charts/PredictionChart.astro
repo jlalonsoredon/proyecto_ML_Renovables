@@ -1,41 +1,70 @@
 ---
 // Real de los últimos 30 días completos + previsión publicada en el snapshot (CA-5.3).
+// Aspecto y controles del lienzo de diseño (spec 017): botones de serie, lectura del día con pasos y tabla.
 import snapshot from "../../data/forecast-snapshot.json";
 import { snapshotStatus, todayInMadrid } from "../../utils/forecast.mjs";
+import Pasos from "../proceso/Pasos.astro";
 
 const buildStatus = snapshotStatus(snapshot, todayInMadrid());
+const series = [
+  { nombre: "Real (GWh)", forma: "linea", token: "ink" },
+  { nombre: "Modelo (GWh)", forma: "discontinua", token: "accent" },
+  { nombre: "Predicción de mañana", forma: "rombo", token: "accent" },
+  { nombre: "Viento medio (m/s)", forma: "barra", token: "sky" },
+  { nombre: "Racha (m/s)", forma: "barra", token: "warm" },
+];
 ---
 
-<figure class="a-card">
-  <figcaption class="flex flex-wrap items-center justify-between gap-2 mb-3">
-    <span class="text-base font-semibold text-ink">
-      Últimos 30 días completos y predicción de mañana
-    </span>
-    <span id="pc-subtitle" class="text-xs text-muted"></span>
-  </figcaption>
-  <div id="pc-error" class="hidden text-center py-10 text-red-700 dark:text-red-300 text-sm" role="alert"></div>
-  <div id="pc-wrap" style="position:relative;height:clamp(280px, 48vw, 400px);">
-    <canvas id="predictionChart" role="img" aria-label="Gráfica de la generación eólica real de los últimos 30 días completos, las predicciones del modelo y la predicción de mañana" style="width:100%;height:clamp(280px, 48vw, 400px);"></canvas>
+<div class="pc" id="pc-raiz">
+  <div class="ctl-grupo" role="group" aria-label="Series visibles">
+    {series.map((s, i) => (
+      <button type="button" class="ctl-btn" aria-pressed="true" data-pc-serie={i}>
+        {s.forma === "linea" && <span class="pc-m pc-linea" style={`border-top-color: var(--${s.token})`}></span>}
+        {s.forma === "discontinua" && <span class="pc-m pc-linea pc-disc" style={`border-top-color: var(--${s.token})`}></span>}
+        {s.forma === "rombo" && <span class="pc-m pc-rombo" style={`background: var(--${s.token})`}></span>}
+        {s.forma === "barra" && <span class="pc-m pc-barra" style={`background: var(--${s.token})`}></span>}
+        {s.nombre}
+      </button>
+    ))}
   </div>
-  <p id="pc-note" class="mt-2 text-xs text-muted" role="status" aria-live="polite">{buildStatus.mensaje}</p>
+  <div class="ctl-lectura"><p class="num" data-lectura aria-live="polite"></p><Pasos que="Día" /></div>
+  <div id="pc-error" class="pc-error" role="alert" hidden></div>
+  <div id="pc-wrap" class="ctl-lienzo pc-lienzo">
+    <canvas id="predictionChart" role="img" aria-label="Producción eólica real y prevista de los últimos 30 días completos, con viento medio y rachas"></canvas>
+  </div>
+  <p class="a-p ctl-ayuda"><span id="pc-subtitle"></span> Pulsa una serie para ocultarla o mostrarla.</p>
+  <p id="pc-note" class="a-p ctl-ayuda" role="status" aria-live="polite">{buildStatus.mensaje}</p>
   <details class="a-tabla">
     <summary>Ver los datos en tabla</summary>
     <div class="a-tabla-wrap">
       <table>
         <caption class="sr-only">Generación eólica real y prevista por día, con viento y racha</caption>
-        <thead><tr><th scope="col">Día</th><th scope="col">Real (GWh)</th><th scope="col">Modelo (GWh)</th><th scope="col">Viento (m/s)</th><th scope="col">Racha (m/s)</th></tr></thead>
+        <thead><tr><th scope="col">Día</th><th scope="col">Real (GWh)</th><th scope="col">Modelo (GWh)</th><th scope="col">Viento medio (m/s)</th><th scope="col">Racha (m/s)</th></tr></thead>
         <tbody id="pc-table"></tbody>
       </table>
     </div>
   </details>
   <noscript>
-    <p class="text-sm text-amber-700 dark:text-amber-300">Esta gráfica necesita JavaScript para dibujarse. La nota de arriba indica el estado de la previsión publicada.</p>
+    <p class="a-p">Esta gráfica necesita JavaScript para dibujarse. La nota de arriba indica el estado de la previsión publicada.</p>
   </noscript>
-</figure>
+</div>
+
+<style>
+  .pc { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .pc-lienzo { height: clamp(280px, 40vw, 420px); }
+  .pc-error { text-align: center; padding: 40px 0; color: var(--coral); font-size: 14px; }
+  .pc-m { flex: none; }
+  .pc-linea { width: 18px; height: 0; border-top: 3px solid; }
+  .pc-disc { border-top-style: dashed; }
+  .pc-rombo { width: 10px; height: 10px; transform: rotate(45deg); }
+  .pc-barra { width: 10px; height: 10px; border-radius: 2px; opacity: 0.7; }
+</style>
 
 <script>
   import { Chart, registerables } from "chart.js";
   import "../../utils/charts-tema";
+  import { token } from "../../utils/tema";
+  import { conectarPasos } from "../../utils/chart-pasos";
   import snapshot from "../../data/forecast-snapshot.json";
   import { selectCompleteWindow, formatDateEs, formatNumber } from "../../utils/evolution.mjs";
   import { FORECAST_STATE, snapshotStatus, todayInMadrid } from "../../utils/forecast.mjs";
@@ -55,6 +84,8 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
   };
 
   const WINDOW_DAYS = 30;
+  const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const raiz = document.getElementById("pc-raiz")!;
   const errorBox = document.getElementById("pc-error")!;
   const wrap = document.getElementById("pc-wrap")!;
   const subtitle = document.getElementById("pc-subtitle")!;
@@ -65,11 +96,15 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
     const [, m, d] = iso.split("-");
     return `${Number(d)}/${Number(m)}`;
   };
+  const longDate = (iso: string) => `${Number(iso.slice(8, 10))} ${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+  const uno = (v: number) => new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: "always" } as Intl.NumberFormatOptions).format(v);
+  // Barras de viento: color del token con transparencia; más tenue si el dato es una previsión de AEMET.
+  const alfa = (nombre: string, a: string) => `${token(nombre)}${a}`;
 
   function showError(message: string) {
-    wrap.classList.add("hidden");
+    wrap.hidden = true;
     errorBox.textContent = message;
-    errorBox.classList.remove("hidden");
+    errorBox.hidden = false;
   }
 
   /** Mapa fecha → valor a partir de dos listas paralelas. */
@@ -98,6 +133,7 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
     const velOrigen = byDate(chart?.fechas_hist, chart?.vel_origen);
     const rachaOrigen = byDate(chart?.fechas_hist, chart?.racha_origen);
 
+    const fechas = days.map((d) => d.fecha);
     const labels = days.map((d) => shortDate(d.fecha));
     const real = days.map((d) => (isNum(d.eolica) ? Math.round(d.eolica / 100) / 10 : null));
     const predHist = days.map((d) => preds.get(d.fecha) ?? null);
@@ -118,10 +154,12 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
     const manana = chart?.manana;
     const hasTomorrow = status.estado !== FORECAST_STATE.UNAVAILABLE && isNum(manana?.pred_gwh);
     const tomorrowGWh = hasTomorrow ? Math.round((manana!.pred_gwh as number) * 10) / 10 : null;
+    let sufijo = "";
     if (hasTomorrow) {
-      const suffix = status.estado === FORECAST_STATE.STALE ? " (caducado)"
-        : status.estado === FORECAST_STATE.PENDING ? " (hoy)" : " (mañana)";
-      labels.push(`${shortDate(status.objetivo as string)}${suffix}`);
+      sufijo = status.estado === FORECAST_STATE.STALE ? "caducada"
+        : status.estado === FORECAST_STATE.PENDING ? "hoy" : "mañana";
+      fechas.push(status.objetivo as string);
+      labels.push(`${shortDate(status.objetivo as string)} · ${sufijo}`);
       real.push(null);
       predHist.push(tomorrowGWh);
       const velManana = isNum(manana?.velmedia) ? (manana!.velmedia as number) : null;
@@ -131,9 +169,12 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
       velOrig.push(velManana === null ? null : "prevision");
       rachaOrig.push(rachaManana === null ? null : "prevision");
     }
-    const tomorrowPoint = labels.map((_, i) => (hasTomorrow && i === labels.length - 1 ? tomorrowGWh : null));
+    const ultimo = labels.length - 1;
+    const tomorrowPoint = labels.map((_, i) => (hasTomorrow && i === ultimo ? tomorrowGWh : null));
+    // El modelo de los días pasados no se une con la cifra de mañana: esa va en su rombo.
+    const predLinea = predHist.map((v, i) => (hasTomorrow && i === ultimo ? null : v));
 
-    subtitle.textContent = `Del ${formatDateEs(days[0].fecha)} al ${formatDateEs(days.at(-1)!.fecha)}`;
+    subtitle.textContent = `Del ${formatDateEs(days[0].fecha)} al ${formatDateEs(days.at(-1)!.fecha)}.`;
     const notes = [status.mensaje];
     if (days.length < WINDOW_DAYS) notes.push(`Solo hay ${days.length} días completos disponibles.`);
     if (discarded > 0) notes.push(`Se ${discarded === 1 ? "omite 1 día incompleto" : `omiten ${discarded} días incompletos`} al final de la serie.`);
@@ -141,14 +182,13 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
     if (rellenos > 0) {
       notes.push(
         rellenos === 1
-          ? "Se rellena 1 día con la previsión de AEMET al no haber observación."
-          : `Se rellenan ${rellenos} días con la previsión de AEMET al no haber observación.`,
+          ? "Se rellena 1 día con la previsión de AEMET al no haber observación (barra más tenue)."
+          : `Se rellenan ${rellenos} días con la previsión de AEMET al no haber observación (barras más tenues).`,
       );
     }
     note.textContent = notes.join(" ");
 
-    const hasWind = velData.some(isNum) || rachaData.some(isNum);
-    const fmt = (v: number | null) => (isNum(v) ? Number(v).toLocaleString("es-ES", { maximumFractionDigits: 1 }) : "—");
+    const fmt = (v: number | null) => (isNum(v) ? uno(v) : "—");
     const tabla = document.getElementById("pc-table");
     if (tabla) {
       tabla.innerHTML = labels
@@ -156,83 +196,88 @@ const buildStatus = snapshotStatus(snapshot, todayInMadrid());
         .join("");
     }
 
+    const relleno = (origenes: (string | null)[], nombre: string, observado: string, previsto: string) =>
+      origenes.map((o) => alfa(nombre, o === "prevision" ? previsto : observado));
+    const borde = (origenes: (string | null)[], nombre: string) => origenes.map((o) => (o === "prevision" ? token(nombre) : "rgba(0,0,0,0)"));
+
     const datasets: any[] = [
-      {
-        label: "Real (GWh)", tokenColor: "sky", type: "line", data: real, borderColor: "#2196F3", borderWidth: 2,
-        pointRadius: 3, tension: 0.3, yAxisID: "yGen", order: 1,
-      },
-      {
-        label: "Predicción del modelo (GWh)", tokenColor: "coral", type: "line", data: predHist, borderColor: "#FF5722",
-        borderDash: [5, 4], borderWidth: 1.8, pointRadius: 3, pointStyle: "rectRot", tension: 0.3,
-        spanGaps: true, yAxisID: "yGen", order: 1,
-      },
-      {
-        label: "Predicción de mañana", type: "line", data: tomorrowPoint, tokenColor: "violet", tokenBg: "violet", borderColor: "#9C27B0",
-        backgroundColor: "#9C27B0", pointRadius: 9, pointStyle: "rectRot", showLine: false,
-        yAxisID: "yGen", order: 0,
-      },
+      { label: "Real", tokenColor: "ink", type: "line", data: real, borderColor: "#888", borderWidth: 2.4, pointRadius: 0, pointHoverRadius: 5, tension: 0.3, yAxisID: "yGen", order: 1 },
+      { label: "Modelo", tokenColor: "accent", type: "line", data: predLinea, borderColor: "#888", borderDash: [6, 5], borderWidth: 2.4, pointRadius: 0, pointHoverRadius: 5, tension: 0.3, spanGaps: true, yAxisID: "yGen", order: 1 },
+      { label: "Predicción de mañana", type: "line", data: tomorrowPoint, tokenBg: "accent", backgroundColor: "#888", borderColor: token("bg"), borderWidth: 3, pointRadius: 11, pointHoverRadius: 12, pointStyle: "rectRot", showLine: false, yAxisID: "yGen", order: 0 },
+      { label: "Viento medio", type: "bar", data: velData, backgroundColor: relleno(velOrig, "sky", "73", "29"), borderColor: borde(velOrig, "sky"), borderWidth: 1, borderSkipped: false, borderRadius: 2, yAxisID: "yWind", order: 3 },
+      { label: "Racha", type: "bar", data: rachaData, backgroundColor: relleno(rachaOrig, "warm", "80", "29"), borderColor: borde(rachaOrig, "warm"), borderWidth: 1, borderSkipped: false, borderRadius: 2, yAxisID: "yWind", order: 3 },
     ];
-    if (hasWind) {
-      const tonoViento = { observado: "rgba(128,203,196,0.55)", previsto: "rgba(128,203,196,0.16)", borde: "rgba(128,203,196,0.9)" };
-      const tonoRacha = { observado: "rgba(255,179,0,0.5)", previsto: "rgba(255,179,0,0.14)", borde: "rgba(255,179,0,0.85)" };
-      const fill = (origenes: (string | null)[], colors: { observado: string; previsto: string }) =>
-        origenes.map((origen) => (origen === "prevision" ? colors.previsto : colors.observado));
-      const stroke = (origenes: (string | null)[], border: string) =>
-        origenes.map((origen) => (origen === "prevision" ? border : "rgba(0,0,0,0)"));
+    const unidades = [" GWh", " GWh", " GWh", " m/s", " m/s"];
+    const nombres = ["Real", "Modelo", "Predicción de mañana", "Viento medio", "Racha"];
+    const valores = [real, predLinea, tomorrowPoint, velData, rachaData];
 
-      datasets.push(
-        {
-          label: "Viento medio (m/s)", type: "bar", data: velData,
-          backgroundColor: fill(velOrig, tonoViento), borderColor: stroke(velOrig, tonoViento.borde),
-          borderWidth: 1, borderSkipped: false, yAxisID: "yWind", order: 3,
-        },
-        {
-          label: "Racha (m/s)", type: "bar", data: rachaData,
-          backgroundColor: fill(rachaOrig, tonoRacha), borderColor: stroke(rachaOrig, tonoRacha.borde),
-          borderWidth: 1, borderSkipped: false, yAxisID: "yWind", order: 3,
-        },
-      );
-    }
-
-    new Chart(document.getElementById("predictionChart") as HTMLCanvasElement, {
+    const grafica = new Chart(document.getElementById("predictionChart") as HTMLCanvasElement, {
       type: "bar",
       data: { labels, datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        interaction: { mode: "index", intersect: false },
         plugins: {
-          legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 }, color: "#9CA3AF" } },
+          legend: { display: false },
           tooltip: {
             callbacks: {
+              title: (items: any[]) => {
+                const i = items[0].dataIndex;
+                return hasTomorrow && i === ultimo ? `${longDate(fechas[i])} · ${sufijo}` : longDate(fechas[i]);
+              },
               label: (ctx: any) => {
                 const v = ctx.parsed.y;
                 if (v === null || v === undefined) return "";
-                const unit = ctx.dataset.yAxisID === "yWind" ? " m/s" : " GWh";
                 const esViento = ctx.dataset.yAxisID === "yWind";
-                const origen = esViento
-                  ? (String(ctx.dataset.label).startsWith("Viento") ? velOrig[ctx.dataIndex] : rachaOrig[ctx.dataIndex])
-                  : null;
+                const origen = esViento ? (ctx.datasetIndex === 3 ? velOrig[ctx.dataIndex] : rachaOrig[ctx.dataIndex]) : null;
                 const nota = origen === "prevision" ? " · previsión AEMET" : "";
-                return `${ctx.dataset.label}: ${Number(v).toLocaleString("es-ES")}${unit}${nota}`;
+                return ` ${ctx.dataset.label}: ${uno(Number(v))}${esViento ? " m/s" : " GWh"}${nota}`;
               },
             },
           },
         },
         scales: {
-          x: { ticks: { font: { size: 9 }, color: "#9CA3AF", maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false } },
-          yGen: {
-            type: "linear", position: "left",
-            title: { display: true, text: "Generación eólica (GWh)", color: "#9CA3AF" },
-            ticks: { color: "#9CA3AF" },
-          },
-          yWind: {
-            type: "linear", position: "right", display: hasWind, min: 0,
-            title: { display: true, text: "Viento (m/s)", color: "#9CA3AF" },
-            ticks: { color: "#9CA3AF" }, grid: { drawOnChartArea: false },
-          },
+          x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 11 }, grid: { display: false } },
+          yGen: { type: "linear", position: "left", beginAtZero: true, title: { display: true, text: "GWh" } },
+          yWind: { type: "linear", position: "right", min: 0, title: { display: true, text: "m/s" }, grid: { drawOnChartArea: false } },
         },
       },
+    });
+
+    // Botones de serie
+    raiz.querySelectorAll<HTMLButtonElement>("[data-pc-serie]").forEach((boton) => {
+      boton.addEventListener("click", () => {
+        const i = Number(boton.dataset.pcSerie);
+        const visible = !grafica.isDatasetVisible(i);
+        grafica.setDatasetVisibility(i, visible);
+        boton.setAttribute("aria-pressed", String(visible));
+        grafica.update("none");
+      });
+    });
+
+    // Lectura del día y pasos (teclado y táctil)
+    const visibles = () => [0, 1, 2, 3, 4].filter((i) => grafica.isDatasetVisible(i));
+    conectarPasos(grafica, raiz, {
+      total: () => labels.length,
+      datasets: () => visibles().filter((d) => isNum(valores[d][0]) || valores[d].some(isNum)),
+      vacio: "Pasa el ratón o toca la gráfica para ver los valores de cada día.",
+      texto: (i) => {
+        const fecha = hasTomorrow && i === ultimo ? `${longDate(fechas[i])} · ${sufijo}` : longDate(fechas[i]);
+        const partes = visibles().filter((d) => isNum(valores[d][i])).map((d) => `${nombres[d]}: ${uno(valores[d][i] as number)}${unidades[d]}`);
+        return [fecha, ...partes].join(" · ");
+      },
+    });
+
+    // Las barras de viento llevan transparencia calculada: se repintan al cambiar de tema.
+    window.addEventListener("aero-tema", () => {
+      grafica.data.datasets[2].borderColor = token("bg");
+      grafica.data.datasets[3].backgroundColor = relleno(velOrig, "sky", "73", "29");
+      grafica.data.datasets[3].borderColor = borde(velOrig, "sky");
+      grafica.data.datasets[4].backgroundColor = relleno(rachaOrig, "warm", "80", "29");
+      grafica.data.datasets[4].borderColor = borde(rachaOrig, "warm");
+      grafica.update("none");
     });
   }
 

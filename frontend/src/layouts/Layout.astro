@@ -20,6 +20,10 @@ const ruta = Astro.url.pathname;
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#0A120E" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
@@ -51,18 +55,16 @@ const ruta = Astro.url.pathname;
   <script>
     import { aplicarTema, temaActual } from "../utils/tema";
 
-    const boton = document.querySelector<HTMLButtonElement>("[data-tema]");
-    const texto = document.querySelector<HTMLElement>("[data-tema-txt]");
+    // Selector Oscuro/Claro de la cabecera (spec 017): el botón del tema activo queda marcado.
+    const botones = [...document.querySelectorAll<HTMLButtonElement>("[data-tema-modo]")];
     const pintar = () => {
-      const oscuro = temaActual() === "oscuro";
-      boton?.setAttribute("aria-pressed", String(oscuro));
-      boton?.setAttribute("aria-label", oscuro ? "Cambiar a tema claro" : "Cambiar a tema oscuro");
-      if (texto) texto.textContent = oscuro ? "Oscuro" : "Claro";
+      const actual = temaActual();
+      botones.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.temaModo === actual)));
     };
-    boton?.addEventListener("click", () => {
-      aplicarTema(temaActual() === "oscuro" ? "claro" : "oscuro");
+    botones.forEach((b) => b.addEventListener("click", () => {
+      aplicarTema(b.dataset.temaModo === "claro" ? "claro" : "oscuro");
       pintar();
-    });
+    }));
     pintar();
   </script>
 </html>

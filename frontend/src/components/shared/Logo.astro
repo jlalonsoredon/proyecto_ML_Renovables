@@ -1,0 +1,23 @@
+---
+// Marca de AeroPredictor (spec 017): rotor de tres palas + palabra, como en el lienzo de diseño.
+interface Props {
+  tam?: number;
+}
+const { tam = 22 } = Astro.props;
+const PALA = "M12,12 C10.6,7.6 11.2,4.6 12,2.2 C12.8,4.6 13.4,7.6 12,12 Z";
+---
+
+<span class="logo">
+  <svg width={tam + 6} height={tam + 6} viewBox="0 0 24 24" aria-hidden="true">
+    {[0, 120, 240].map((a) => <path d={PALA} transform={`rotate(${a} 12 12)`} style="fill: var(--accent)" />)}
+    <circle cx="12" cy="12" r="1.7" style="fill: var(--ink)" />
+  </svg>
+  <span class="logo-txt font-display" style={`font-size: ${tam}px`}><b>AERO</b><span>Predictor</span></span>
+</span>
+
+<style>
+  .logo { display: inline-flex; align-items: center; gap: 10px; }
+  .logo-txt { letter-spacing: -0.02em; color: var(--ink); line-height: 1; }
+  .logo-txt b { font-weight: 700; }
+  .logo-txt span { font-weight: 400; color: var(--muted); }
+</style>

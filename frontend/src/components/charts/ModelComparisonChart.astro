@@ -1,150 +1,220 @@
 ---
-// Real frente a las predicciones de cada modelo con 16 y con 19 variables.
-// Las métricas de cada versión se muestran con su protocolo y no se restan (D-9-8).
+// Real frente a las predicciones de cada modelo con 16 y con 19 variables (spec 011, ventana común).
+// Diseño del lienzo (spec 017): controles comunes a las ocho gráficas, escala compartida, métricas y tabla.
 import data from "../../data/model-predictions.json";
-import { formatMetric, formatNumber, formatDateEs } from "../../utils/evolution.mjs";
+import Pasos from "../proceso/Pasos.astro";
 
 const VIGENTE = "Linear Regression";
-
-// Las dos variantes comparten ventana (spec 011): el test lo exige, así que se declara una sola vez.
-const p = data.protocolo19;
-const window16 = "16 variables";
-const window19 = "19 variables";
 const RECHAZADO = "LightGBM";
 
-const labels = data.semanas.map((iso) => {
-  const [y, m, d] = iso.split("-");
-  return `${Number(d)}/${Number(m)}/${y.slice(2)}`;
-});
+const fijo = (v: number, d: number) =>
+  new Intl.NumberFormat("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: "always" } as Intl.NumberFormatOptions).format(v);
+const celdas = (m: { rmse: number; mae: number; r2: number; mape: number; accuracy: number }) => [
+  { k: "RMSE", v: `${fijo(m.rmse, 0)} MWh` },
+  { k: "MAE", v: `${fijo(m.mae, 0)} MWh` },
+  { k: "R²", v: fijo(m.r2, 4) },
+  { k: "MAPE", v: `${fijo(m.mape, 1)} %` },
+  { k: "Acierto por tramos", v: `${fijo(m.accuracy, 1)} %` },
+];
+const gwh = (v: number | null) => (v === null ? null : Math.round(v / 100) / 10);
+const fechaCorta = (iso: string) => `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))}/${iso.slice(2, 4)}`;
 
-const toGWh = (v: number | null) => (v === null ? null : Math.round(v / 100) / 10);
-
-const models = data.modelos.map((m, i) => ({
+const real = data.real.map(gwh);
+const modelos = data.modelos.map((m, i) => ({
   id: `modelChart${i}`,
   nombre: m.modelo,
   vigente: m.modelo === VIGENTE,
   rechazado: m.modelo === RECHAZADO,
-  m16: m.metricas16,
-  m19: m.metricas19,
-  series: {
-    labels,
-    real: data.real.map(toGWh),
-    pred16: m.pred16.map(toGWh),
-    pred19: m.pred19.map(toGWh),
-  },
+  m16: celdas(m.metricas16),
+  m19: celdas(m.metricas19),
+  p16: m.pred16.map(gwh),
+  p19: m.pred19.map(gwh),
 }));
-
-const badge = "text-xs px-2 py-0.5 rounded-full whitespace-nowrap";
+// Escala común a las ocho gráficas: se comparan a simple vista.
+const todos = [...real, ...modelos.flatMap((m) => [...m.p16, ...m.p19])].filter((v): v is number => v !== null);
+const escala = { min: Math.floor(Math.min(...todos) / 50) * 50, max: Math.ceil(Math.max(...todos) / 50) * 50 };
+const payload = { semanas: data.semanas, real, escala, modelos: modelos.map((m) => ({ id: m.id, nombre: m.nombre, p16: m.p16, p19: m.p19 })) };
+const series = [
+  { t: "Real", token: "ink", disc: false },
+  { t: "16 variables", token: "warm", disc: true },
+  { t: "19 variables", token: "accent", disc: false },
+];
+const periodos = [
+  { t: "Todo el periodo", n: 0 },
+  { t: "Últimos 6 meses", n: 26 },
+  { t: "Últimos 3 meses", n: 13 },
+];
 ---
 
-<div class="space-y-6">
-  <div class="text-sm text-muted space-y-1" style="max-width: 80ch">
-    <p>
-      Media semanal (lunes a domingo, etiquetada por su domingo) de la generación eólica real (línea continua) frente a la
-      predicción de cada modelo con 16 variables (naranja) y con 19 variables (azul). Valores en GWh.
-    </p>
-    <p class="text-xs">
-      Las dos versiones se evalúan en la misma ventana: del {formatDateEs(p.desde)} al {formatDateEs(p.hasta)}
-      ({formatNumber(p.dias, 0)} días, {formatNumber(p.semanas, 0)} semanas). Cada modelo se entrenó solo con los
-      {formatNumber(p.dias_entrenamiento, 0)} días anteriores (hasta el {formatDateEs(p.entrenamiento_hasta)}) y predice
-      toda la ventana sin reentrenar, así que sus cifras sí se pueden comparar entre 16 y 19 variables. No son
-      comparables con la del modelo en producción (paso 6, otra ventana) ni con la línea base histórica de 16 variables,
-      medida con el pipeline anterior. SARIMAX solo usa viento y racha, por eso sus dos líneas coinciden.
-    </p>
-    <p class="text-xs">Fuentes: {data.fuente.pred19} {data.fuente.pred16} {data.fuente.real}</p>
+<div class="mc" data-comparativa={JSON.stringify(payload)}>
+  <div class="mc-controles">
+    <div class="ctl-grupo" role="group" aria-label="Series visibles en todas las gráficas">
+      {series.map((s, i) => (
+        <button type="button" class="ctl-btn" aria-pressed="true" data-mc-serie={i}>
+          <span class="mc-muestra" style={`border-top: 3px ${s.disc ? "dashed" : "solid"} var(--${s.token})`}></span>{s.t}
+        </button>
+      ))}
+    </div>
+    <div class="ctl-grupo" role="group" aria-label="Periodo de todas las gráficas">
+      {periodos.map((p) => <button type="button" class="ctl-btn ctl-periodo" aria-pressed={p.n === 0 ? "true" : "false"} data-mc-periodo={p.n}>{p.t}</button>)}
+    </div>
   </div>
+  <p class="a-p ctl-ayuda">Media semanal de la producción diaria, en GWh. Los controles afectan a las ocho gráficas, que comparten escala para que se puedan comparar a simple vista.</p>
 
-  {models.map((m) => (
-    <figure class="a-card" style={m.vigente ? "border-color: var(--accent)" : ""}>
-      <figcaption class="mb-3 space-y-2">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="font-display font-semibold text-ink text-lg">{m.nombre}</span>
-          {m.vigente && <span class={`${badge} font-semibold" style="background: var(--accent); color: var(--accentInk)`}>Modelo vigente</span>}
-          {m.rechazado && <span class={`${badge} font-semibold" style="border: 1px solid var(--warm); color: var(--warm)`}>Rechazado: mejora en 1 de 4 años</span>}
+  <div class="mc-lista">
+    {modelos.map((m, i) => (
+      <article class={`mc-tarjeta${m.vigente ? " vigente" : ""}`} data-mc-modelo={i}>
+        <div class="mc-cab">
+          <h3 class="font-display">{m.nombre}</h3>
+          {m.vigente && <span class="mc-chip mc-chip-ok">Modelo vigente</span>}
+          {m.rechazado && <span class="mc-chip mc-chip-aviso">Rechazado: mejora en 1 de 4 años</span>}
         </div>
-        <dl class="grid gap-2 sm:grid-cols-2 text-xs">
-          <div class="rounded-lg p-3" style="border: 1px solid var(--coral)">
-            <dt class="font-semibold" style="color: var(--coral)">{window16}</dt>
-            <dd class="text-ink">
-              RMSE {formatMetric(m.m16.rmse, "rmse")} · MAE {formatMetric(m.m16.mae, "mae")} ·
-              R² {formatMetric(m.m16.r2, "r2")} · MAPE {formatMetric(m.m16.mape, "mape")} ·
-              Acierto por tramos {formatNumber(m.m16.accuracy, 1)} %
-            </dd>
-          </div>
-          <div class="rounded-lg p-3" style="border: 1px solid var(--sky)">
-            <dt class="font-semibold" style="color: var(--sky)">{window19}</dt>
-            <dd class="text-ink">
-              RMSE {formatMetric(m.m19.rmse, "rmse")} · MAE {formatMetric(m.m19.mae, "mae")} ·
-              R² {formatMetric(m.m19.r2, "r2")} · MAPE {formatMetric(m.m19.mape, "mape")} ·
-              Acierto por tramos {formatNumber(m.m19.accuracy, 1)} %
-            </dd>
-          </div>
-        </dl>
-      </figcaption>
-      <div style="position:relative;height:clamp(260px, 42vw, 380px);">
-        <canvas
-          id={m.id}
-          data-series={JSON.stringify(m.series)}
-          role="img"
-          aria-label={`${m.nombre}: generación real y predicciones semanales con 16 y 19 variables`}
-        ></canvas>
-      </div>
-      <details class="a-tabla">
-        <summary>Ver los datos en tabla</summary>
-        <div class="a-tabla-wrap">
-          <table>
-            <caption class="sr-only">{m.nombre}: GWh por semana</caption>
-            <thead><tr><th scope="col">Semana</th><th scope="col">Real</th><th scope="col">16 variables</th><th scope="col">19 variables</th></tr></thead>
-            <tbody>
-              {m.series.labels.map((l, i) => (
-                <tr><th scope="row" style="font-weight:400;color:var(--ink)">{l}</th><td>{formatNumber(m.series.real[i] ?? 0, 1)}</td><td>{formatNumber(m.series.pred16[i] ?? 0, 1)}</td><td>{formatNumber(m.series.pred19[i] ?? 0, 1)}</td></tr>
-              ))}
-            </tbody>
-          </table>
+        <div class="mc-metricas">
+          {[{ t: "16 variables", token: "warm", disc: true, c: m.m16 }, { t: "19 variables", token: "accent", disc: false, c: m.m19 }].map((b) => (
+            <div class="mc-metrica">
+              <p class="mc-metrica-t"><span class="mc-muestra" style={`border-top: 3px ${b.disc ? "dashed" : "solid"} var(--${b.token})`}></span>{b.t}</p>
+              <dl>
+                {b.c.map((c) => <div><dt>{c.k}</dt><dd class="num font-display">{c.v}</dd></div>)}
+              </dl>
+            </div>
+          ))}
         </div>
-      </details>
-    </figure>
-  ))}
+        <div class="ctl-lectura"><p class="num" data-lectura aria-live="polite"></p><Pasos que="Semana" /></div>
+        <div class="ctl-lienzo mc-lienzo"><canvas id={m.id} role="img" aria-label={`${m.nombre}: generación real y predicciones semanales con 16 y 19 variables`}></canvas></div>
+        {m.nombre === "SARIMAX" && <p class="a-p ctl-ayuda">SARIMAX solo usa viento y racha: las dos líneas coinciden.</p>}
+        <details class="a-tabla">
+          <summary>Ver los datos en tabla</summary>
+          <div class="a-tabla-wrap">
+            <table>
+              <caption class="sr-only">{m.nombre}: GWh por semana</caption>
+              <thead><tr><th scope="col">Semana que termina</th><th scope="col">Real (GWh)</th><th scope="col">16 variables (GWh)</th><th scope="col">19 variables (GWh)</th></tr></thead>
+              <tbody>
+                {data.semanas.map((s, j) => (
+                  <tr><th scope="row" style="font-weight:400;color:var(--ink)">{fechaCorta(s)}</th><td>{real[j] === null ? "—" : fijo(real[j] as number, 1)}</td><td>{m.p16[j] === null ? "—" : fijo(m.p16[j] as number, 1)}</td><td>{m.p19[j] === null ? "—" : fijo(m.p19[j] as number, 1)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </article>
+    ))}
+  </div>
 </div>
+
+<style>
+  .mc { display: flex; flex-direction: column; gap: 24px; }
+  .mc-controles { display: flex; gap: 12px 28px; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; }
+  .mc-muestra { flex: none; width: 22px; height: 0; }
+  .mc-lista { display: flex; flex-direction: column; gap: 24px; }
+  .mc-tarjeta { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: clamp(18px, 3vw, 32px); display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .mc-tarjeta.vigente { border-color: var(--accent); }
+  .mc-cab { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+  .mc-cab h3 { margin: 0; font-size: clamp(22px, 2.6vw, 30px); font-weight: 600; letter-spacing: -0.025em; }
+  .mc-chip { border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; border: 1px solid; }
+  .mc-chip-ok { border-color: var(--accent); color: var(--accent); }
+  .mc-chip-aviso { border-color: var(--warm); color: var(--warm); }
+  .mc-metricas { display: flex; flex-wrap: wrap; gap: 14px; }
+  .mc-metrica { flex: 1 1 320px; background: var(--surface2); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; }
+  .mc-metrica-t { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+  .mc-metrica dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(110px, 45%), 1fr)); gap: 10px 14px; }
+  .mc-metrica dt { font-size: 12px; color: var(--muted); }
+  .mc-metrica dd { margin: 2px 0 0; font-size: 17px; font-weight: 600; }
+  .mc-lienzo { aspect-ratio: 1200 / 460; min-height: 240px; }
+</style>
 
 <script>
   import { Chart, registerables } from "chart.js";
   import "../../utils/charts-tema";
+  import { conectarPasos } from "../../utils/chart-pasos";
 
   Chart.register(...registerables);
 
-  type Series = { labels: string[]; real: (number | null)[]; pred16: (number | null)[]; pred19: (number | null)[] };
+  type Payload = {
+    semanas: string[];
+    real: (number | null)[];
+    escala: { min: number; max: number };
+    modelos: { id: string; nombre: string; p16: (number | null)[]; p19: (number | null)[] }[];
+  };
 
-  document.querySelectorAll<HTMLCanvasElement>("canvas[data-series]").forEach((canvas) => {
-    const s: Series = JSON.parse(canvas.dataset.series!);
-    new Chart(canvas, {
-      type: "line",
-      data: {
-        labels: s.labels,
-        datasets: [
-          { label: "Real", tokenColor: "ink", data: s.real, borderColor: "#374151", borderWidth: 2.2, pointRadius: 0, tension: 0.3 },
-          { label: "16 variables", tokenColor: "coral", data: s.pred16, borderColor: "tomato", borderWidth: 2, pointRadius: 0, tension: 0.3 },
-          { label: "19 variables", tokenColor: "sky", data: s.pred19, borderColor: "#2563EB", borderWidth: 2, pointRadius: 0, tension: 0.3 },
-        ] as any[],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 }, color: "#9CA3AF" } },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => (ctx.parsed.y === null ? "" : `${ctx.dataset.label}: ${Number(ctx.parsed.y).toLocaleString("es-ES")} GWh`),
+  const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const dia = (iso: string) => `${Number(iso.slice(8, 10))} ${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+  const mes = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(2, 4)}`;
+  const uno = (v: number) => new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: "always" } as Intl.NumberFormatOptions).format(v);
+
+  document.querySelectorAll<HTMLElement>("[data-comparativa]").forEach((raiz) => {
+    const p: Payload = JSON.parse(raiz.dataset.comparativa!);
+    const nombres = ["Real", "16 variables", "19 variables"];
+    let desde = 0;
+    const visibles = [true, true, true];
+
+    const graficas = p.modelos.map((m, i) => {
+      const tarjeta = raiz.querySelector<HTMLElement>(`[data-mc-modelo="${i}"]`)!;
+      const columnas = [p.real, m.p16, m.p19];
+      const chart = new Chart(document.getElementById(m.id) as HTMLCanvasElement, {
+        type: "line",
+        data: {
+          labels: p.semanas,
+          datasets: [
+            { label: "Real", tokenColor: "ink", data: p.real, borderColor: "#888", borderWidth: 3, pointRadius: 0, pointHoverRadius: 5, tension: 0.3 },
+            { label: "16 variables", tokenColor: "warm", data: m.p16, borderColor: "#888", borderWidth: 2.2, borderDash: [8, 6], pointRadius: 0, pointHoverRadius: 5, tension: 0.3 },
+            { label: "19 variables", tokenColor: "accent", data: m.p19, borderColor: "#888", borderWidth: 2.4, pointRadius: 0, pointHoverRadius: 5, tension: 0.3 },
+          ] as any[],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => `Semana que termina el ${dia(String(items[0].label))}`,
+                label: (ctx) => (ctx.parsed.y === null ? "" : ` ${ctx.dataset.label}: ${uno(Number(ctx.parsed.y))} GWh`),
+              },
             },
           },
+          scales: {
+            x: { ticks: { autoSkip: true, maxTicksLimit: 8, maxRotation: 0, callback(valor) { return mes(String(this.getLabelForValue(Number(valor)))); } }, grid: { display: false } },
+            y: { min: p.escala.min, max: p.escala.max, title: { display: true, text: "GWh/día (media semanal)" } },
+          },
         },
-        scales: {
-          x: { ticks: { font: { size: 9 }, color: "#9CA3AF", maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }, grid: { display: false } },
-          y: { title: { display: true, text: "GWh/día (media semanal)", font: { size: 10 }, color: "#9CA3AF" }, ticks: { font: { size: 9 }, color: "#9CA3AF" } },
+      });
+      const pasos = conectarPasos(chart, tarjeta, {
+        total: () => p.semanas.length - desde,
+        datasets: () => [0, 1, 2].filter((d) => visibles[d]),
+        vacio: "Pasa el ratón o toca la gráfica para ver los valores de cada semana.",
+        texto: (j) => {
+          const k = desde + j;
+          const partes = [0, 1, 2].filter((d) => visibles[d] && columnas[d][k] !== null).map((d) => `${nombres[d]}: ${uno(columnas[d][k] as number)} GWh`);
+          return [`Semana que termina el ${dia(p.semanas[k])}`, ...partes].join(" · ");
         },
-      },
+      });
+      return { chart, columnas, pasos };
+    });
+
+    raiz.querySelectorAll<HTMLButtonElement>("[data-mc-serie]").forEach((boton) => {
+      boton.addEventListener("click", () => {
+        const d = Number(boton.dataset.mcSerie);
+        visibles[d] = !visibles[d];
+        boton.setAttribute("aria-pressed", String(visibles[d]));
+        graficas.forEach((g) => { g.chart.setDatasetVisibility(d, visibles[d]); g.chart.update("none"); });
+      });
+    });
+    raiz.querySelectorAll<HTMLButtonElement>("[data-mc-periodo]").forEach((boton) => {
+      boton.addEventListener("click", () => {
+        const n = Number(boton.dataset.mcPeriodo);
+        desde = n === 0 ? 0 : Math.max(0, p.semanas.length - n);
+        raiz.querySelectorAll("[data-mc-periodo]").forEach((b) => b.setAttribute("aria-pressed", String(b === boton)));
+        graficas.forEach((g) => {
+          g.chart.data.labels = p.semanas.slice(desde);
+          g.chart.data.datasets.forEach((ds, d) => { ds.data = g.columnas[d].slice(desde); });
+          g.chart.setActiveElements([]);
+          g.chart.tooltip?.setActiveElements([], { x: 0, y: 0 });
+          g.chart.update("none");
+          g.pasos.reiniciar();
+        });
+      });
     });
   });
 </script>

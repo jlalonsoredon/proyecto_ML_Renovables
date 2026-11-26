@@ -25,9 +25,9 @@ h1, h2, h3, .font-display { font-family: "Space Grotesk", "Inter", system-ui, sa
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 
 /* Estructura */
-.a-wrap { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.a-wrap { width: 100%; max-width: calc(1240px + 2 * clamp(20px, 5vw, 72px)); margin: 0 auto; padding: 0 clamp(20px, 5vw, 72px); }
 .a-section { padding-bottom: 88px; }
-@media (max-width: 640px) { .a-wrap { padding: 0 18px; } .a-section { padding-bottom: 64px; } }
+@media (max-width: 640px) { .a-section { padding-bottom: 64px; } }
 
 /* Tipografía */
 .a-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
@@ -39,36 +39,14 @@ h1, h2, h3, .font-display { font-family: "Space Grotesk", "Inter", system-ui, sa
 .a-link { color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
 /* Tarjetas y botones */
-.a-card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 28px; }
+.a-card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 28px; }
 .a-card-sm { background: var(--surface2); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
-.a-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 22px; border-radius: 999px; font-weight: 600; font-size: 15px; text-decoration: none; background: var(--accent); color: var(--accentInk); border: 1px solid var(--accent); transition: transform .15s; }
+.a-btn { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 24px; border-radius: 999px; font-weight: 600; font-size: 15px; text-decoration: none; background: var(--accent); color: var(--accentInk); border: 1px solid var(--accent); transition: transform .15s; }
 .a-btn:hover { transform: translateY(-1px); }
 .a-btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
 .a-chip { display: inline-flex; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; }
 
-/* Cabecera */
-.a-nav { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
-.a-nav-in { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 64px; }
-.a-logo { display: inline-flex; align-items: center; gap: 10px; font-family: "Space Grotesk", sans-serif; font-size: 20px; font-weight: 700; text-decoration: none; letter-spacing: -0.02em; }
-.a-logo span { font-weight: 400; color: var(--muted); }
-.a-links { display: flex; gap: 4px; align-items: center; }
-.a-links a { padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 500; text-decoration: none; color: var(--muted); }
-.a-links a:hover { color: var(--ink); background: var(--surface2); }
-.a-links a[aria-current="page"] { color: var(--ink); background: var(--surface2); }
-.a-tema { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; }
-.a-tema:hover { background: var(--surface2); }
-@media (max-width: 720px) {
-  .a-nav-in { flex-wrap: wrap; padding: 10px 0; }
-  .a-links { order: 3; width: 100%; overflow-x: auto; }
-  .a-tema-txt { display: none; }
-}
-
-/* Pie */
-.a-foot { border-top: 1px solid var(--line); padding: 56px 0; }
-.a-foot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 32px; }
-.a-foot h4 { font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
-.a-foot a { display: block; padding: 4px 0; color: var(--ink); text-decoration: none; font-size: 14px; }
-.a-foot a:hover { color: var(--accent); }
+/* Cabecera y pie: estilos en src/layouts/Navbar.astro y Footer.astro (spec 017) */
 
 /* Tabla de datos desplegable de cada gráfica */
 details.a-tabla { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
@@ -110,3 +88,8 @@ details.a-acc .a-acc-body { padding: 0 0 18px; color: var(--muted); }
 .ctl-pasos button:hover { background: var(--surface2); }
 .ctl-lienzo { position: relative; width: 100%; }
 .ctl-ayuda { font-size: 13px; margin: 0; }
+
+/* Líneas de viento decorativas (spec 017) */
+@keyframes deriva { from { transform: translateX(0); } to { transform: translateX(-28px); } }
+.deriva { animation: deriva 18s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .deriva { animation: none; } }

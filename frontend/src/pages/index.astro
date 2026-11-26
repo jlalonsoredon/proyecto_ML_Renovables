@@ -1,9 +1,11 @@
 ---
+// Inicio (spec 017): misma composición que el lienzo de diseño.
 import snapshot from "../data/forecast-snapshot.json";
 import { cardView } from "../utils/live-prediction.mjs";
 import Layout from "../layouts/Layout.astro";
 import PrediccionCard from "../components/shared/PrediccionCard.astro";
 import PredictionChart from "../components/charts/PredictionChart.astro";
+import Corrientes from "../components/shared/Corrientes.astro";
 
 const view = cardView(snapshot);
 
@@ -20,69 +22,67 @@ const pasos = [
   { n: "03", t: "Modelos de Machine Learning", d: "Ocho familias de modelos comparadas con 16 y con 19 variables. Linear Regression con 19 variables es el modelo vigente." },
   { n: "04", t: "Predicción y actualización", d: "Cada día se capturan las previsiones, se construyen las variables y se publica la cifra en MWh. Si falta un dato, no se publica ninguna." },
 ];
+const flecha = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
 ---
 
 <Layout title="Predicción eólica de mañana">
   <main>
-    <!-- Hero -->
+    <!-- Cabecera -->
     <section class="hero">
       <div class="a-grid-bg" aria-hidden="true"></div>
+      <div class="hero-viento" aria-hidden="true"><Corrientes ancho={760} alto={640} n={17} semilla={11} /></div>
       <div class="a-wrap hero-in">
         <div class="hero-txt">
-          <h1 class="a-h1">Predicción de producción <span style="color: var(--accent)">eólica</span> de mañana</h1>
-          <p class="a-lead">
-            Estimaciones diarias de la generación eólica peninsular, calculadas con modelos de Machine Learning a partir de los datos de AEMET y REE.
-          </p>
-          <div class="hero-btns">
-            <a class="a-btn" href="/resultados">Ver la predicción de mañana →</a>
+          <h1 class="font-display">Predicción de producción <span>eólica</span> de mañana</h1>
+          <p>Estimaciones diarias de la generación eólica peninsular, calculadas con modelos de Machine Learning a partir de los datos de AEMET y REE.</p>
+          <div class="botones">
+            <a class="a-btn" href="/resultados">Ver la predicción de mañana <Fragment set:html={flecha} /></a>
             <a class="a-btn a-btn-ghost" href="/proceso">Cómo funciona</a>
           </div>
         </div>
-        <PrediccionCard view={view} />
+        <PrediccionCard view={view} variante="instrumento" />
       </div>
     </section>
 
-    <!-- Tres razones para fiarse -->
-    <section class="a-section">
+    <!-- Tres razones -->
+    <section class="a-section seccion">
       <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 0 0 28px; max-width: 20ch">Tres razones para fiarse de la cifra de mañana</h2>
+        <h2 class="a-h2 titulo">Tres razones para fiarse de la cifra de mañana</h2>
         <ol class="razones">
           {razones.map((r) => (
             <li>
-              <h3 class="a-h3 razon-t">{r.t}</h3>
-              <p class="a-p razon-d">{r.d}</p>
+              <h3 class="font-display">{r.t}</h3>
+              <p>{r.d}</p>
             </li>
           ))}
         </ol>
       </div>
     </section>
 
-    <!-- Predicción vs real (interactiva) -->
-    <section class="a-section">
-      <div class="a-wrap">
-        <div class="vs-head">
-          <div style="max-width: 700px">
-            <h2 class="a-h2" style="margin: 0 0 14px">Lo previsto frente a lo que pasó, día a día</h2>
-            <p class="a-lead">
-              Producción eólica real de los últimos 30 días completos frente a las predicciones del modelo. Los días cuyo dato de REE aún está incompleto no se muestran.
-            </p>
+    <!-- Predicción frente a lo real -->
+    <section class="a-section seccion">
+      <div class="a-wrap col">
+        <div class="vs-cab">
+          <div class="vs-txt">
+            <h2 class="a-h2 titulo">Lo previsto frente a lo que pasó, día a día</h2>
+            <p class="a-lead">Producción eólica real de los últimos 30 días completos frente a las predicciones del modelo. Los días cuyo dato de REE aún está incompleto no se muestran.</p>
           </div>
-          <a class="a-btn a-btn-ghost" href="/resultados">Ver todos los gráficos →</a>
+          <a class="a-btn a-btn-ghost" href="/resultados">Ver todos los gráficos <Fragment set:html={flecha} /></a>
         </div>
-        <div style="margin-top: 32px"><PredictionChart /></div>
+        <div class="a-card tarjeta-26"><PredictionChart /></div>
       </div>
     </section>
 
-    <!-- Proceso -->
-    <section class="a-section">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 0 0 40px; max-width: 24ch">De las APIs a una cifra en MWh, en cuatro pasos</h2>
+    <!-- El proceso -->
+    <section class="a-section seccion">
+      <div class="a-wrap col">
+        <h2 class="a-h2 titulo" style="max-width: 24ch">De las APIs a una cifra en MWh, en cuatro pasos</h2>
         <ol class="pasos">
           {pasos.map((p) => (
             <li>
-              <span class="num font-display paso-n">{p.n}</span>
-              <h3 class="a-h3" style="margin: 14px 0 10px">{p.t}</h3>
-              <p class="a-p" style="font-size: 15px">{p.d}</p>
+              <span class="num font-display">{p.n}</span>
+              <h3 class="font-display">{p.t}</h3>
+              <p>{p.d}</p>
             </li>
           ))}
         </ol>
@@ -90,16 +90,17 @@ const pasos = [
     </section>
 
     <!-- Cierre -->
-    <section class="a-section" style="padding-bottom: 112px">
+    <section class="a-section seccion" style="padding-bottom: 112px">
       <div class="a-wrap">
         <div class="cierre">
-          <h2 class="a-h2" style="max-width: 18ch">¿Quieres saber cómo funciona?</h2>
-          <p class="a-lead" style="color: var(--ink); margin-top: 18px">
-            Descubre el proceso completo: desde la obtención de datos de las APIs hasta la predicción con Machine Learning.
-          </p>
-          <div class="hero-btns">
-            <a class="a-btn" href="/proceso">Ver el proceso →</a>
-            <a class="a-btn a-btn-ghost" href="/resultados">Ver resultados</a>
+          <div class="cierre-viento" aria-hidden="true"><Corrientes ancho={640} alto={420} n={12} semilla={3} /></div>
+          <div class="cierre-txt">
+            <h2 class="a-h2 titulo">¿Quieres saber cómo funciona?</h2>
+            <p>Descubre el proceso completo: desde la obtención de datos de las APIs hasta la predicción con Machine Learning.</p>
+            <div class="botones">
+              <a class="a-btn" href="/proceso">Ver el proceso <Fragment set:html={flecha} /></a>
+              <a class="a-btn a-btn-ghost" href="/resultados">Ver resultados</a>
+            </div>
           </div>
         </div>
       </div>
@@ -108,19 +109,34 @@ const pasos = [
 </Layout>
 
 <style>
-  .hero { position: relative; overflow: hidden; padding: 64px 0 88px; }
+  .hero { position: relative; overflow: hidden; padding: 56px 0 88px; }
+  .hero-viento { position: absolute; top: 0; right: 0; width: 66%; height: 100%; overflow: hidden; }
   .hero-in { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 56px; align-items: center; }
-  .hero-txt { display: flex; flex-direction: column; gap: 26px; }
-  .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
-  .razones { margin: 0; padding: 0; list-style: none; border-bottom: 1px solid var(--line); }
+  .hero-txt { display: flex; flex-direction: column; gap: 28px; }
+  .hero-txt h1 { margin: 0; font-size: clamp(44px, 6.4vw, 92px); line-height: 0.96; letter-spacing: -0.04em; font-weight: 600; color: var(--ink); text-wrap: balance; }
+  .hero-txt h1 span { color: var(--accent); }
+  .hero-txt p { margin: 0; font-size: 19px; line-height: 1.6; color: var(--muted); max-width: 52ch; text-wrap: pretty; }
+  .botones { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+  .seccion { padding-bottom: 104px; }
+  .col { display: flex; flex-direction: column; gap: 36px; }
+  .titulo { margin: 0; font-size: clamp(30px, 3.6vw, 48px); line-height: 1.05; }
+  .razones { margin: 28px 0 0; padding: 0; list-style: none; border-bottom: 1px solid var(--line); }
   .razones li { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 12px 40px; padding: 28px 0; border-top: 1px solid var(--line); }
-  .razon-t { font-size: clamp(22px, 2.4vw, 28px); line-height: 1.15; letter-spacing: -0.025em; text-wrap: balance; margin: 0; }
-  .razon-d { font-size: 17px; max-width: 60ch; margin: 0; }
-  .vs-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
-  .pasos { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 28px; }
-  .pasos li { border-top: 1px solid var(--line); padding-top: 22px; }
-  .paso-n { font-size: 14px; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; }
-  .cierre { background: var(--surface2); border: 1px solid var(--line); border-radius: 32px; padding: clamp(32px, 6vw, 72px); }
+  .razones h3 { margin: 0; font-size: clamp(22px, 2.4vw, 28px); line-height: 1.15; letter-spacing: -0.025em; font-weight: 600; text-wrap: balance; }
+  .razones p { margin: 0; font-size: 17px; line-height: 1.6; color: var(--muted); max-width: 60ch; text-wrap: pretty; }
+  .vs-cab { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+  .vs-txt { display: flex; flex-direction: column; gap: 14px; max-width: 700px; }
+  .vs-txt .a-lead { margin: 0; }
+  .tarjeta-26 { padding: 26px; }
+  .pasos { margin: 8px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 28px; }
+  .pasos li { display: flex; flex-direction: column; gap: 14px; padding-top: 22px; border-top: 1px solid var(--line); }
+  .pasos .num { font-size: 14px; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; }
+  .pasos h3 { margin: 0; font-size: 22px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 600; }
+  .pasos p { margin: 0; font-size: 15px; color: var(--muted); text-wrap: pretty; }
+  .cierre { position: relative; overflow: hidden; background: var(--surface2); border: 1px solid var(--line); border-radius: 32px; padding: clamp(32px, 6vw, 72px); }
+  .cierre-viento { position: absolute; top: 0; right: 0; width: 60%; height: 100%; opacity: 0.8; overflow: hidden; }
+  .cierre-txt { position: relative; display: flex; flex-direction: column; gap: 22px; max-width: 620px; }
+  .cierre-txt p { margin: 0; font-size: 17px; line-height: 1.65; color: var(--ink); max-width: 62ch; }
 </style>
 
 <script>
