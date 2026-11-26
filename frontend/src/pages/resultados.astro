@@ -12,7 +12,6 @@ const view = cardView(snapshot);
   <main>
     <section class="a-section" style="padding-top: 72px; padding-bottom: 56px">
       <div class="a-wrap" style="display: flex; flex-direction: column; gap: 22px">
-        <p class="a-eyebrow">Resultados y predicciones</p>
         <h1 class="a-h1" style="max-width: 16ch">Qué ha pasado y qué se espera</h1>
         <p class="a-lead">Datos históricos, comparación de modelos y la predicción vigente para mañana.</p>
       </div>
@@ -24,8 +23,7 @@ const view = cardView(snapshot);
 
     <section class="a-section">
       <div class="a-wrap">
-        <p class="a-eyebrow">Predicción vs real</p>
-        <h2 class="a-h2" style="margin: 14px 0">Lo previsto frente a lo que pasó</h2>
+        <h2 class="a-h2" style="margin: 0 0 14px">Lo previsto frente a lo que pasó</h2>
         <p class="a-lead">
           Producción eólica real de los últimos 30 días completos frente a las predicciones del modelo. El rombo violeta es la predicción para mañana.
           Los días cuyo dato de REE aún está incompleto no se muestran.
@@ -36,8 +34,7 @@ const view = cardView(snapshot);
 
     <section class="a-section">
       <div class="a-wrap">
-        <p class="a-eyebrow">Modelos</p>
-        <h2 class="a-h2" style="margin: 14px 0">Comparación de modelos de Machine Learning</h2>
+        <h2 class="a-h2" style="margin: 0 0 14px">Comparación de modelos de Machine Learning</h2>
         <p class="a-lead" style="margin-bottom: 28px">
           Linear Regression con 19 variables es el modelo vigente: R² de 0,9308 y RMSE de 23.108,4 MWh en un test de 354 días (del 22 de noviembre de 2025 al 10 de noviembre de 2026).
           Las comparativas de 16 y 19 variables comparten ventana.

@@ -144,7 +144,7 @@ Paleta de noche verdosa con un verde eléctrico; cada color tiene su pareja para
 - **Body** (400, 16px, 1,6): texto corrido, 65–75ch.
 
 ### Named Rules
-**La regla del título sin etiqueta.** Ningún título lleva encima una etiqueta en mayúsculas ni un número de sección. La única excepción es una secuencia cuyo orden importa (los pasos del proceso de Inicio). Proceso ya la cumple; Inicio, Resultados y Mejoras de la web aún usan `.a-eyebrow` y quedan pendientes de otra spec.
+**La regla del título sin etiqueta.** Ningún título lleva encima una etiqueta en mayúsculas ni un número de sección. Excepciones: una secuencia cuyo orden importa (los pasos del proceso de Inicio) y el título de la tarjeta de predicción («Predicción para mañana»). Toda la web la cumple desde la spec 014.
 
 ## Layout
 

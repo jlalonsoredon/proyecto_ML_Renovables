@@ -7,6 +7,13 @@ import PredictionChart from "../components/charts/PredictionChart.astro";
 
 const view = cardView(snapshot);
 
+// Razones con la cifra dentro del texto (spec 014): sin cifra-héroe ni tarjetas iguales.
+const razones = [
+  { t: "Acierta la mayor parte de la variación", d: "Linear Regression con 19 variables explica el 93 % de la variación de la producción eólica (R² de 0,9308) en un test de 354 días, de noviembre de 2025 a noviembre de 2026." },
+  { t: "Aprende de más de cuatro años de datos", d: "Se entrena con la generación eléctrica de REE y las observaciones meteorológicas de AEMET desde enero de 2022." },
+  { t: "Se actualiza cada día", d: "Cada mañana se genera la cifra del día siguiente con la previsión meteorológica de AEMET y la previsión eólica de REE. Si falta un dato, no se publica ninguna." },
+];
+
 const pasos = [
   { n: "01", t: "Obtención de datos", d: "Generación eléctrica por tecnología desde enero de 2022 (REE) y observaciones de 11 estaciones y previsiones de 12 ubicaciones (AEMET)." },
   { n: "02", t: "Preprocesamiento", d: "Limpieza, interpolación de nulos, conversión de km/h a m/s y fusión por fecha. De ahí salen las 19 variables del modelo." },
@@ -22,7 +29,6 @@ const pasos = [
       <div class="a-grid-bg" aria-hidden="true"></div>
       <div class="a-wrap hero-in">
         <div class="hero-txt">
-          <p class="a-eyebrow">Machine Learning · AEMET · Red Eléctrica de España</p>
           <h1 class="a-h1">Predicción de producción <span style="color: var(--accent)">eólica</span> de mañana</h1>
           <p class="a-lead">
             Estimaciones diarias de la generación eólica peninsular, calculadas con modelos de Machine Learning a partir de los datos de AEMET y REE.
@@ -39,29 +45,15 @@ const pasos = [
     <!-- Tres razones para fiarse -->
     <section class="a-section">
       <div class="a-wrap">
-        <p class="a-eyebrow">Resultados del modelo</p>
-        <h2 class="a-h2" style="margin: 14px 0 36px; max-width: 20ch">Tres razones para fiarse de la cifra de mañana</h2>
-        <div class="bento">
-          <div class="a-card bento-a">
-            <p class="a-eyebrow">Precisión del modelo</p>
-            <p class="num font-display bento-big"><span>0,9308</span><small>R²</small></p>
-            <p class="a-p" style="max-width: 56ch">
-              Linear Regression con 19 variables explica el 93&nbsp;% de la variación de la producción eólica en un test de 354 días (nov. 2025 – nov. 2026).
-            </p>
-          </div>
-          <div class="bento-col">
-            <div class="a-card">
-              <p class="a-eyebrow">Datos históricos</p>
-              <p class="num font-display bento-mid"><span>4+</span><small>años</small></p>
-              <p class="a-p">Analizamos más de 4 años de datos de generación eléctrica y meteorológicos para entrenar los modelos.</p>
-            </div>
-            <div class="a-card">
-              <p class="a-eyebrow">Predicción diaria</p>
-              <p class="num font-display bento-mid"><span>Cada día</span></p>
-              <p class="a-p">Se genera la predicción de mañana con la previsión meteorológica de AEMET y la previsión eólica de REE.</p>
-            </div>
-          </div>
-        </div>
+        <h2 class="a-h2" style="margin: 0 0 28px; max-width: 20ch">Tres razones para fiarse de la cifra de mañana</h2>
+        <ol class="razones">
+          {razones.map((r) => (
+            <li>
+              <h3 class="a-h3 razon-t">{r.t}</h3>
+              <p class="a-p razon-d">{r.d}</p>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
 
@@ -70,8 +62,7 @@ const pasos = [
       <div class="a-wrap">
         <div class="vs-head">
           <div style="max-width: 700px">
-            <p class="a-eyebrow">Predicción vs real</p>
-            <h2 class="a-h2" style="margin: 14px 0">Lo previsto frente a lo que pasó, día a día</h2>
+            <h2 class="a-h2" style="margin: 0 0 14px">Lo previsto frente a lo que pasó, día a día</h2>
             <p class="a-lead">
               Producción eólica real de los últimos 30 días completos frente a las predicciones del modelo. Los días cuyo dato de REE aún está incompleto no se muestran.
             </p>
@@ -85,8 +76,7 @@ const pasos = [
     <!-- Proceso -->
     <section class="a-section">
       <div class="a-wrap">
-        <p class="a-eyebrow">El proceso</p>
-        <h2 class="a-h2" style="margin: 14px 0 40px; max-width: 24ch">De las APIs a una cifra en MWh, en cuatro pasos</h2>
+        <h2 class="a-h2" style="margin: 0 0 40px; max-width: 24ch">De las APIs a una cifra en MWh, en cuatro pasos</h2>
         <ol class="pasos">
           {pasos.map((p) => (
             <li>
@@ -122,16 +112,10 @@ const pasos = [
   .hero-in { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 56px; align-items: center; }
   .hero-txt { display: flex; flex-direction: column; gap: 26px; }
   .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
-  .bento { display: flex; flex-wrap: wrap; gap: 20px; }
-  .bento-a { flex: 2 1 520px; display: flex; flex-direction: column; gap: 18px; justify-content: center; }
-  .bento-col { flex: 1 1 280px; display: flex; flex-direction: column; gap: 20px; }
-  .bento-col .a-card { display: flex; flex-direction: column; gap: 14px; }
-  .bento-big { line-height: 1; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 0; }
-  .bento-big span { font-size: clamp(56px, 6vw, 92px); font-weight: 700; letter-spacing: -0.04em; }
-  .bento-big small { font-size: 22px; color: var(--muted); font-weight: 500; }
-  .bento-mid { line-height: 1; display: flex; align-items: baseline; gap: 10px; margin: 0; }
-  .bento-mid span { font-size: clamp(40px, 4.4vw, 60px); font-weight: 700; letter-spacing: -0.04em; }
-  .bento-mid small { font-size: 20px; color: var(--muted); font-weight: 500; }
+  .razones { margin: 0; padding: 0; list-style: none; border-bottom: 1px solid var(--line); }
+  .razones li { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 12px 40px; padding: 28px 0; border-top: 1px solid var(--line); }
+  .razon-t { font-size: clamp(22px, 2.4vw, 28px); line-height: 1.15; letter-spacing: -0.025em; text-wrap: balance; margin: 0; }
+  .razon-d { font-size: 17px; max-width: 60ch; margin: 0; }
   .vs-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
   .pasos { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 28px; }
   .pasos li { border-top: 1px solid var(--line); padding-top: 22px; }
