@@ -1,0 +1,89 @@
+---
+// Mapa de los parques eólicos (spec 016): Leaflet con OpenStreetMap, lista que selecciona y ficha del parque.
+const PARQUES = [
+  { n: "El Andévalo", prov: "Huelva", est: "Alosno", id: "4589X", lat: 37.26418296737997, lon: -6.944856396315273 },
+  { n: "Gecama", prov: "Cuenca", est: "Albacete", id: "8175", lat: 39.40848408319995, lon: -2.2192737751771614 },
+  { n: "Maranchón", prov: "Guadalajara", est: "Molina de Aragón", id: "3013", lat: 41.06356588209968, lon: -2.206160824662825 },
+  { n: "Borja", prov: "Zaragoza", est: "Tarazona", id: "9299X", lat: 41.877046928697204, lon: -1.5630303402886618 },
+  { n: "Tarifa", prov: "Cádiz", est: "Tarifa", id: "6001", lat: 36.037373555997895, lon: -5.570950423574283 },
+  { n: "Briviesca", prov: "Burgos", est: "Briviesca", id: "9031C", lat: 42.52921710077489, lon: -3.408352539310985 },
+  { n: "La Muela", prov: "Zaragoza", est: "Tarazona", id: "9299X", lat: 41.5924449830392, lon: -1.1575020732335635 },
+];
+const coord = (lat: number, lon: number) =>
+  `${lat.toFixed(2).replace(".", ",")}° N · ${Math.abs(lon).toFixed(2).replace(".", ",")}° ${lon < 0 ? "O" : "E"}`;
+const fichas = PARQUES.map((p) => ({ ...p, d: `${p.prov} · estación de ${p.est} (indicativo ${p.id})`, c: coord(p.lat, p.lon) }));
+---
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="mp">
+  <div class="a-card mp-mapa">
+    <div id="mapaParques" class="mp-lienzo" role="region" aria-label="Mapa de España con la posición de los siete parques eólicos"></div>
+    <p class="a-p ctl-ayuda">Mapa de OpenStreetMap. Borja y La Muela comparten la estación de Tarazona.</p>
+  </div>
+  <div class="mp-lista">
+    {fichas.map((p, i) => (
+      <button type="button" class="mp-parque" aria-pressed={i === 0 ? "true" : "false"} data-parque={i}>
+        <span class="mp-num font-display">{i + 1}</span>
+        <span class="mp-txt"><span class="mp-n">{p.n}</span><span class="mp-p">{p.prov}</span></span>
+      </button>
+    ))}
+    <div class="a-card mp-ficha" aria-live="polite">
+      <p class="font-display mp-ficha-n" data-ficha-n>{fichas[0].n}</p>
+      <p class="mp-ficha-d" data-ficha-d>{fichas[0].d}</p>
+      <p class="num mp-ficha-c" data-ficha-c>{fichas[0].c}</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .mp { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .mp-mapa { flex: 1.3 1 380px; min-width: 0; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .mp-lienzo { height: 440px; width: 100%; border-radius: 14px; border: 1px solid var(--line); z-index: 0; }
+  .mp-lista { flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px; }
+  .mp-parque { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; min-height: 56px; font: inherit; }
+  .mp-parque:hover { background: var(--surface2); }
+  .mp-parque[aria-pressed="true"] { background: var(--surface2); border-color: var(--accent); }
+  .mp-num { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accentInk); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+  .mp-txt { display: flex; flex-direction: column; }
+  .mp-n { font-weight: 600; font-size: 15px; }
+  .mp-p { font-size: 13px; color: var(--muted); }
+  .mp-ficha { padding: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .mp-ficha p { margin: 0; }
+  .mp-ficha-n { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .mp-ficha-d, .mp-ficha-c { font-size: 14px; color: var(--muted); }
+  .mp-ficha-c { font-size: 13px; }
+  @media (max-width: 640px) { .mp-lienzo { height: 340px; } }
+  :global(.mp-marca) { background: var(--accent); color: var(--accentInk); border: 2px solid var(--bg); border-radius: 50%; display: flex !important; align-items: center; justify-content: center; font: 700 12px "Space Grotesk", sans-serif; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+  :global(.mp-marca.activa) { outline: 4px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+</style>
+
+<script is:inline define:vars={{ fichas }}>
+  (function () {
+    const contenedor = document.getElementById("mapaParques");
+    if (!contenedor || !window.L || contenedor._leaflet_id) return;
+    const mapa = L.map(contenedor, { scrollWheelZoom: false }).setView([40.0, -3.6], 6);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 18,
+    }).addTo(mapa);
+
+    const icono = (i, activa) => L.divIcon({ className: "mp-marca" + (activa ? " activa" : ""), html: String(i + 1), iconSize: [26, 26], iconAnchor: [13, 13] });
+    const marcas = fichas.map((p, i) =>
+      L.marker([p.lat, p.lon], { icon: icono(i, i === 0), title: p.n, keyboard: true }).addTo(mapa).on("click", () => seleccionar(i))
+    );
+    const botones = [...document.querySelectorAll("[data-parque]")];
+
+    function seleccionar(i) {
+      const p = fichas[i];
+      marcas.forEach((m, k) => m.setIcon(icono(k, k === i)));
+      botones.forEach((b, k) => b.setAttribute("aria-pressed", String(k === i)));
+      document.querySelector("[data-ficha-n]").textContent = p.n;
+      document.querySelector("[data-ficha-d]").textContent = p.d;
+      document.querySelector("[data-ficha-c]").textContent = p.c;
+      mapa.flyTo([p.lat, p.lon], 8, { duration: 0.6 });
+    }
+    botones.forEach((b, i) => b.addEventListener("click", () => seleccionar(i)));
+  })();
+</script>

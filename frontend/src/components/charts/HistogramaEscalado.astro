@@ -1,0 +1,107 @@
+---
+// Histograma de barras agrupadas con Chart.js (spec 016): botones de serie, lectura con pasos y tabla.
+import Pasos from "../proceso/Pasos.astro";
+
+interface Serie {
+  nombre: string;
+  token: string;
+  recuentos: number[];
+}
+interface Props {
+  id: string;
+  centros: number[];
+  series: Serie[];
+  fuera: number;
+}
+const { id, centros, series, fuera } = Astro.props;
+const etiqueta = (v: number) => v.toFixed(1).replace(".", ",").replace("-", "−");
+const payload = { centros: centros.map(etiqueta), series };
+---
+
+<div class="a-card his" data-histograma={JSON.stringify(payload)}>
+  <div class="ctl-grupo" role="group" aria-label="Series visibles">
+    {series.map((s, i) => (
+      <button type="button" class="ctl-btn" aria-pressed="true" data-serie={i}>
+        <span class="ctl-cuadro" style={`background: var(--${s.token})`}></span>{s.nombre}
+      </button>
+    ))}
+  </div>
+  <div class="ctl-lectura"><p class="num" data-lectura aria-live="polite"></p><Pasos que="Valor" /></div>
+  <div class="ctl-lienzo his-lienzo"><canvas id={id} role="img" aria-label="Histograma de barras: días por valor en la escala común de velocidad media, racha máxima y producción eólica"></canvas></div>
+  <p class="a-p ctl-ayuda">
+    Eje horizontal: valor en la escala común; eje vertical: número de días. Pulsa una variable para ocultarla o mostrarla.
+    {fuera > 0 && ` ${fuera} valores quedan fuera de ±3,5 y no se dibujan.`}
+  </p>
+  <details class="a-tabla">
+    <summary>Ver los datos en tabla</summary>
+    <div class="a-tabla-wrap">
+      <table>
+        <caption class="sr-only">Distribución de valores en la escala común</caption>
+        <thead><tr><th scope="col">Valor (escala común)</th>{series.map((s) => <th scope="col">{s.nombre} (días)</th>)}</tr></thead>
+        <tbody>
+          {centros.map((c, i) => (
+            <tr><th scope="row" style="font-weight:400;color:var(--ink)">{etiqueta(c)}</th>{series.map((s) => <td>{s.recuentos[i]}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</div>
+
+<style>
+  .his { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .his-lienzo { height: clamp(240px, 34vw, 320px); }
+</style>
+
+<script>
+  import { Chart, registerables } from "chart.js";
+  import "../../utils/charts-tema";
+  import { conectarPasos } from "../../utils/chart-pasos";
+
+  Chart.register(...registerables);
+
+  type Payload = { centros: string[]; series: { nombre: string; token: string; recuentos: number[] }[] };
+
+  document.querySelectorAll<HTMLElement>("[data-histograma]").forEach((raiz) => {
+    const p: Payload = JSON.parse(raiz.dataset.histograma!);
+    const chart = new Chart(raiz.querySelector("canvas")!, {
+      type: "bar",
+      data: {
+        labels: p.centros,
+        datasets: p.series.map((s) => ({ label: s.nombre, data: s.recuentos, tokenBg: s.token, backgroundColor: "#888", borderRadius: 2, categoryPercentage: 0.82, barPercentage: 0.95 })) as any[],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => `Valor ${items[0].label} en la escala común`,
+              label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} ${ctx.parsed.y === 1 ? "día" : "días"}`,
+            },
+          },
+        },
+        scales: { x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 10, maxRotation: 0 } }, y: { beginAtZero: true } },
+      },
+    });
+    const visibles = () => p.series.map((_, i) => i).filter((i) => chart.isDatasetVisible(i));
+    conectarPasos(chart, raiz, {
+      total: () => p.centros.length,
+      datasets: visibles,
+      vacio: "Pasa el ratón o toca una barra para ver cuántos días tuvieron cada valor.",
+      texto: (i) => `Valor ${p.centros[i]} en la escala común · ` + visibles().map((d) => `${p.series[d].nombre}: ${p.series[d].recuentos[i]} días`).join(" · "),
+    });
+    raiz.querySelectorAll<HTMLButtonElement>("[data-serie]").forEach((boton) => {
+      boton.addEventListener("click", () => {
+        const i = Number(boton.dataset.serie);
+        const visible = !chart.isDatasetVisible(i);
+        chart.setDatasetVisibility(i, visible);
+        boton.setAttribute("aria-pressed", String(visible));
+        chart.update("none");
+      });
+    });
+  });
+</script>

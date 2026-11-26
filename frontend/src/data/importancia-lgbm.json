@@ -1,0 +1,25 @@
+{
+ "fuente": "Notebook src/notebooks/main.ipynb: LightGBM del ranking de familias (split 80/20, 19 variables), spec 016.",
+ "medida": "Número de divisiones en que el modelo usa cada variable",
+ "valores": {
+  "velmedia": 455,
+  "racha": 443,
+  "mes": 20,
+  "dia_semana": 230,
+  "dia_año": 283,
+  "eolica_lag1": 323,
+  "eolica_lag2": 298,
+  "eolica_lag3": 311,
+  "eolica_lag7": 376,
+  "vel_ma3": 342,
+  "vel_ma7": 325,
+  "vel_ma14": 264,
+  "racha_ma3": 264,
+  "racha_ma7": 337,
+  "racha_ma14": 298,
+  "eolica_ma7": 345,
+  "sol_lag1": 342,
+  "tmed_lag1": 320,
+  "eolica_prev": 946
+ }
+}

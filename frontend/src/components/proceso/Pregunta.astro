@@ -1,0 +1,23 @@
+---
+// Subapartado de Proceso con una pregunta como título (spec 016).
+interface Props {
+  titulo: string;
+  intro?: string;
+}
+const { titulo, intro } = Astro.props;
+---
+
+<div class="pregunta">
+  <div class="pregunta-cab">
+    <h3 class="font-display">{titulo}</h3>
+    {intro && <p>{intro}</p>}
+  </div>
+  <slot />
+</div>
+
+<style>
+  .pregunta { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .pregunta-cab { display: flex; flex-direction: column; gap: 10px; }
+  .pregunta-cab h3 { margin: 0; font-size: clamp(22px, 2.4vw, 30px); line-height: 1.15; letter-spacing: -0.025em; font-weight: 600; text-wrap: balance; }
+  .pregunta-cab p { margin: 0; max-width: 70ch; color: var(--muted); text-wrap: pretty; }
+</style>

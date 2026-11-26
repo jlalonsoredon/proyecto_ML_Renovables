@@ -1,0 +1,32 @@
+---
+// Bloque de Proceso (spec 016): título y entradilla a la izquierda, preguntas a la derecha.
+interface Props {
+  id: string;
+  titulo: string;
+  lead: string;
+}
+const { id, titulo, lead } = Astro.props;
+---
+
+<section id={id} class="bloque">
+  <div class="a-wrap bloque-in">
+    <div class="bloque-izq">
+      <h2 class="font-display">{titulo}</h2>
+      <p>{lead}</p>
+    </div>
+    <div class="bloque-der"><slot /></div>
+  </div>
+</section>
+
+<style>
+  .bloque { padding-bottom: 120px; scroll-margin-top: 80px; }
+  .bloque-in { display: flex; flex-wrap: wrap; gap: 36px 64px; padding-top: 36px; border-top: 1px solid var(--line); }
+  .bloque-izq { flex: 1 1 300px; max-width: 400px; display: flex; flex-direction: column; gap: 16px; }
+  .bloque-izq h2 { margin: 0; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.04; letter-spacing: -0.03em; font-weight: 600; text-wrap: balance; }
+  .bloque-izq p { margin: 0; max-width: 38ch; color: var(--muted); text-wrap: pretty; }
+  .bloque-der { flex: 3 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 64px; }
+  @media (max-width: 640px) {
+    .bloque { padding-bottom: 72px; }
+    .bloque-der { gap: 48px; }
+  }
+</style>

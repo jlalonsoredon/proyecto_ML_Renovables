@@ -1,0 +1,128 @@
+---
+// Nube de puntos diaria con Chart.js (spec 016): recta de ajuste o diagonal, lectura con pasos y tabla por tramos.
+import Pasos from "../proceso/Pasos.astro";
+import { binSummary, linearFit } from "../../utils/new-variables.mjs";
+import { formatNumber } from "../../utils/evolution.mjs";
+
+interface Props {
+  id: string;
+  titulo: string;
+  x: number[];
+  y: number[];
+  fechas: string[];
+  eje: { x: string; y: string; xUnidad: string; yUnidad: string; xDecimales: number; yDecimales: number };
+  rango: { x: [number, number]; y: [number, number] };
+  token: string;
+  linea: "ajuste" | "diagonal";
+  pie: string;
+  tabla: { cabecera: string; mediaCabecera: string; bordes: number[] };
+}
+const { id, titulo, x, y, fechas, eje, rango, token, linea, pie, tabla } = Astro.props;
+
+const ajuste = linearFit(x, y);
+const [lo, hi] = rango.x;
+const recta = linea === "ajuste"
+  ? [{ x: lo, y: ajuste.intercept + ajuste.slope * lo }, { x: hi, y: ajuste.intercept + ajuste.slope * hi }]
+  : [{ x: Math.max(lo, rango.y[0]), y: Math.max(lo, rango.y[0]) }, { x: Math.min(hi, rango.y[1]), y: Math.min(hi, rango.y[1]) }];
+const filas = binSummary(x, y, tabla.bordes);
+const signo = (v: number | string) => String(v).replace("-", "−");
+const payload = { token, eje, rango, recta, puntos: x.map((v, i) => ({ x: v, y: y[i], f: fechas[i] })) };
+---
+
+<figure class="a-card disp" data-dispersion={JSON.stringify(payload)}>
+  <figcaption class="font-display disp-tit">{titulo}</figcaption>
+  <div class="ctl-lectura"><p class="num" data-lectura aria-live="polite"></p><Pasos que="Día" /></div>
+  <div class="ctl-lienzo disp-lienzo"><canvas id={id} role="img" aria-label={`Diagrama de dispersión: ${eje.x.toLowerCase()} frente a ${eje.y.toLowerCase()}, un punto por día`}></canvas></div>
+  <p class="a-p ctl-ayuda">{pie}</p>
+  <details class="a-tabla">
+    <summary>Ver los datos en tabla</summary>
+    <div class="a-tabla-wrap">
+      <table>
+        <caption class="sr-only">{titulo}: días y media por tramos</caption>
+        <thead><tr><th scope="col">{tabla.cabecera}</th><th scope="col">Días</th><th scope="col">{tabla.mediaCabecera}</th></tr></thead>
+        <tbody>
+          {filas.map((f) => (
+            <tr><th scope="row" style="font-weight:400;color:var(--ink)">{signo(f.from)} – {signo(f.to)}</th><td>{f.days}</td><td>{signo(formatNumber(f.mean, eje.yDecimales))}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>
+
+<style>
+  .disp { min-width: 0; display: flex; flex-direction: column; gap: 12px; margin: 0; }
+  .disp-tit { font-size: 18px; font-weight: 600; }
+  .disp-lienzo { aspect-ratio: 14 / 10; }
+</style>
+
+<script>
+  import { Chart, registerables } from "chart.js";
+  import "../../utils/charts-tema";
+  import { token } from "../../utils/tema";
+  import { conectarPasos } from "../../utils/chart-pasos";
+
+  Chart.register(...registerables);
+
+  type Payload = {
+    token: string;
+    eje: { x: string; y: string; xUnidad: string; yUnidad: string; xDecimales: number; yDecimales: number };
+    rango: { x: [number, number]; y: [number, number] };
+    recta: { x: number; y: number }[];
+    puntos: { x: number; y: number; f: string }[];
+  };
+
+  const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const dia = (iso: string) => `${Number(iso.slice(8, 10))} ${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+  // Puntos semitransparentes con el color del token: 1.770 puntos opacos taparían la forma de la nube.
+  const transparente = (nombre: string) => `${token(nombre)}66`;
+
+  document.querySelectorAll<HTMLElement>("[data-dispersion]").forEach((raiz) => {
+    const p: Payload = JSON.parse(raiz.dataset.dispersion!);
+    const num = (v: number, d: number) => new Intl.NumberFormat("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: "always" } as Intl.NumberFormatOptions).format(v).replace("-", "−");
+    const con = (u: string) => (u ? ` ${u}` : "");
+    const texto = (i: number) => {
+      const d = p.puntos[i];
+      return `${dia(d.f)} · ${p.eje.x}: ${num(d.x, p.eje.xDecimales)}${con(p.eje.xUnidad)} · ${p.eje.y}: ${num(d.y, p.eje.yDecimales)}${con(p.eje.yUnidad)}`;
+    };
+    const titulo = (u: string, nombre: string) => (u ? `${nombre} (${u})` : `${nombre} (escala común)`);
+
+    const chart = new Chart(raiz.querySelector("canvas")!, {
+      type: "scatter",
+      data: {
+        datasets: [
+          { label: "Días", data: p.puntos, backgroundColor: transparente(p.token), borderWidth: 0, pointRadius: 2.6, pointHoverRadius: 6, order: 2 },
+          { label: "Tendencia", type: "line", tokenColor: "ink", data: p.recta, borderColor: "#888", borderWidth: 2, borderDash: [6, 5], pointRadius: 0, order: 1 },
+        ] as any[],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "nearest", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            filter: (item) => item.datasetIndex === 0,
+            callbacks: {
+              title: (items) => dia((items[0].raw as { f: string }).f),
+              label: (ctx) => {
+                const d = ctx.raw as { x: number; y: number };
+                return [`${p.eje.x}: ${num(d.x, p.eje.xDecimales)}${con(p.eje.xUnidad)}`, `${p.eje.y}: ${num(d.y, p.eje.yDecimales)}${con(p.eje.yUnidad)}`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: { type: "linear", min: p.rango.x[0], max: p.rango.x[1], title: { display: true, text: titulo(p.eje.xUnidad, p.eje.x) } },
+          y: { type: "linear", min: p.rango.y[0], max: p.rango.y[1], title: { display: true, text: titulo(p.eje.yUnidad, p.eje.y) } },
+        },
+      },
+    });
+    conectarPasos(chart, raiz, { total: () => p.puntos.length, datasets: () => [0], texto, vacio: "Pasa el ratón o toca la nube para ver los valores de un día." });
+    window.addEventListener("aero-tema", () => {
+      chart.data.datasets[0].backgroundColor = transparente(p.token);
+      chart.update("none");
+    });
+  });
+</script>

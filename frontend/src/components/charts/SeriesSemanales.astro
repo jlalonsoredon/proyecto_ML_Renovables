@@ -1,0 +1,155 @@
+---
+// Series semanales con Chart.js (spec 016): botones de serie, periodo, lectura con pasos y tabla.
+import Pasos from "../proceso/Pasos.astro";
+import { formatNumber } from "../../utils/evolution.mjs";
+
+interface Serie {
+  nombre: string;
+  token: string;
+  valores: number[];
+  grosor?: number;
+}
+interface Props {
+  id: string;
+  semanas: string[];
+  series: Serie[];
+  decimales: number;
+  unidad: string;
+  aria: string;
+  ayuda: string;
+  tablaTitulo: string;
+}
+const { id, semanas, series, decimales, unidad, aria, ayuda, tablaTitulo } = Astro.props;
+
+const periodos = [
+  { t: "Todo el periodo", n: 0 },
+  { t: "Últimos 2 años", n: 104 },
+  { t: "Último año", n: 52 },
+];
+const fechaCorta = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}`;
+const payload = { semanas, decimales, unidad, series: series.map((s) => ({ ...s, grosor: s.grosor ?? 2 })) };
+---
+
+<div class="a-card sem" data-semanal={JSON.stringify(payload)}>
+  <div class="ctl-cab">
+    <div class="ctl-grupo" role="group" aria-label="Series visibles">
+      {series.map((s, i) => (
+        <button type="button" class="ctl-btn" aria-pressed="true" data-serie={i}>
+          <span class="ctl-muestra" style={`color: var(--${s.token})`}></span>{s.nombre}
+        </button>
+      ))}
+    </div>
+    <div class="ctl-grupo" role="group" aria-label="Periodo">
+      {periodos.map((p) => (
+        <button type="button" class="ctl-btn ctl-periodo" aria-pressed={p.n === 0 ? "true" : "false"} data-periodo={p.n}>{p.t}</button>
+      ))}
+    </div>
+  </div>
+  <div class="ctl-lectura"><p class="num" data-lectura aria-live="polite"></p><Pasos que="Semana" /></div>
+  <div class="ctl-lienzo sem-lienzo"><canvas id={id} role="img" aria-label={aria}></canvas></div>
+  <p class="a-p ctl-ayuda">{ayuda}</p>
+  <details class="a-tabla">
+    <summary>Ver los datos en tabla</summary>
+    <div class="a-tabla-wrap">
+      <table>
+        <caption class="sr-only">{tablaTitulo}</caption>
+        <thead><tr><th scope="col">Semana que termina</th>{series.map((s) => <th scope="col">{s.nombre}{unidad ? ` (${unidad})` : ""}</th>)}</tr></thead>
+        <tbody>
+          {semanas.map((w, i) => (
+            <tr><th scope="row" style="font-weight:400;color:var(--ink)">{fechaCorta(w)}</th>{series.map((s) => <td>{formatNumber(s.valores[i], decimales)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</div>
+
+<style>
+  .sem { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .sem-lienzo { height: clamp(260px, 38vw, 360px); }
+</style>
+
+<script>
+  import { Chart, registerables } from "chart.js";
+  import "../../utils/charts-tema";
+  import { conectarPasos } from "../../utils/chart-pasos";
+
+  Chart.register(...registerables);
+
+  type Payload = { semanas: string[]; decimales: number; unidad: string; series: { nombre: string; token: string; valores: number[]; grosor: number }[] };
+
+  const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const dia = (iso: string) => `${Number(iso.slice(8, 10))} ${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+  const mes = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(2, 4)}`;
+
+  document.querySelectorAll<HTMLElement>("[data-semanal]").forEach((raiz) => {
+    const p: Payload = JSON.parse(raiz.dataset.semanal!);
+    const canvas = raiz.querySelector("canvas")!;
+    // useGrouping "always": en español los números de cuatro cifras también llevan punto (1.152).
+    const formato = new Intl.NumberFormat("es-ES", { minimumFractionDigits: p.decimales, maximumFractionDigits: p.decimales, useGrouping: "always" } as Intl.NumberFormatOptions);
+    const num = (v: number) => formato.format(v).replace("-", "−");
+    const unidad = p.unidad ? ` ${p.unidad}` : "";
+    let desde = 0;
+
+    const chart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: p.semanas,
+        datasets: p.series.map((s) => ({
+          label: s.nombre, data: s.valores, tokenColor: s.token, borderColor: "#888", borderWidth: s.grosor,
+          pointRadius: 0, pointHoverRadius: 4, tension: 0.3,
+        })) as any[],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => `Semana que termina el ${dia(String(items[0].label))}`,
+              label: (ctx) => ` ${ctx.dataset.label}: ${num(Number(ctx.parsed.y))}${unidad}`,
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { autoSkip: true, maxTicksLimit: 8, maxRotation: 0, callback(valor) { return mes(String(this.getLabelForValue(Number(valor)))); } }, grid: { display: false } },
+          y: { ticks: { callback: (v) => num(Number(v)).replace(/,0+$/, "") } },
+        },
+      },
+    });
+
+    const visibles = () => p.series.map((_, i) => i).filter((i) => chart.isDatasetVisible(i));
+    const pasos = conectarPasos(chart, raiz, {
+      total: () => p.semanas.length - desde,
+      datasets: visibles,
+      vacio: "Pasa el ratón o toca la gráfica para ver los valores de cada semana.",
+      texto: (i) => `Semana que termina el ${dia(p.semanas[desde + i])} · ` + visibles().map((d) => `${p.series[d].nombre}: ${num(p.series[d].valores[desde + i])}${unidad}`).join(" · "),
+    });
+
+    raiz.querySelectorAll<HTMLButtonElement>("[data-serie]").forEach((boton) => {
+      boton.addEventListener("click", () => {
+        const i = Number(boton.dataset.serie);
+        const visible = !chart.isDatasetVisible(i);
+        chart.setDatasetVisibility(i, visible);
+        boton.setAttribute("aria-pressed", String(visible));
+        chart.update("none");
+      });
+    });
+    raiz.querySelectorAll<HTMLButtonElement>("[data-periodo]").forEach((boton) => {
+      boton.addEventListener("click", () => {
+        const n = Number(boton.dataset.periodo);
+        desde = n === 0 ? 0 : Math.max(0, p.semanas.length - n);
+        chart.data.labels = p.semanas.slice(desde);
+        chart.data.datasets.forEach((d, i) => { d.data = p.series[i].valores.slice(desde); });
+        raiz.querySelectorAll("[data-periodo]").forEach((b) => b.setAttribute("aria-pressed", String(b === boton)));
+        chart.setActiveElements([]);
+        chart.tooltip?.setActiveElements([], { x: 0, y: 0 });
+        chart.update("none");
+        pasos.reiniciar();
+      });
+    });
+  });
+</script>

@@ -1,0 +1,92 @@
+---
+// Importancia de las variables según LightGBM (spec 016): filtro por grupo, selección y ficha.
+import lgbm from "../../data/importancia-lgbm.json";
+import series from "../../data/reference-series.json";
+import { formatNumber } from "../../utils/evolution.mjs";
+
+const GRUPOS = [
+  { k: "viento", t: "Viento previsto", fs: ["velmedia", "racha"] },
+  { k: "calendario", t: "Calendario", fs: ["mes", "dia_semana", "dia_año"] },
+  { k: "pasado", t: "Generación anterior", fs: ["eolica_lag1", "eolica_lag2", "eolica_lag3", "eolica_lag7", "eolica_ma7"] },
+  { k: "medias", t: "Medias de viento", fs: ["vel_ma3", "vel_ma7", "vel_ma14", "racha_ma3", "racha_ma7", "racha_ma14"] },
+  { k: "sol", t: "Sol y temperatura", fs: ["sol_lag1", "tmed_lag1"] },
+  { k: "ree", t: "Previsión de REE", fs: ["eolica_prev"] },
+];
+const grupoDe = Object.fromEntries(GRUPOS.flatMap((g) => g.fs.map((f) => [f, g])));
+const descripcion = Object.fromEntries(series.importancia.valores.map((v) => [v.feature, v.descripcion]));
+const ESCALA = 1000;
+const filas = Object.entries(lgbm.valores as Record<string, number>)
+  .sort((a, b) => b[1] - a[1])
+  .map(([f, v]) => ({ f, v, g: grupoDe[f].k, gt: grupoDe[f].t, d: descripcion[f] ?? "" }));
+const veces = (v: number) => `${formatNumber(v, 0)} veces`;
+const primera = filas[0];
+---
+
+<div class="a-card imp" data-importancia>
+  <div class="ctl-grupo" role="group" aria-label="Filtrar por grupo de variables">
+    <button type="button" class="ctl-btn ctl-periodo" aria-pressed="true" data-grupo="todas">Todas</button>
+    {GRUPOS.map((g) => <button type="button" class="ctl-btn ctl-periodo" aria-pressed="false" data-grupo={g.k}>{g.t}</button>)}
+  </div>
+  <div class="imp-ficha" aria-live="polite">
+    <p class="num imp-ficha-n"><span data-sel-n>{primera.f}</span> <span class="imp-ficha-g">· <span data-sel-g>{primera.gt}</span> · <span data-sel-v>{veces(primera.v)}</span></span></p>
+    <p class="imp-ficha-d" data-sel-d>{primera.d}</p>
+  </div>
+  <div class="imp-filas">
+    {filas.map((r, i) => (
+      <button type="button" class="imp-fila" aria-pressed={i === 0 ? "true" : "false"} data-f={r.f} data-g={r.g} data-gt={r.gt} data-v={veces(r.v)} data-d={r.d}>
+        <span class="num imp-n">{r.f}</span>
+        <span class="imp-barra"><span style={`width: ${(r.v / ESCALA) * 100}%`}></span></span>
+        <span class="num imp-v">{formatNumber(r.v, 0)}</span>
+      </button>
+    ))}
+  </div>
+  <div class="imp-eje" aria-hidden="true"><span></span><span class="num">{[0, 200, 400, 600, 800, 1000].map((v) => <span>{formatNumber(v, 0)}</span>)}</span><span></span></div>
+  <p class="a-p ctl-ayuda">Número de veces que LightGBM usa cada variable para decidir. Elige un grupo para resaltarlo o pulsa una variable para ver qué significa.</p>
+</div>
+
+<style>
+  .imp { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .imp-ficha { background: var(--surface2); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; min-height: 96px; }
+  .imp-ficha p { margin: 0; }
+  .imp-ficha-n { font-family: "Space Grotesk", sans-serif; font-size: 16px; font-weight: 600; }
+  .imp-ficha-g { font-weight: 500; font-size: 13px; color: var(--muted); }
+  .imp-ficha-d { margin-top: 4px !important; font-size: 14px; color: var(--muted); text-wrap: pretty; }
+  .imp-filas { display: flex; flex-direction: column; }
+  .imp-fila, .imp-eje { display: grid; grid-template-columns: minmax(84px, 180px) minmax(80px, 1fr) 52px; gap: 14px; align-items: center; }
+  @media (max-width: 640px) { .imp-fila, .imp-eje { grid-template-columns: minmax(84px, 38%) minmax(70px, 1fr) 40px; gap: 10px; } }
+  .imp-fila { width: 100%; text-align: left; padding: 8px 10px; border: 0; border-top: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; min-height: 44px; font: inherit; transition: opacity 0.15s; }
+  .imp-fila:hover, .imp-fila[aria-pressed="true"] { background: var(--surface2); }
+  .imp-fila.atenuada { opacity: 0.35; }
+  .imp-n { font-family: "Space Grotesk", sans-serif; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+  .imp-barra { display: block; height: 10px; border-radius: 999px; background: var(--surface2); overflow: hidden; }
+  .imp-barra span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+  .imp-v { font-size: 14px; text-align: right; color: var(--muted); }
+  .imp-eje { padding: 0 10px; }
+  .imp-eje > span:nth-child(2) { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>("[data-importancia]").forEach((raiz) => {
+    const filas = [...raiz.querySelectorAll<HTMLButtonElement>(".imp-fila")];
+    const ficha = (campo: string) => raiz.querySelector<HTMLElement>(`[data-sel-${campo}]`)!;
+
+    const seleccionar = (fila: HTMLButtonElement) => {
+      filas.forEach((f) => f.setAttribute("aria-pressed", String(f === fila)));
+      ficha("n").textContent = fila.dataset.f!;
+      ficha("g").textContent = fila.dataset.gt!;
+      ficha("v").textContent = fila.dataset.v!;
+      ficha("d").textContent = fila.dataset.d!;
+    };
+    filas.forEach((fila) => fila.addEventListener("click", () => seleccionar(fila)));
+
+    raiz.querySelectorAll<HTMLButtonElement>("[data-grupo]").forEach((boton) => {
+      boton.addEventListener("click", () => {
+        const grupo = boton.dataset.grupo!;
+        raiz.querySelectorAll("[data-grupo]").forEach((b) => b.setAttribute("aria-pressed", String(b === boton)));
+        filas.forEach((f) => f.classList.toggle("atenuada", grupo !== "todas" && f.dataset.g !== grupo));
+        const primera = filas.find((f) => grupo === "todas" || f.dataset.g === grupo);
+        if (primera) seleccionar(primera);
+      });
+    });
+  });
+</script>

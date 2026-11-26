@@ -1,0 +1,16 @@
+---
+// Botones anterior/siguiente de una gráfica (spec 016): la recorren con el teclado o con el dedo.
+interface Props {
+  que: string;
+}
+const { que } = Astro.props;
+---
+
+<span class="ctl-pasos">
+  <button type="button" data-prev aria-label={`${que} anterior`}>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5" /></svg>
+  </button>
+  <button type="button" data-next aria-label={`${que} siguiente`}>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg>
+  </button>
+</span>

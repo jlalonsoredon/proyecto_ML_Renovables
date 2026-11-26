@@ -1,233 +1,465 @@
 ---
+// Proceso (spec 016): mismos bloques, textos y gráficas que el lienzo de diseño, con Chart.js.
 import Layout from "../layouts/Layout.astro";
+import Bloque from "../components/proceso/Bloque.astro";
+import Pregunta from "../components/proceso/Pregunta.astro";
+import Nota from "../components/proceso/Nota.astro";
+import Lista from "../components/proceso/Lista.astro";
 import EnergyPieChart from "../components/charts/EnergyPieChart.astro";
-import WindMap from "../components/charts/WindMap.astro";
-import EolicaScaledCharts from "../components/charts/EolicaScaledCharts.astro";
-import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
-import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
-import FeatureImportanceChart from "../components/charts/FeatureImportanceChart.astro";
+import MapaParques from "../components/charts/MapaParques.astro";
+import SeriesSemanales from "../components/charts/SeriesSemanales.astro";
+import HistogramaEscalado from "../components/charts/HistogramaEscalado.astro";
+import DispersionDiaria from "../components/charts/DispersionDiaria.astro";
 import NewVariablesCharts from "../components/charts/NewVariablesCharts.astro";
-import SpecTimeline from "../components/evolution/SpecTimeline.astro";
-import MetricsComparison from "../components/evolution/MetricsComparison.astro";
-import LivePredictionStatus from "../components/evolution/LivePredictionStatus.astro";
+import ImportanciaLgbm from "../components/charts/ImportanciaLgbm.astro";
+import series from "../data/reference-series.json";
+import nuevas from "../data/nuevas-variables.json";
+import lgbm from "../data/importancia-lgbm.json";
+import linea from "../data/spec-timeline.json";
+import { standardize, histogram, weeklyMeans } from "../utils/eda-series.mjs";
+import { formatNumber } from "../utils/evolution.mjs";
 
-const recorrido = [
-  { n: "1", t: "Conocer los datos", d: "De dónde vienen y qué miden." },
-  { n: "2", t: "Explorarlos (EDA)", d: "Mirar los datos antes de modelar: tendencias, mapa y relación viento–generación." },
-  { n: "3", t: "Preparar las variables", d: "Las 19 pistas del modelo y cómo se relacionan las nuevas con la producción." },
-  { n: "4", t: "Probar modelos", d: "Ocho familias comparadas con las mismas reglas." },
-  { n: "5", t: "Predecir cada día", d: "La cifra de mañana, con avisos claros si falta algo." },
-  { n: "6", t: "Cómo se construyó", d: "Con desarrollo guiado por especificaciones (SDD)." },
-];
+// ── Generación renovable semanal (GWh) ──
+const sr = series.serieRenovable;
+const TOKEN: Record<string, string> = {
+  "Eólica": "accent", "Solar fotovoltaica": "warm", "Hidráulica": "sky", "Solar térmica": "coral", "Otras renovables": "violet", "Residuos renovables": "muted",
+};
+const renSeries = sr.tecnologias.map((t) => ({ nombre: t.nombre, token: TOKEN[t.nombre] ?? "muted", valores: t.valores as number[], grosor: t.nombre === "Eólica" ? 2.6 : 1.6 }));
+const resumen = (nombre: string) => {
+  const v = renSeries.find((s) => s.nombre === nombre)!.valores;
+  return { media: v.reduce((a, b) => a + b, 0) / v.length, min: Math.min(...v), max: Math.max(...v) };
+};
+const eol = resumen("Eólica");
+const sol = resumen("Solar fotovoltaica");
+const hid = resumen("Hidráulica");
+const gwh = (v: number) => formatNumber(Math.round(v), 0);
 
-const variables = [
-  ["Viento previsto (2)", "Velocidad media y racha máxima previstas por AEMET para el día objetivo."],
-  ["Calendario (3)", "Mes, día de la semana y día del año."],
-  ["Generación anterior (5)", "Generación eólica de 1, 2, 3 y 7 días antes y su media de 7 días."],
-  ["Medias de viento (6)", "Velocidad media y racha de 3, 7 y 14 días."],
-  ["Sol y temperatura (2)", "Horas de sol y temperatura media del día anterior."],
-  ["Previsión de REE (1)", "Generación eólica prevista por Red Eléctrica para el día objetivo."],
-];
+// ── Viento y producción en escala común: mismos 1.770 días que la nube de puntos ──
+const zVel = standardize(nuevas.velmedia);
+const zRac = standardize(nuevas.racha);
+const zEol = standardize(nuevas.eolica_gwh);
+const semanal = weeklyMeans(nuevas.fecha, { vel: zVel, rac: zRac, eol: zEol });
+const hVel = histogram(zVel, -3.5, 3.5, 30);
+const hRac = histogram(zRac, -3.5, 3.5, 30);
+const hEol = histogram(zEol, -3.5, 3.5, 30);
+const rangoX: [number, number] = [Math.floor(Math.min(...zVel)), Math.ceil(Math.max(...zVel))];
+const rangoY: [number, number] = [Math.floor(Math.min(...zEol)), Math.ceil(Math.max(...zEol))];
+const bordesViento = Array.from({ length: rangoX[1] - rangoX[0] + 1 }, (_, i) => rangoX[0] + i);
+const dias = formatNumber(nuevas.periodo.dias, 0);
+const fechaLarga = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+const r2 = (v: number) => formatNumber(v, 2).padEnd(4, "0");
 
-const parques = [
-  ["El Andévalo", "Huelva", "Alosno"],
-  ["Gecama", "Cuenca", "Albacete"],
-  ["Maranchón", "Guadalajara", "Molina de Aragón"],
-  ["Borja", "Zaragoza", "Tarazona"],
-  ["Tarifa", "Cádiz", "Tarifa"],
-  ["Briviesca", "Burgos", "Briviesca"],
-  ["La Muela", "Zaragoza", "Tarazona"],
+// ── Importancia de LightGBM ──
+const imp = Object.entries(lgbm.valores as Record<string, number>).sort((a, b) => b[1] - a[1]);
+
+// ── Contenido ──
+const capitulos = [
+  { t: "Explorar los datos (EDA)", h: "#eda" },
+  { t: "Construir los modelos", h: "#modelos" },
+  { t: "Predecir cada día", h: "#prediccion" },
+  { t: "Cómo se ha hecho (SDD)", h: "#sdd" },
+  { t: "Glosario", h: "#glosario" },
 ];
+const metodos = [
+  { t: "Arrastrar el último dato", s: "Forward fill" },
+  { t: "Usar el siguiente dato", s: "Backward fill" },
+  { t: "Línea recta entre los dos datos vecinos", s: "Interpolación lineal", elegida: true },
+  { t: "Curva suave entre vecinos", s: "Interpolación cúbica" },
+  { t: "Media de los 8 datos más parecidos", s: "KNN" },
+  { t: "Media de la misma época del año", s: "Media estacional" },
+];
+const decisiones = [
+  { t: "Nos centramos en la eólica", d: "Las seis estaciones junto a parques eólicos miden velocidad media y rachas con buena cobertura. Es el objetivo del proyecto.", token: "accent" },
+  { t: "Hidráulica: descartada como objetivo", d: "La lluvia que cae en una estación no dice cuánta agua llega al embalse: eso depende de toda la cuenca.", token: "warm" },
+  { t: "Solar: primero descartada, luego recuperada como pista", d: "Al principio 3 de las 5 estaciones no medían las horas de sol. Después se encontraron estaciones alternativas y la insolación entró como una variable más del modelo eólico (spec 002).", token: "sky" },
+];
+const pistas = [
+  { t: "Viento previsto", n: 2, d: "Velocidad media y racha máxima previstas por AEMET para el día que se predice." },
+  { t: "Calendario", n: 3, d: "Mes, día de la semana y día del año." },
+  { t: "Generación anterior", n: 5, d: "Lo que se generó 1, 2, 3 y 7 días antes, y su media de 7 días." },
+  { t: "Medias de viento", n: 6, d: "Velocidad media y racha de los últimos 3, 7 y 14 días." },
+  { t: "Sol y temperatura", n: 2, d: "Horas de sol y temperatura media del día anterior." },
+  { t: "Previsión de REE", n: 1, d: "Lo que REE prevé generar con eólica ese día." },
+];
+const familias = [
+  { f: "Linear Regression", d: "Una suma ponderada: cada variable aporta con su propio peso. Es sencilla y fácil de explicar." },
+  { f: "Ridge", d: "Como la regresión lineal, pero evita dar demasiado peso a una sola variable." },
+  { f: "Lasso", d: "Como la regresión lineal, pero puede dejar fuera las variables que no aportan." },
+  { f: "Random Forest", d: "Muchos árboles de decisión, cada uno con su opinión; la predicción es la media de todos." },
+  { f: "XGBoost", d: "Árboles que se construyen uno tras otro, cada uno corrigiendo los errores del anterior." },
+  { f: "LightGBM", d: "La misma idea que XGBoost, pensada para ser más rápida." },
+  { f: "Red neuronal (MLP)", d: "Capas de pequeñas unidades de cálculo conectadas entre sí." },
+  { f: "SARIMAX", d: "Un modelo de series temporales: predice a partir de la propia historia semanal y del viento." },
+];
+const pasosDiarios = [
+  { t: "Guardar las previsiones", d: "Se guardan la previsión del tiempo de AEMET para las 12 ubicaciones y la previsión eólica de REE para el día siguiente." },
+  { t: "Actualizar lo que ha pasado", d: "Se descargan los datos reales de REE y AEMET. Los días que aún están incompletos no se usan." },
+  { t: "Montar las 19 pistas", d: "Cada variable indica de dónde viene: de una observación, de una previsión o de una estimación." },
+  { t: "Calcular y registrar", d: "El modelo calcula la producción en MWh y se guarda junto a las variables que usó." },
+];
+const ciclo = [
+  { t: "Spec", d: "Se escribe qué se quiere conseguir, por qué y cómo se sabrá que está bien (criterios de aceptación)." },
+  { t: "Plan", d: "Se decide cómo se va a hacer y qué decisiones hay que tomar antes." },
+  { t: "Tareas", d: "Se divide el trabajo en pasos pequeños, cada uno con su «hecho cuando»." },
+  { t: "Implementación", d: "Se programa solo lo que está en la spec: primero en el notebook y después en el backend y el frontend." },
+  { t: "Verificación", d: "Se ejecutan las pruebas y se comprueba cada criterio de aceptación. Con pruebas en rojo no se avanza." },
+];
+const reglas = [
+  { t: "La spec manda", d: "No se implementa nada que no esté en la spec activa. Si falta una decisión, se para y se pregunta." },
+  { t: "Primero el notebook", d: "Todo se desarrolla antes en el notebook de análisis; el backend y el frontend solo se tocan cuando se pide." },
+  { t: "Simplicidad primero", d: "Código sencillo y legible, con los comentarios necesarios y los mínimos cambios." },
+  { t: "Tests como puerta", d: "La lógica se prueba con pruebas automáticas. Prohibido avanzar con tests en rojo." },
+];
+const CATEGORIA: Record<string, string> = { datos: "datos", modelo: "modelo", produccion: "producción", interfaz: "interfaz" };
+const bloquesHito = [
+  { etiqueta: "Punto de partida", clave: "partida" },
+  { etiqueta: "Qué se hizo", clave: "cambio" },
+  { etiqueta: "Resultado", clave: "resultado" },
+] as const;
 ---
 
 <Layout title="Proceso">
   <main>
-    <section class="a-section" style="padding-top: 72px; padding-bottom: 56px">
-      <div class="a-wrap" style="display: flex; flex-direction: column; gap: 22px; max-width: 900px">
-        <h1 class="a-h1">Cómo se construye la predicción, paso a paso</h1>
-        <p class="a-lead">
-          Aquí se cuenta, sin tecnicismos, cómo pasamos de datos de Red Eléctrica y AEMET a la cifra de mañana. Las gráficas son interactivas: puedes pulsar la leyenda para ocultar series y tocar o pasar el cursor para ver cada valor.
-        </p>
-        <a class="a-link" href="#evolucion">Ver la evolución del proyecto y sus métricas ↓</a>
+    <!-- Cabecera -->
+    <section class="a-section cab">
+      <div class="a-wrap cab-in">
+        <h1 class="a-h1">Cómo se construye la predicción, explicado paso a paso</h1>
+        <p class="a-lead">No hace falta ser experto. Aquí se cuenta, con ejemplos y gráficas con las que puedes jugar, cómo pasamos de los datos públicos de REE y AEMET a la cifra de producción eólica de mañana.</p>
+        <nav class="chips" aria-label="Capítulos de la página">
+          {capitulos.map((c, i) => <a href={c.h}><span class="num">{String(i + 1).padStart(2, "0")}</span>{c.t}</a>)}
+        </nav>
       </div>
     </section>
 
-    <section class="a-section">
-      <div class="a-wrap">
-        <ol class="recorrido">
-          {recorrido.map((r) => (
-            <li>
-              <span class="num font-display rn">{r.n}</span>
-              <h3 class="a-h3" style="margin: 10px 0 6px; font-size: 17px">{r.t}</h3>
-              <p class="a-p" style="font-size: 14px">{r.d}</p>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </section>
-
-    <!-- Situación energética -->
-    <section class="a-section">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 0 0 14px">¿Cuánta electricidad es renovable?</h2>
-        <p class="a-lead" style="margin-bottom: 28px">
-          Tras descargar el histórico de generación eléctrica por tecnología desde la API de REE, calculamos qué parte de la electricidad generada en España es renovable y cuánto aporta cada tecnología. Entre enero de 2022 y mayo de 2026, de media, el 58,33 % de la generación procedió de fuentes renovables. La eólica fue la tecnología más representativa, con el 23,41 % del total, seguida de la solar fotovoltaica (19,83 %) y la hidráulica (11,64 %).
-        </p>
+    <!-- Fase 1: EDA -->
+    <Bloque id="eda" titulo="Explorar los datos (EDA)" lead="Antes de construir ningún modelo hay que conocer los datos: de dónde vienen, qué contienen, qué problemas tienen y qué relación guardan con la producción eólica. Esta fase se llama EDA, del inglés Exploratory Data Analysis (análisis exploratorio de datos).">
+      <Pregunta titulo="¿Cuánta electricidad es renovable?" intro="Tras descargar el histórico de generación eléctrica por tecnología desde la API de REE, calculamos qué parte de la electricidad generada en España es renovable y cuánto aporta cada tecnología renovable. Entre enero de 2022 y mayo de 2026, de media, el 58,33 % de la generación procedió de fuentes renovables. La eólica fue la tecnología más representativa, con el 23,41 % del total, seguida de la solar fotovoltaica (19,83 %) y la hidráulica (11,64 %).">
         <EnergyPieChart />
-      </div>
-    </section>
+      </Pregunta>
 
-    <!-- 1. Datos -->
-    <section class="a-section">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 14px 0">Conocer los datos</h2>
-        <p class="a-lead" style="margin-bottom: 28px">Un modelo solo es tan bueno como los datos con los que aprende. Usamos dos fuentes oficiales.</p>
-        <div class="dos">
-          <div class="a-card">
-            <h3 class="a-h3">Red Eléctrica de España (REE)</h3>
-            <p class="a-p" style="margin: 10px 0">Cuánta electricidad se genera cada día, desglosada por tecnología renovable.</p>
-            <ul class="lista">
-              <li>Eólica</li><li>Solar fotovoltaica</li><li>Hidráulica</li><li>Solar térmica</li><li>Otras renovables</li><li>Residuos renovables</li>
-            </ul>
-            <p class="a-p"><b style="color: var(--ink)">Período:</b> enero 2022 – actualidad.</p>
+      <Pregunta titulo="¿De dónde salen los datos?" intro="Usamos dos fuentes oficiales y gratuitas. Una cuenta la electricidad que se produjo; la otra, el tiempo que hizo.">
+        <div class="rejilla-300">
+          <div class="a-card fuente">
+            <h4 class="font-display">Red Eléctrica de España (REE)</h4>
+            <p class="a-p">La empresa que opera la red eléctrica. Nos dice cuánta electricidad se generó cada día con cada tecnología renovable. Tenemos datos desde enero de 2022.</p>
+            <Lista items={["Eólica", "Solar fotovoltaica", "Solar térmica", "Hidráulica", "Otras renovables", "Residuos renovables"]} />
           </div>
-          <div class="a-card">
-            <h3 class="a-h3">AEMET (meteorología)</h3>
-            <p class="a-p" style="margin: 10px 0">Observaciones diarias de 11 estaciones y previsiones de 12 ubicaciones.</p>
-            <ul class="lista">
-              <li>Temperatura media, mínima y máxima</li><li>Velocidad media del viento</li><li>Ráfaga máxima</li><li>Precipitación</li><li>Horas de sol</li>
-            </ul>
-            <p class="a-p"><b style="color: var(--ink)">Junto a parques eólicos (6):</b> Alosno, Albacete, Molina de Aragón, Tarazona, Tarifa y Briviesca.</p>
-            <p class="a-p" style="margin-top: 6px"><b style="color: var(--ink)">Junto a plantas solares (5):</b> Cáceres, Badajoz, Alcantarilla, Sevilla y Zaragoza.</p>
+          <div class="a-card fuente">
+            <h4 class="font-display">Agencia Estatal de Meteorología (AEMET)</h4>
+            <p class="a-p">Nos dice el tiempo que ha hecho y el que hará. Usamos observaciones de 11 estaciones y previsiones de 12 ubicaciones.</p>
+            <Lista token="sky" items={["Temperatura media, mínima y máxima", "Velocidad media del viento y rachas", "Precipitación", "Horas de sol"]} />
+            <p class="a-p" style="font-size: 14px">Seis estaciones están junto a parques eólicos y cinco junto a plantas solares.</p>
           </div>
         </div>
-      </div>
-    </section>
+        <div class="sub">
+          <h4 class="font-display">Dónde medimos el viento</h4>
+          <p class="a-p">Siete parques eólicos repartidos por España. Pulsa un parque de la lista para verlo en el mapa. Borja y La Muela comparten la estación de Tarazona, así que en total se usan seis estaciones de observación.</p>
+        </div>
+        <MapaParques />
+      </Pregunta>
 
-    <!-- 2. EDA -->
-    <section class="a-section">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 14px 0">Explorar antes de modelar</h2>
-        <p class="a-lead" style="margin-bottom: 36px">
-          El análisis exploratorio de datos (EDA) consiste en mirar los datos desde varios ángulos antes de construir ningún modelo: cómo cambia la generación con el tiempo, dónde están los parques y si el viento tiene relación con lo que se genera.
-        </p>
+      <Pregunta titulo="¿Qué aspecto tienen?" intro="Lo primero es mirar. Cada línea es una tecnología renovable y cada punto, la electricidad que generó en una semana, en GWh (1 GWh equivale a un millón de kWh).">
+        <SeriesSemanales
+          id="serieRenovable" semanas={sr.semanas} series={renSeries} decimales={0} unidad="GWh"
+          aria="Generación renovable semanal por tecnología, de 2022 a 2026"
+          ayuda={`${sr.periodo}. Pulsa una tecnología para ocultarla o mostrarla: si quitas la eólica, las demás se ven con más detalle.`}
+          tablaTitulo="Generación renovable semanal por tecnología"
+        />
+        <Nota>La eólica es la renovable que más genera de media, unos {gwh(eol.media)} GWh por semana (la solar fotovoltaica, {gwh(sol.media)}; la hidráulica, {gwh(hid.media)}). Pero su producción cambia mucho de una semana a otra: entre {gwh(eol.min)} y {gwh(eol.max)} GWh. Predecirla no es trivial.</Nota>
+      </Pregunta>
 
-        <h3 class="a-h3" style="font-size: 24px; margin-bottom: 8px">¿Cómo ha cambiado la generación con el tiempo?</h3>
-        <p class="a-p" style="max-width: 70ch; margin-bottom: 20px">
-          Generación semanal de las seis tecnologías renovables desde enero de 2022 hasta la última semana completa disponible. Pulsa en la leyenda para mostrar u ocultar una tecnología.
-        </p>
-        <RenewableLineChart />
+      <Pregunta titulo="¿Qué relación hay entre el viento y la producción?" intro="Para dibujar el viento (en m/s) y la producción (en MWh) en un mismo gráfico las pasamos a una escala común: 0 es lo habitual, un valor positivo está por encima de lo normal y uno negativo, por debajo.">
+        <SeriesSemanales
+          id="serieEscalada" semanas={semanal.weeks}
+          series={[
+            { nombre: "Viento medio", token: "sky", valores: semanal.means.vel },
+            { nombre: "Racha máxima", token: "warm", valores: semanal.means.rac },
+            { nombre: "Producción eólica", token: "accent", valores: semanal.means.eol, grosor: 2.6 },
+          ]}
+          decimales={2} unidad=""
+          aria="Viento medio, racha máxima y producción eólica semanales, en escala común"
+          ayuda={`Medias semanales del ${fechaLarga(nuevas.periodo.desde)} al ${fechaLarga(nuevas.periodo.hasta)} (${dias} días). Escala común: media 0 y desviación 1.`}
+          tablaTitulo="Viento, racha y producción en escala común por semana"
+        />
+        <div class="sub">
+          <h4 class="font-display">Cómo se reparten los valores</h4>
+          <p class="a-p">Cada grupo de barras cuenta cuántos días tuvieron ese valor en la escala común. Las tres variables se concentran cerca de 0, lo habitual; la producción eólica tiene una cola más larga hacia valores altos: los días de mucho viento son pocos pero muy productivos.</p>
+        </div>
+        <HistogramaEscalado
+          id="histogramaEscalado" centros={hVel.centers} fuera={hVel.outside + hRac.outside + hEol.outside}
+          series={[
+            { nombre: "Velocidad media", token: "sky", recuentos: hVel.counts },
+            { nombre: "Racha máxima", token: "warm", recuentos: hRac.counts },
+            { nombre: "Producción eólica", token: "accent", recuentos: hEol.counts },
+          ]}
+        />
+        <div class="viento">
+          <div class="viento-nube">
+            <DispersionDiaria
+              id="dispersionViento" titulo="Un punto por día: viento medio frente a producción" x={zVel} y={zEol} fechas={nuevas.fecha}
+              eje={{ x: "Viento", y: "Producción", xUnidad: "", yUnidad: "", xDecimales: 2, yDecimales: 2 }} rango={{ x: rangoX, y: rangoY }} token="accent" linea="ajuste"
+              pie={`${dias} días reales. Eje horizontal: viento medio; eje vertical: producción eólica, ambos en escala común. La línea discontinua es la recta que mejor se ajusta a la nube.`}
+              tabla={{ cabecera: "Viento (escala común)", mediaCabecera: "Producción media (escala común)", bordes: bordesViento }}
+            />
+          </div>
+          <div class="viento-corr">
+            <p class="font-display viento-corr-t">La correlación mide cuánto se mueven juntas dos cosas</p>
+            <p class="a-p">Va de −1 a 1: cuanto más cerca de 1, más suben y bajan a la vez.</p>
+            <div class="fichas">
+              <div class="ficha"><p class="num">{r2(nuevas.correlacion.velmedia)}</p><p class="ficha-t">Viento medio y producción</p><p class="a-p">Positiva, moderada</p></div>
+              <div class="ficha"><p class="num">{r2(nuevas.correlacion.racha)}</p><p class="ficha-t">Racha y producción</p><p class="a-p">Positiva, algo mayor</p></div>
+            </div>
+          </div>
+        </div>
+        <Nota>Cuando hay más viento suele haber más producción, pero el viento de ese día no lo explica todo: la correlación es moderada. Por eso el modelo necesita más pistas, no solo el viento previsto.</Nota>
+      </Pregunta>
 
-        <h3 class="a-h3" style="font-size: 24px; margin: 56px 0 8px">¿Dónde están los parques que miramos?</h3>
-        <p class="a-p" style="max-width: 70ch; margin-bottom: 20px">
-          Ubicación de los 7 parques eólicos monitorizados, sobre un mapa de referencia, junto con la estación meteorológica de AEMET que se usa para cada uno. Borja y La Muela comparten la de Tarazona: son siete parques y seis estaciones.
-        </p>
-        <WindMap />
-        <ul class="parques">
-          {parques.map((p) => (
-            <li class="a-card-sm"><b>{p[0]}</b><span class="a-p" style="font-size: 13px; display: block">{p[1]} · estación de {p[2]}</span></li>
-          ))}
-        </ul>
-
-        <h3 class="a-h3" style="font-size: 24px; margin: 56px 0 8px">¿Se relaciona el viento con lo que se genera?</h3>
-        <p class="a-p" style="max-width: 70ch; margin-bottom: 20px">
-          Una vez limpios los datos (sin duplicados, con los huecos interpolados y con el viento convertido de km/h a m/s) se dibujan las variables juntas para buscar patrones y anomalías. Si la nube de puntos sube, más viento suele significar más generación.
-        </p>
-        <EolicaScaledCharts />
-      </div>
-    </section>
-
-    <!-- 3. Variables -->
-    <section class="a-section">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 14px 0">Preparar las 19 variables</h2>
-        <p class="a-lead" style="margin-bottom: 28px">
-          Las variables son las «pistas» que se le dan al modelo para estimar la generación de mañana. Cada una indica si procede de una observación, de una previsión o de una estimación.
-        </p>
-        <div class="vars">
-          {variables.map((v) => (
-            <div class="a-card-sm"><b>{v[0]}</b><p class="a-p" style="font-size: 14px; margin-top: 4px">{v[1]}</p></div>
+      <Pregunta titulo="¿Qué problemas tienen los datos?" intro="Los datos reales nunca llegan perfectos. Antes de usarlos hay que limpiarlos:">
+        <Lista items={[
+          "<b>Registros duplicados:</b> se eliminan para no contar dos veces lo mismo.",
+          "<b>Fechas y horas:</b> REE y AEMET no cuentan igual el día; todo se pasa a hora peninsular.",
+          "<b>Huecos:</b> a veces una estación no mide un día. Esos huecos se rellenan con una interpolación, que es adivinar el dato que falta a partir de los de alrededor.",
+          "<b>Unidades:</b> AEMET da el viento en km/h; se convierte a m/s.",
+          "<b>Unir fuentes:</b> la generación y el tiempo se juntan por fecha en una sola tabla.",
+        ]} />
+        <div class="sub">
+          <h4 class="font-display">¿Cómo se rellena un hueco?</h4>
+          <p class="a-p">Para decidirlo escondimos el 15 % de los valores que sí conocíamos y comprobamos qué método los adivinaba mejor. Probamos seis:</p>
+        </div>
+        <div class="rejilla-220">
+          {metodos.map((m) => (
+            <div class={`metodo${m.elegida ? " elegida" : ""}`}>
+              <p class="metodo-t">{m.t}</p><p class="a-p">{m.s}</p>
+              {m.elegida && <p class="metodo-e">La elegida</p>}
+            </div>
           ))}
         </div>
-        <h3 class="a-h3" style="font-size: 24px; margin: 56px 0 8px">Las nuevas variables: sol, temperatura y previsión de REE</h3>
-        <p class="a-p" style="max-width: 70ch; margin-bottom: 24px">
-          El modelo empezó con 16 variables de viento, calendario y generación anterior. Después se estudiaron tres más. Antes de añadirlas comprobamos, con un punto por día, qué relación tenían con la producción eólica.
-        </p>
+        <Nota titulo="Resultado">La interpolación lineal obtuvo el menor error en la mayoría de las estaciones, así que es la que usamos.</Nota>
+      </Pregunta>
+
+      <Pregunta titulo="¿Qué decidimos después de explorar?" intro="El EDA no es solo mirar: sirve para tomar decisiones con fundamento.">
+        <div class="rejilla-250">
+          {decisiones.map((d) => (
+            <div class="a-card decision">
+              <span style={`background: var(--${d.token})`}></span>
+              <p class="font-display decision-t">{d.t}</p>
+              <p class="a-p">{d.d}</p>
+            </div>
+          ))}
+        </div>
+      </Pregunta>
+
+      <Pregunta titulo="Las pistas del modelo: 19 variables" intro="Una variable es cada dato de entrada que usa el modelo para predecir. Son como las pistas que se le dan a un detective: cuantas más y mejores, más fácil acertar.">
+        <div class="rejilla-240">
+          {pistas.map((p) => (
+            <div class="pista"><p class="num font-display">{p.n}</p><p class="pista-t">{p.t}</p><p class="a-p">{p.d}</p></div>
+          ))}
+        </div>
+      </Pregunta>
+
+      <Pregunta titulo="Las nuevas variables: sol, temperatura y previsión de REE" intro="El modelo empezó con 16 variables de viento, calendario y generación anterior. Después se estudiaron tres más. Antes de añadirlas comprobamos, con un punto por día, qué relación tenían con la producción eólica.">
         <NewVariablesCharts />
-        <div style="margin-top: 56px"><FeatureImportanceChart /></div>
-      </div>
-    </section>
+      </Pregunta>
+    </Bloque>
 
-    <!-- 4. Modelos -->
-    <section class="a-section">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 14px 0">Probar modelos</h2>
-        <p class="a-lead" style="margin-bottom: 16px">
-          El objetivo es predecir la generación de energía eólica en España con la mayor precisión posible. Se han probado ocho familias de modelos, primero con las 16 variables originales y después con las 19 actuales.
-        </p>
-        <p class="a-p" style="max-width: 76ch; margin-bottom: 32px">
-          <b style="color: var(--ink)">Modelo seleccionado:</b> Linear Regression con 19 variables (R² de 0,9308 en el test de 354 días con el que se evaluó el modelo en producción). Otros modelos, como LightGBM o la red neuronal, tienen menos error en una única partición, pero LightGBM, el mejor candidato evaluado, se descartó porque solo mejoraba en 1 de los 4 años del walk-forward. La tabla completa está en <a class="a-link" href="#evolucion">la evolución del proyecto</a>.
-        </p>
-        <ModelComparisonChart />
-      </div>
-    </section>
-
-    <!-- 5. Predicción diaria -->
-    <section class="a-section">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 14px 0">Predecir cada día</h2>
-        <ol class="diario">
-          <li><b>Captura de previsiones.</b> Se guardan la previsión meteorológica de AEMET para las 12 ubicaciones y la previsión eólica de REE para el día siguiente.</li>
-          <li><b>Actualización de observaciones.</b> Se descargan los datos reales de REE y AEMET. Los días todavía incompletos no se usan.</li>
-          <li><b>Construcción de las 19 variables.</b> Cada una indica si procede de una observación, de una previsión o de una estimación.</li>
-          <li><b>Predicción y registro.</b> Linear Regression calcula la producción en MWh y se guarda con sus variables. Si falta algún dato, no se publica ninguna cifra en su lugar.</li>
-        </ol>
-        <p class="a-p" style="margin-top: 18px; max-width: 76ch">
-          <b style="color: var(--ink)">Programación:</b> la actualización se ejecuta cada día a las 03:00 (hora peninsular), con un reintento a las 09:00 si la previsión de AEMET llegó incompleta.
-        </p>
-      </div>
-    </section>
-
-    <!-- 6. SDD y evolución -->
-    <section id="evolucion" class="a-section" style="scroll-margin-top: 90px">
-      <div class="a-wrap">
-        <h2 class="a-h2" style="margin: 14px 0">Evolución del proyecto, guiada por especificaciones</h2>
-        <div class="a-card" style="margin: 20px 0 32px">
-          <h3 class="a-h3">Desarrollo guiado por especificaciones (SDD)</h3>
-          <p class="a-p" style="margin-top: 10px; max-width: 76ch">
-            AeroPredictor se ha desarrollado con <b style="color: var(--ink)">SDD (Spec-Driven Development)</b>: antes de tocar el código, cada cambio se escribe como una <em>spec</em> con su contexto, sus decisiones, sus criterios de aceptación y sus riesgos, y se divide en tareas verificables. Así cada mejora queda justificada, medida y documentada, y se puede ver qué se decidió y por qué. Cada tarjeta de abajo es una de esas specs.
-          </p>
+    <!-- Fase 2: modelos -->
+    <Bloque id="modelos" titulo="Construir los modelos" lead="Con los datos explorados y las variables preparadas, toca enseñar a un modelo a predecir. El elegido ha sido Linear Regression con 19 variables.">
+      <Pregunta titulo="Ocho familias de modelos, sin jerga" intro="Un modelo es una fórmula que aprende, a partir de lo ocurrido en el pasado, cómo se relacionan las pistas con la producción. Probamos ocho familias, primero con 16 variables y después con las 19 actuales.">
+        <div class="rejilla-230">
+          {familias.map((f) => (
+            <div class={`familia${f.f === "Linear Regression" ? " vigente" : ""}`}><p class="font-display familia-t">{f.f}</p><p class="a-p">{f.d}</p></div>
+          ))}
         </div>
-        <p class="a-p" style="max-width: 76ch; margin-bottom: 24px">
-          El proyecto ha cambiado en diez specs: nuevas fuentes de datos, nuevas variables, una nueva evaluación de familias de modelos, la integración en el servicio y la publicación diaria de la previsión. Así ha llegado hasta aquí.
-        </p>
+      </Pregunta>
 
-        <SpecTimeline />
+      <Pregunta titulo="¿Cómo sabemos si un modelo es bueno?" intro="Se le pide que prediga días que no ha visto y se compara con lo que ocurrió de verdad. Usamos dos medidas:">
+        <div class="metricas">
+          <div class="a-card metrica">
+            <p class="num font-display metrica-v">0,9308</p>
+            <p class="metrica-t">R²: cuánto explica el modelo</p>
+            <p class="a-p">Va de 0 a 1. Un 0,93 significa que el modelo explica el 93 % de las subidas y bajadas de la producción.</p>
+          </div>
+          <div class="a-card metrica">
+            <p class="num font-display metrica-v">23.108<span>MWh</span></p>
+            <p class="metrica-t">RMSE: el error típico</p>
+            <p class="a-p">Es lo que suele equivocarse el modelo en un día. Las medias semanales de producción diaria van de 70 a 322 GWh, así que 23 GWh es un error moderado.</p>
+          </div>
+        </div>
+        <p class="a-p" style="max-width: 70ch">Las dos cifras son del modelo en producción, medidas en un test de 354 días. Además se probó año a año (2023 a 2026): se entrena con todo lo anterior y se evalúa el año siguiente, como pasaría en la vida real. LightGBM, el mejor candidato en una única prueba, se descartó porque solo mejoraba en 1 de esos 4 años.</p>
+      </Pregunta>
 
-        <h3 class="a-h3" style="font-size: 24px; margin: 56px 0 8px">Antes y ahora</h3>
-        <p class="a-p" style="margin-bottom: 20px">Cada cifra indica con cuántas variables y en qué periodo se midió.</p>
-        <MetricsComparison />
+      <Pregunta titulo="¿Qué pistas pesan más?" intro="Podemos preguntarle a un modelo en qué se fija más. Aquí, a LightGBM: contamos cuántas veces usa cada variable. La escala es la misma para las 19, así que se ve bien la diferencia entre unas y otras.">
+        <ImportanciaLgbm />
+        <Nota>La previsión de REE es, con diferencia, la pista más usada ({formatNumber(imp[0][1], 0)} veces). Después vienen el viento y las rachas previstos por AEMET. El mes es la que menos pesa ({formatNumber(imp[imp.length - 1][1], 0)} veces).</Nota>
+        <a class="a-link" href="/resultados">Ver las gráficas de los ocho modelos en Resultados →</a>
+      </Pregunta>
+    </Bloque>
 
-        <div style="margin-top: 40px"><LivePredictionStatus /></div>
+    <!-- Fase 3: predicción diaria -->
+    <Bloque id="prediccion" titulo="Predecir cada día" lead="Cada día se repite el mismo recorrido: de los datos más recientes a la cifra de mañana.">
+      <div class="pregunta-sola">
+        <ol class="diario">
+          {pasosDiarios.map((p, i) => (
+            <li><span class="num font-display">{i + 1}</span><div><p class="diario-t">{p.t}</p><p class="a-p">{p.d}</p></div></li>
+          ))}
+        </ol>
+        <Nota titulo="¿Y si falta un dato?">Si falta algún dato, el sistema no publica ninguna cifra: no rellena con un valor inventado. Es mejor no dar una predicción que dar una que no se sostiene.</Nota>
+        <div class="a-card"><p class="a-p"><b style="color: var(--ink)">¿Cuándo se actualiza?</b> El backend genera la predicción a las 03:00 (hora peninsular), con un reintento a las 09:00 si la previsión de AEMET llegó incompleta. Un proceso automático de GitHub la publica cada día a las 05:17, con un reintento a las 08:17, y la web la lee al compilarse.</p></div>
       </div>
-    </section>
+    </Bloque>
 
-    <section class="a-section" style="padding-bottom: 112px">
-      <div class="a-wrap" style="text-align: center">
-        <a class="a-btn" href="/resultados">Ver gráficos y predicciones →</a>
+    <!-- Fase 4: SDD -->
+    <Bloque id="sdd" titulo="Cómo se ha hecho: desarrollo guiado por especificaciones (SDD)" lead="Este proyecto se ha desarrollado con SDD (Spec-Driven Development): antes de programar cualquier cambio se escribe qué se quiere conseguir y cómo se comprobará que funciona.">
+      <Pregunta titulo="¿Qué es SDD?" intro="En lugar de empezar a programar y ver qué sale, cada mejora empieza con una especificación, la «spec»: un documento que dice qué se quiere, por qué y qué tiene que cumplirse para darla por buena. La spec es el contrato; el código se escribe después para cumplirlo.">
+        <ol class="ciclo">
+          {ciclo.map((c, i) => (
+            <li class={i === 0 ? "primero" : ""}><span class="num">{String(i + 1).padStart(2, "0")}</span><p class="font-display ciclo-t">{c.t}</p><p class="a-p">{c.d}</p></li>
+          ))}
+        </ol>
+      </Pregunta>
+      <Pregunta titulo="Cuatro reglas que se han seguido" intro="Se recogen en la «constitución» del proyecto y se aplican a todas las specs.">
+        <div class="rejilla-260">
+          {reglas.map((r) => <div class="regla"><p class="regla-t">{r.t}</p><p class="a-p">{r.d}</p></div>)}
+        </div>
+      </Pregunta>
+      <Pregunta titulo="Las diez specs del proyecto" intro="El proyecto ha cambiado en diez specs: nuevas fuentes de datos, nuevas variables, una nueva evaluación de familias de modelos, la integración en el servicio y la publicación diaria de la previsión. Despliega cada una para ver de dónde se partía, qué se hizo y qué resultó.">
+        <div class="acordeon">
+          {linea.hitos.map((h) => (
+            <details>
+              <summary>
+                <span class="num acc-n">{h.numero}</span>
+                <span class="acc-cab">
+                  <span class="acc-tit"><span class="font-display">{h.titulo}</span>{h.categorias.map((c) => <span class="acc-chip">{CATEGORIA[c] ?? c}</span>)}</span>
+                  <span class="a-p">{h.resumen}</span>
+                </span>
+                <svg class="chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+              </summary>
+              <div class="acc-cuerpo">
+                {bloquesHito.map((b) => h[b.clave] && (
+                  <div><p class="acc-et">{b.etiqueta}</p><p>{h[b.clave]}</p></div>
+                ))}
+                {h.detalle && <div><p class="acc-et acc-et-suave">Detalle técnico</p><p class="a-p" style="font-size: 13px">{h.detalle}</p></div>}
+              </div>
+            </details>
+          ))}
+        </div>
+      </Pregunta>
+    </Bloque>
+
+    <!-- Glosario -->
+    <Bloque id="glosario" titulo="Palabras que conviene conocer" lead="Los términos que más aparecen en esta página, explicados sin tecnicismos.">
+      <div class="acordeon">
+        {linea.glosario.map((g) => (
+          <details>
+            <summary class="glos-sum">
+              <span class="font-display glos-t">{g.termino}</span>
+              <svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+            </summary>
+            <p class="a-p glos-d">{g.definicion}</p>
+          </details>
+        ))}
       </div>
-    </section>
+    </Bloque>
   </main>
 </Layout>
 
 <style>
-  .recorrido { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: 20px; }
-  .recorrido li { border-top: 1px solid var(--line); padding-top: 16px; }
-  .rn { color: var(--accent); font-weight: 600; font-size: 14px; letter-spacing: 0.08em; }
-  .dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 20px; }
-  .lista { margin: 0 0 12px; padding-left: 20px; color: var(--muted); }
-  .parques { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; }
-  .vars { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 16px; }
-  .diario { margin: 24px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 12px; color: var(--muted); max-width: 76ch; }
-  .diario b { color: var(--ink); }
+  .cab { padding-top: 72px; }
+  .cab-in { display: flex; flex-direction: column; gap: 22px; max-width: 860px; margin-left: max(0px, calc((100% - 1200px) / 2)); }
+  .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .chips a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none; }
+  .chips a:hover { background: var(--surface2); }
+  .chips span { color: var(--accent); margin-right: 8px; font-weight: 600; font-family: "Space Grotesk", sans-serif; }
+  .sub { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+  .sub h4 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .sub p { margin: 0; max-width: 62ch; }
+  .rejilla-220, .rejilla-230, .rejilla-240, .rejilla-250, .rejilla-260, .rejilla-300 { display: grid; gap: 16px; }
+  .rejilla-220 { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 14px; }
+  .rejilla-230 { grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 14px; }
+  .rejilla-240 { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+  .rejilla-250 { grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); }
+  .rejilla-260 { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 14px; }
+  .rejilla-300 { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 20px; }
+  .fuente { display: flex; flex-direction: column; gap: 12px; padding: 26px; }
+  .fuente h4 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
+  .fuente p { margin: 0; font-size: 15px; }
+  .viento { display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch; }
+  .viento-nube { flex: 1.4 1 340px; min-width: 0; }
+  .viento-corr { flex: 1 1 260px; display: flex; flex-direction: column; gap: 14px; justify-content: center; }
+  .viento-corr p { margin: 0; }
+  .viento-corr-t { font-size: 18px; font-weight: 600; }
+  .fichas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .ficha { flex: 1 1 150px; background: var(--surface2); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .ficha p { margin: 0; }
+  .ficha .num { font-family: "Space Grotesk", sans-serif; font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: var(--accent); }
+  .ficha-t { margin-top: 8px !important; font-weight: 600; font-size: 14px; }
+  .ficha .a-p { font-size: 13px; }
+  .metodo { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .metodo.elegida { border-color: var(--accent); }
+  .metodo p { margin: 0; }
+  .metodo-t { font-weight: 600; font-size: 15px; }
+  .metodo.elegida .metodo-t { color: var(--accent); }
+  .metodo .a-p { font-size: 13px; }
+  .metodo-e { margin-top: 6px !important; font-size: 12px; font-weight: 600; color: var(--accent); }
+  .decision { display: flex; flex-direction: column; gap: 10px; padding: 22px; }
+  .decision span { width: 28px; height: 4px; border-radius: 2px; }
+  .decision p { margin: 0; }
+  .decision-t { font-size: 18px; font-weight: 600; letter-spacing: -0.015em; text-wrap: balance; }
+  .decision .a-p { font-size: 14px; }
+  .pista { background: var(--surface2); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .pista p { margin: 0; }
+  .pista .num { font-size: 36px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: var(--accent); }
+  .pista-t { font-weight: 600; }
+  .pista .a-p { font-size: 14px; }
+  .familia { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .familia.vigente { border-color: var(--accent); }
+  .familia p { margin: 0; }
+  .familia-t { font-size: 16px; font-weight: 600; }
+  .familia.vigente .familia-t { color: var(--accent); }
+  .familia .a-p { font-size: 14px; }
+  .metricas { display: flex; flex-wrap: wrap; gap: 16px; }
+  .metrica { flex: 1 1 280px; display: flex; flex-direction: column; gap: 8px; padding: 24px; }
+  .metrica p { margin: 0; }
+  .metrica-v { font-size: 56px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; color: var(--accent); }
+  .metrica-v span { font-size: 22px; color: var(--muted); font-weight: 500; margin-left: 8px; letter-spacing: 0; }
+  .metrica-t { font-weight: 600; }
+  .metrica .a-p { font-size: 14px; }
+  .pregunta-sola { display: flex; flex-direction: column; gap: 20px; }
+  .diario { margin: 0; padding: 0; list-style: none; }
+  .diario li { display: flex; gap: 20px; padding: 20px 0; border-top: 1px solid var(--line); }
+  .diario .num { font-size: 28px; font-weight: 600; color: var(--accent); min-width: 36px; }
+  .diario p { margin: 0; }
+  .diario-t { font-weight: 600; font-size: 17px; }
+  .diario .a-p { font-size: 15px; margin-top: 2px !important; }
+  .ciclo { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 20px; }
+  .ciclo li { display: flex; flex-direction: column; gap: 8px; padding-top: 18px; border-top: 2px solid var(--line); }
+  .ciclo li.primero { border-top-color: var(--accent); }
+  .ciclo .num { font-size: 13px; font-weight: 600; letter-spacing: 0.1em; color: var(--accent); }
+  .ciclo p { margin: 0; }
+  .ciclo-t { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+  .ciclo .a-p { font-size: 14px; }
+  .regla { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; }
+  .regla p { margin: 0; }
+  .regla-t { font-weight: 600; }
+  .regla .a-p { margin-top: 4px !important; font-size: 14px; }
+  .acordeon { border-bottom: 1px solid var(--line); }
+  .acordeon details { border-top: 1px solid var(--line); }
+  .acordeon summary { display: flex; gap: 16px 24px; align-items: center; flex-wrap: wrap; padding: 20px 4px; min-height: 64px; cursor: pointer; list-style: none; }
+  .acordeon summary::-webkit-details-marker { display: none; }
+  .acordeon .chev { flex: none; color: var(--muted); transition: transform 0.15s; }
+  .acordeon details[open] .chev { transform: rotate(180deg); }
+  .acc-n { flex: none; width: 52px; font-size: 18px; font-weight: 600; color: var(--accent); font-family: "Space Grotesk", sans-serif; }
+  .acc-cab { flex: 1 1 320px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .acc-tit { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; }
+  .acc-tit .font-display { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+  .acc-chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--muted); }
+  .acc-cab .a-p { font-size: 15px; }
+  .acc-cuerpo { padding: 4px 4px 28px 76px; display: flex; flex-direction: column; gap: 16px; max-width: 820px; }
+  .acc-cuerpo p { margin: 0; font-size: 15px; color: var(--ink); text-wrap: pretty; }
+  .acc-cuerpo .acc-et { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .acc-cuerpo .acc-et-suave { color: var(--muted); }
+  .glos-sum { justify-content: space-between; padding: 14px 4px !important; min-height: 52px !important; }
+  .glos-t { font-size: 17px; font-weight: 600; color: var(--ink); }
+  .glos-d { margin: 0; padding: 0 4px 18px; font-size: 15px; max-width: 70ch; }
+  @media (max-width: 640px) { .acc-cuerpo { padding-left: 4px; } }
 </style>

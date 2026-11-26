@@ -1,0 +1,19 @@
+---
+// Recuadro de conclusión (spec 016).
+interface Props {
+  titulo?: string;
+}
+const { titulo = "En pocas palabras" } = Astro.props;
+---
+
+<div class="nota">
+  <p class="nota-tit">{titulo}</p>
+  <p class="nota-txt"><slot /></p>
+</div>
+
+<style>
+  .nota { background: var(--surface2); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; }
+  .nota p { margin: 0; }
+  .nota-tit { font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+  .nota-txt { margin-top: 6px !important; font-size: 15px; color: var(--ink); text-wrap: pretty; }
+</style>
