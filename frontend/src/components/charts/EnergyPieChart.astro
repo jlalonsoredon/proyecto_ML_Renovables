@@ -1,140 +1,152 @@
 ---
+// Reparto de la generación eléctrica (spec 015): dos anillos de Chart.js con los colores del tema.
 // Datos del notebook api.ipynb → df_tabla (porcentaje_medio por tecnología)
 // pct_renovable = media histórica de la suma diaria de % renovables en la BD
-const RENOVABLES = [
-  { tecnologia: "Eólica",                pct_total: 23.41, pct_reno: 40.16 },
-  { tecnologia: "Solar fotovoltaica",    pct_total: 19.83, pct_reno: 34.01 },
-  { tecnologia: "Hidráulica",            pct_total: 11.64, pct_reno: 19.97 },
-  { tecnologia: "Solar térmica",         pct_total:  1.62, pct_reno:  2.78 },
-  { tecnologia: "Otras renovables",      pct_total:  1.55, pct_reno:  2.66 },
-  { tecnologia: "Residuos renovables",   pct_total:  0.28, pct_reno:  0.48 },
-];
-const PCT_RENOVABLE   = 58.33;
-const PCT_NO_RENOVABLE = 41.67;
-
 import series from "../../data/reference-series.json";
+import { formatNumber } from "../../utils/evolution.mjs";
+
+const RENOVABLES = [
+  { tecnologia: "Eólica",              pct_total: 23.41, pct_reno: 40.16, token: "accent" },
+  { tecnologia: "Solar fotovoltaica",  pct_total: 19.83, pct_reno: 34.01, token: "warm" },
+  { tecnologia: "Hidráulica",          pct_total: 11.64, pct_reno: 19.97, token: "sky" },
+  { tecnologia: "Solar térmica",       pct_total:  1.62, pct_reno:  2.78, token: "coral" },
+  { tecnologia: "Otras renovables",    pct_total:  1.55, pct_reno:  2.66, token: "violet" },
+  { tecnologia: "Residuos renovables", pct_total:  0.28, pct_reno:  0.48, token: "muted" },
+];
+const PCT_RENOVABLE = 58.33;
+const PCT_NO_RENOVABLE = 41.67;
 const { mix } = series;
+
+const pct = (v: number) => `${formatNumber(v, 2)} %`;
+
+// Cada anillo: sus partes (nombre, valor, token de color) y el texto del centro.
+const anillos = [
+  {
+    id: "energyPieChart",
+    titulo: "Renovables frente a no renovables",
+    centro: pct(PCT_RENOVABLE),
+    sub: "renovable",
+    aria: `Gráfica de anillo: ${pct(PCT_RENOVABLE)} de la generación es renovable y ${pct(PCT_NO_RENOVABLE)} no renovable`,
+    partes: [
+      { nombre: "Renovable", valor: PCT_RENOVABLE, token: "accent" },
+      { nombre: "No renovable", valor: PCT_NO_RENOVABLE, token: "muted" },
+    ],
+  },
+  {
+    id: "renewablePieChart",
+    titulo: "Reparto de la generación renovable",
+    centro: pct(RENOVABLES[0].pct_reno),
+    sub: "es eólica",
+    aria: "Gráfica de anillo del reparto de la generación renovable por tecnología; los valores están en la leyenda",
+    partes: RENOVABLES.map((r) => ({ nombre: r.tecnologia, valor: r.pct_reno, token: r.token })),
+  },
+];
 ---
 
-<div class="space-y-8">
-  <p class="text-xs text-muted">
-    Periodo: {mix.periodo}. Fuente: {mix.fuente}
-  </p>
-  <!-- Fila de tartas -->
-  <div class="grid md:grid-cols-2 gap-6">
-    <div class="bg-surface rounded-lg p-4 border border-line flex flex-col items-center">
-      <h3 class="text-base font-semibold mb-4 text-ink text-center">
-        Renovables vs No Renovables
-      </h3>
-      <div class="w-full max-w-xs">
-        <canvas id="energyPieChart" role="img" aria-label={`Gráfica circular: ${PCT_RENOVABLE} % renovable y ${PCT_NO_RENOVABLE} % no renovable`}></canvas>
-      </div>
-    </div>
-
-    <div class="bg-surface rounded-lg p-4 border border-line flex flex-col items-center">
-      <h3 class="text-base font-semibold mb-4 text-ink text-center">
-        Desglose de Energías Renovables
-      </h3>
-      <div class="w-full max-w-xs">
-        <canvas id="renewablePieChart" role="img" aria-label="Gráfica circular con el reparto entre tecnologías renovables; los valores están en la tabla siguiente"></canvas>
-      </div>
-    </div>
+<div class="mix">
+  <div class="mix-dos">
+    {anillos.map((a) => (
+      <figure class="a-card mix-card">
+        <figcaption class="font-display mix-tit">{a.titulo}</figcaption>
+        <div class="mix-fila">
+          <div class="mix-anillo">
+            <canvas id={a.id} role="img" aria-label={a.aria} data-anillo={JSON.stringify(a.partes)}></canvas>
+            <div class="mix-centro" aria-hidden="true">
+              <span class="num font-display">{a.centro}</span>
+              <small>{a.sub}</small>
+            </div>
+          </div>
+          <ul class="mix-leyenda">
+            {a.partes.map((p) => (
+              <li>
+                <i style={`background: var(--${p.token})`}></i>
+                <span>{p.nombre}</span>
+                <b class="num">{pct(p.valor)}</b>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </figure>
+    ))}
   </div>
 
-  <!-- Tabla equivalente a df_tabla del notebook -->
-  <div class="bg-surface rounded-lg p-4 border border-line overflow-x-auto">
-    <h3 class="text-base font-semibold mb-4 text-ink">
-      Tabla de porcentajes por tecnología
-    </h3>
-    <table class="w-full text-sm text-left border-collapse">
-      <thead class="bg-surface2">
-        <tr>
-          <th class="px-4 py-2 rounded-tl-lg font-semibold text-ink">Tecnología</th>
-          <th class="px-4 py-2 font-semibold text-ink text-right">% sobre generación total</th>
-          <th class="px-4 py-2 rounded-tr-lg font-semibold text-ink text-right">% dentro de renovables</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {RENOVABLES.map((row) => (
-          <tr class="hover:bg-surface2 dark:hover:bg-gray-700/40 transition-colors">
-            <td class="px-4 py-2 text-ink">{row.tecnologia}</td>
-            <td class="px-4 py-2 text-right text-ink">{row.pct_total.toFixed(2)}%</td>
-            <td class="px-4 py-2 text-right text-ink">{row.pct_reno.toFixed(2)}%</td>
-          </tr>
-        ))}
-        <tr class="text-muted italic border-t border-gray-100">
-          <td class="px-4 py-2">── No renovables ──</td>
-          <td class="px-4 py-2 text-right">{PCT_NO_RENOVABLE.toFixed(2)}%</td>
-          <td class="px-4 py-2 text-right">—</td>
-        </tr>
-      </tbody>
-      <tfoot class="bg-surface2/50 font-semibold border-t-2 border-line">
-        <tr>
-          <td class="px-4 py-2 text-ink">TOTAL</td>
-          <td class="px-4 py-2 text-right text-ink">100.00%</td>
-          <td class="px-4 py-2 text-right text-ink">100% (solo renovables)</td>
-        </tr>
-      </tfoot>
-    </table>
+  <details class="a-tabla">
+    <summary>Ver los datos en tabla</summary>
+    <div class="a-tabla-wrap">
+      <table>
+        <caption class="sr-only">Porcentaje de la generación por tecnología</caption>
+        <thead><tr><th scope="col">Tecnología</th><th scope="col">% sobre la generación total</th><th scope="col">% dentro de las renovables</th></tr></thead>
+        <tbody>
+          {RENOVABLES.map((r) => (
+            <tr><th scope="row" style="font-weight:400;color:var(--ink)">{r.tecnologia}</th><td>{pct(r.pct_total)}</td><td>{pct(r.pct_reno)}</td></tr>
+          ))}
+          <tr><th scope="row" style="font-weight:400;color:var(--ink)">No renovable</th><td>{pct(PCT_NO_RENOVABLE)}</td><td>—</td></tr>
+          <tr><th scope="row" style="color:var(--ink)">Total</th><td>100,00 %</td><td>100,00 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <div class="mix-nota">
+    <p class="mix-nota-tit">En pocas palabras</p>
+    <p>La eólica es la renovable más importante: aporta el 40 % de la electricidad renovable. Por eso es la que intentamos predecir.</p>
+    <p class="mix-fuente">Periodo: {mix.periodo}. Fuente: {mix.fuente}</p>
   </div>
 </div>
 
-<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script is:inline src="/js/chart-tema.js"></script>
+<style>
+  .mix { display: flex; flex-direction: column; gap: 20px; }
+  .mix-dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 20px; }
+  .mix-card { min-width: 0; display: flex; flex-direction: column; gap: 18px; margin: 0; }
+  .mix-tit { font-size: 18px; font-weight: 600; }
+  .mix-fila { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+  .mix-anillo { position: relative; width: 220px; height: 220px; flex: none; }
+  .mix-centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+  .mix-centro span { font-size: 32px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); line-height: 1.1; }
+  .mix-centro small { font-size: 12px; color: var(--muted); }
+  .mix-leyenda { flex: 1 1 200px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+  .mix-leyenda li { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; color: var(--ink); }
+  .mix-leyenda i { width: 12px; height: 12px; border-radius: 3px; }
+  .mix-leyenda b { font-weight: 600; }
+  .mix-nota { background: var(--surface2); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; display: flex; flex-direction: column; gap: 6px; max-width: 900px; }
+  .mix-nota p { margin: 0; font-size: 15px; color: var(--ink); }
+  .mix-nota .mix-nota-tit { font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+  .mix-nota .mix-fuente { font-size: 13px; color: var(--muted); }
+</style>
 
-<script is:inline define:vars={{ RENOVABLES, PCT_RENOVABLE, PCT_NO_RENOVABLE }}>
+<script>
+  import { Chart, registerables } from "chart.js";
+  import "../../utils/charts-tema";
+  import { token } from "../../utils/tema";
 
-  const COLORS = ["#3B82F6", "#F59E0B", "#10B981", "#8B5CF6", "#06B6D4", "#EF4444"];
+  Chart.register(...registerables);
 
-  // Tarta 1: Renovables vs No Renovables
-  const ctx1 = document.getElementById("energyPieChart");
-  if (ctx1) {
-    new Chart(ctx1, {
-      type: "pie",
+  type Parte = { nombre: string; valor: number; token: string };
+
+  document.querySelectorAll<HTMLCanvasElement>("canvas[data-anillo]").forEach((canvas) => {
+    const partes: Parte[] = JSON.parse(canvas.dataset.anillo!);
+    const colores = () => partes.map((p) => token(p.token));
+    const chart = new Chart(canvas, {
+      type: "doughnut",
       data: {
-        labels: [`Renovables (${PCT_RENOVABLE}%)`, `No renovables (${PCT_NO_RENOVABLE}%)`],
-        datasets: [{
-          data: [PCT_RENOVABLE, PCT_NO_RENOVABLE],
-          backgroundColor: ["#10B981", "#EF4444"],
-          borderColor: "#fff",
-          borderWidth: 2,
-        }],
+        labels: partes.map((p) => p.nombre),
+        datasets: [{ data: partes.map((p) => p.valor), backgroundColor: colores(), borderWidth: 0, hoverOffset: 6 }],
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
+        cutout: "68%",
+        animation: false,
         plugins: {
-          legend: { position: "bottom", labels: { font: { size: 12 } } },
-          tooltip: { callbacks: { label: (c) => ` ${c.raw.toFixed(2)}%` } },
+          legend: { display: false },
+          tooltip: { callbacks: { label: (c) => ` ${c.label}: ${Number(c.raw).toLocaleString("es-ES", { minimumFractionDigits: 2 })} %` } },
         },
       },
     });
-  }
-
-  // Tarta 2: Desglose por tecnología renovable
-  const ctx2 = document.getElementById("renewablePieChart");
-  if (ctx2) {
-    new Chart(ctx2, {
-      type: "pie",
-      data: {
-        labels: RENOVABLES.map((t) => t.tecnologia),
-        datasets: [{
-          data: RENOVABLES.map((t) => t.pct_total),
-          backgroundColor: COLORS,
-          borderColor: "#fff",
-          borderWidth: 2,
-        }],
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: "bottom", labels: { font: { size: 11 }, boxWidth: 12 } },
-          tooltip: {
-            callbacks: {
-              label: (c) => ` ${c.label}: ${c.raw.toFixed(2)}% sobre total`,
-            },
-          },
-        },
-      },
+    // Los colores salen de los tokens: se recalculan al cambiar de tema.
+    window.addEventListener("aero-tema", () => {
+      chart.data.datasets[0].backgroundColor = colores();
+      chart.update("none");
     });
-  }
+  });
 </script>
