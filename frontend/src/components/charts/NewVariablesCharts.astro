@@ -1,0 +1,180 @@
+---
+// Las nuevas variables frente a la producción eólica (spec 013): un punto por día, con Chart.js.
+import data from "../../data/nuevas-variables.json";
+import { binSummary, linearFit } from "../../utils/new-variables.mjs";
+import { formatNumber } from "../../utils/evolution.mjs";
+
+interface Chart {
+  id: string;
+  title: string;
+  x: number[];
+  xLabel: string;
+  xUnit: string;
+  xDecimals: number;
+  xRange: [number, number];
+  edges: number[];
+  token: string;
+  line: "fit" | "diagonal";
+  note: string;
+  tableHead: string;
+}
+
+const y = data.eolica_gwh;
+const charts: Chart[] = [
+  {
+    id: "nvSol", title: "Sol de ayer frente a producción de hoy", x: data.sol_lag1,
+    xLabel: "Sol del día anterior", xUnit: "h", xDecimals: 1, xRange: [0, 15], edges: [0, 3, 6, 9, 12, 15],
+    token: "warm", line: "fit", tableHead: "Sol del día anterior (h)",
+    note: "Eje horizontal: horas de sol del día anterior. Eje vertical: producción eólica del día, en GWh. La línea discontinua es la recta que mejor se ajusta a la nube: baja.",
+  },
+  {
+    id: "nvTmed", title: "Temperatura de ayer frente a producción de hoy", x: data.tmed_lag1,
+    xLabel: "Temperatura del día anterior", xUnit: "°C", xDecimals: 1, xRange: [0, 35], edges: [5, 10, 15, 20, 25, 30, 35],
+    token: "coral", line: "fit", tableHead: "Temperatura del día anterior (°C)",
+    note: "Eje horizontal: temperatura media del día anterior, en °C. Eje vertical: producción eólica del día, en GWh. La recta también baja.",
+  },
+  {
+    id: "nvRee", title: "Previsión de REE frente a producción real", x: data.eolica_prev_gwh,
+    xLabel: "Previsión de REE", xUnit: "GWh", xDecimals: 0, xRange: [0, 500], edges: [0, 100, 200, 300, 400, 500],
+    token: "accent", line: "diagonal", tableHead: "Previsión de REE (GWh)",
+    note: "Eje horizontal: lo que REE previó generar con eólica. Eje vertical: lo que se generó, ambos en GWh. La línea discontinua es la diagonal: si la previsión fuera perfecta, todos los puntos caerían sobre ella.",
+  },
+];
+
+// Todo lo que necesita el navegador va en un solo atributo por gráfica.
+const payload = charts.map((c) => {
+  const fit = linearFit(c.x, y);
+  const [lo, hi] = c.xRange;
+  const line = c.line === "fit"
+    ? [{ x: lo, y: fit.intercept + fit.slope * lo }, { x: hi, y: fit.intercept + fit.slope * hi }]
+    : [{ x: 0, y: 0 }, { x: 500, y: 500 }];
+  return {
+    id: c.id, token: c.token, xLabel: c.xLabel, xUnit: c.xUnit, xDecimals: c.xDecimals, xRange: c.xRange,
+    points: c.x.map((v, i) => ({ x: v, y: y[i], f: data.fecha[i] })), line,
+  };
+});
+const tables = charts.map((c) => binSummary(c.x, y, c.edges));
+const days = formatNumber(data.periodo.dias, 0);
+const r = data.correlacion;
+---
+
+<div class="nv">
+  <h3 class="a-h3" style="font-size: 22px">El sol y la temperatura de ayer: una relación inversa</h3>
+  <p class="a-p" style="max-width: 70ch">
+    Al contrario que el viento, cuanto más sol y más calor hubo el día anterior, menos producción eólica suele haber hoy.
+    Cada punto es un día: la nube cae hacia la derecha. Pasa el cursor o toca un punto para ver su fecha y sus valores.
+  </p>
+  <div class="nv-dos">
+    {charts.slice(0, 2).map((c, k) => (
+      <figure class="a-card">
+        <figcaption class="font-display nv-tit">{c.title}</figcaption>
+        <div class="nv-lienzo"><canvas id={c.id} role="img" aria-label={`Diagrama de dispersión: ${c.xLabel.toLowerCase()} frente a la producción eólica, ${days} días`} data-chart={JSON.stringify(payload[k])}></canvas></div>
+        <p class="a-p nv-nota">{days} días reales. {c.note}</p>
+        <details class="a-tabla">
+          <summary>Ver los datos en tabla</summary>
+          <div class="a-tabla-wrap">
+            <table>
+              <caption class="sr-only">{c.title}: días y producción media por tramos</caption>
+              <thead><tr><th scope="col">{c.tableHead}</th><th scope="col">Días</th><th scope="col">Producción media (GWh)</th></tr></thead>
+              <tbody>{tables[k].map((t) => (<tr><th scope="row" style="font-weight:400;color:var(--ink)">{t.from} – {t.to}</th><td>{t.days}</td><td>{formatNumber(t.mean, 0)}</td></tr>))}</tbody>
+            </table>
+          </div>
+        </details>
+      </figure>
+    ))}
+  </div>
+  <p class="nv-recuadro">
+    La relación es inversa y moderada: r = −{formatNumber(-r.sol_lag1, 3)} con el sol y r = −{formatNumber(-r.tmed_lag1, 3)} con la temperatura.
+    La correlación no demuestra causa, pero aporta información que el viento no da. Coeficientes de Pearson sobre {days} días.
+  </p>
+
+  <h3 class="a-h3" style="font-size: 22px; margin-top: 24px">La previsión de REE: casi una diagonal</h3>
+  <p class="a-p" style="max-width: 70ch">REE publica cada día cuánta electricidad eólica espera generar. Es la variable nueva más fuerte: sus puntos se pegan a la diagonal.</p>
+  <figure class="a-card" style="max-width: 760px">
+    <figcaption class="font-display nv-tit">{charts[2].title}</figcaption>
+    <div class="nv-lienzo"><canvas id={charts[2].id} role="img" aria-label={`Diagrama de dispersión: previsión eólica de REE frente a la producción real, ${days} días`} data-chart={JSON.stringify(payload[2])}></canvas></div>
+    <p class="a-p nv-nota">{days} días reales. {charts[2].note}</p>
+    <details class="a-tabla">
+      <summary>Ver los datos en tabla</summary>
+      <div class="a-tabla-wrap">
+        <table>
+          <caption class="sr-only">{charts[2].title}: días y producción real media por tramos</caption>
+          <thead><tr><th scope="col">{charts[2].tableHead}</th><th scope="col">Días</th><th scope="col">Producción real media (GWh)</th></tr></thead>
+          <tbody>{tables[2].map((t) => (<tr><th scope="row" style="font-weight:400;color:var(--ink)">{t.from} – {t.to}</th><td>{t.days}</td><td>{formatNumber(t.mean, 0)}</td></tr>))}</tbody>
+        </table>
+      </div>
+    </details>
+  </figure>
+  <p class="nv-recuadro">
+    r = +{formatNumber(r.eolica_prev, 3)}: la previsión de REE es la variable con más relación con la producción, por encima del viento y del dato del día anterior.
+    Por eso entró en el modelo, que pasó a usar 19 variables.
+  </p>
+</div>
+
+<style>
+  .nv { display: flex; flex-direction: column; gap: 18px; }
+  .nv-dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 20px; }
+  .nv-dos .a-card, .nv .a-card { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .nv-tit { font-size: 18px; font-weight: 600; }
+  .nv-lienzo { position: relative; width: 100%; aspect-ratio: 14 / 10; }
+  .nv-nota { font-size: 13px; }
+  .nv-recuadro { background: var(--surface2); border: 1px solid var(--line); border-radius: 16px; padding: 16px 20px; max-width: 76ch; font-size: 15px; color: var(--ink); }
+</style>
+
+<script>
+  import { Chart, registerables } from "chart.js";
+  import "../../utils/charts-tema";
+  import { token } from "../../utils/tema";
+
+  Chart.register(...registerables);
+
+  type Payload = {
+    id: string; token: string; xLabel: string; xUnit: string; xDecimals: number; xRange: [number, number];
+    points: { x: number; y: number; f: string }[]; line: { x: number; y: number }[];
+  };
+
+  const num = (v: number, d: number) => v.toLocaleString("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fecha = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
+  // Puntos semitransparentes con el color del token: 1.770 puntos opacos taparían la forma de la nube.
+  const transparente = (nombre: string) => `${token(nombre)}66`;
+
+  document.querySelectorAll<HTMLCanvasElement>("canvas[data-chart]").forEach((canvas) => {
+    const p: Payload = JSON.parse(canvas.dataset.chart!);
+    const chart = new Chart(canvas, {
+      type: "scatter",
+      data: {
+        datasets: [
+          { label: "Días", data: p.points, backgroundColor: transparente(p.token), borderWidth: 0, pointRadius: 2.6, pointHoverRadius: 6, order: 2 },
+          { label: "Tendencia", type: "line", tokenColor: "ink", data: p.line, borderColor: "#888", borderWidth: 2, borderDash: [6, 5], pointRadius: 0, order: 1 },
+        ] as any[],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "nearest", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            filter: (item) => item.datasetIndex === 0,
+            callbacks: {
+              title: (items) => fecha((items[0].raw as { f: string }).f),
+              label: (ctx) => {
+                const d = ctx.raw as { x: number; y: number };
+                return [`${p.xLabel}: ${num(d.x, p.xDecimals)} ${p.xUnit}`, `Producción eólica: ${num(d.y, 0)} GWh`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: { type: "linear", min: p.xRange[0], max: p.xRange[1], title: { display: true, text: `${p.xLabel} (${p.xUnit})` } },
+          y: { type: "linear", min: 0, max: 500, title: { display: true, text: "Producción eólica (GWh)" } },
+        },
+      },
+    });
+    window.addEventListener("aero-tema", () => {
+      chart.data.datasets[0].backgroundColor = transparente(p.token);
+      chart.update("none");
+    });
+  });
+</script>

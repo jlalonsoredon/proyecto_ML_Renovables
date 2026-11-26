@@ -6,14 +6,15 @@ import EolicaScaledCharts from "../components/charts/EolicaScaledCharts.astro";
 import ModelComparisonChart from "../components/charts/ModelComparisonChart.astro";
 import RenewableLineChart from "../components/charts/RenewableLineChart.astro";
 import FeatureImportanceChart from "../components/charts/FeatureImportanceChart.astro";
+import NewVariablesCharts from "../components/charts/NewVariablesCharts.astro";
 import SpecTimeline from "../components/evolution/SpecTimeline.astro";
 import MetricsComparison from "../components/evolution/MetricsComparison.astro";
 import LivePredictionStatus from "../components/evolution/LivePredictionStatus.astro";
 
 const recorrido = [
   { n: "1", t: "Conocer los datos", d: "De dónde vienen y qué miden." },
-  { n: "2", t: "Explorarlos (EDA)", d: "Mirar los datos antes de modelar: mix, tendencias, mapa y relación viento–generación." },
-  { n: "3", t: "Preparar las variables", d: "Convertir los datos en las 19 pistas que usa el modelo." },
+  { n: "2", t: "Explorarlos (EDA)", d: "Mirar los datos antes de modelar: tendencias, mapa y relación viento–generación." },
+  { n: "3", t: "Preparar las variables", d: "Las 19 pistas del modelo y cómo se relacionan las nuevas con la producción." },
   { n: "4", t: "Probar modelos", d: "Ocho familias comparadas con las mismas reglas." },
   { n: "5", t: "Predecir cada día", d: "La cifra de mañana, con avisos claros si falta algo." },
   { n: "6", t: "Cómo se construyó", d: "Con desarrollo guiado por especificaciones (SDD)." },
@@ -43,7 +44,6 @@ const parques = [
   <main>
     <section class="a-section" style="padding-top: 72px; padding-bottom: 56px">
       <div class="a-wrap" style="display: flex; flex-direction: column; gap: 22px; max-width: 900px">
-        <p class="a-eyebrow">Proceso del proyecto</p>
         <h1 class="a-h1">Cómo se construye la predicción, paso a paso</h1>
         <p class="a-lead">
           Aquí se cuenta, sin tecnicismos, cómo pasamos de datos de Red Eléctrica y AEMET a la cifra de mañana. Las gráficas son interactivas: puedes pulsar la leyenda para ocultar series y tocar o pasar el cursor para ver cada valor.
@@ -66,10 +66,21 @@ const parques = [
       </div>
     </section>
 
+    <!-- Situación energética -->
+    <section class="a-section">
+      <div class="a-wrap">
+        <h2 class="a-h2" style="margin: 0 0 14px">¿Cuánta electricidad es renovable?</h2>
+        <p class="a-lead" style="margin-bottom: 28px">
+          Tras descargar el histórico de generación eléctrica por tecnología desde la API de REE, calculamos qué parte de la electricidad generada en España es renovable y cuánto aporta cada tecnología. Entre enero de 2022 y mayo de 2026, de media, el 58,33 % de la generación procedió de fuentes renovables. La eólica fue la tecnología más representativa, con el 23,41 % del total, seguida de la solar fotovoltaica (19,83 %) y la hidráulica (11,64 %).
+        </p>
+        <EnergyPieChart />
+        <p class="a-p" style="font-size: 13px; margin-top: 10px">Fuente: API Red Eléctrica de España (REE), datos históricos de generación.</p>
+      </div>
+    </section>
+
     <!-- 1. Datos -->
     <section class="a-section">
       <div class="a-wrap">
-        <p class="a-eyebrow">Paso 1</p>
         <h2 class="a-h2" style="margin: 14px 0">Conocer los datos</h2>
         <p class="a-lead" style="margin-bottom: 28px">Un modelo solo es tan bueno como los datos con los que aprende. Usamos dos fuentes oficiales.</p>
         <div class="dos">
@@ -97,20 +108,12 @@ const parques = [
     <!-- 2. EDA -->
     <section class="a-section">
       <div class="a-wrap">
-        <p class="a-eyebrow">Paso 2 · Análisis exploratorio (EDA)</p>
         <h2 class="a-h2" style="margin: 14px 0">Explorar antes de modelar</h2>
         <p class="a-lead" style="margin-bottom: 36px">
-          El análisis exploratorio de datos (EDA) consiste en mirar los datos desde varios ángulos antes de construir ningún modelo: qué pesa cada tecnología, cómo cambia la generación con el tiempo, dónde están los parques y si el viento tiene relación con lo que se genera.
+          El análisis exploratorio de datos (EDA) consiste en mirar los datos desde varios ángulos antes de construir ningún modelo: cómo cambia la generación con el tiempo, dónde están los parques y si el viento tiene relación con lo que se genera.
         </p>
 
-        <h3 class="a-h3" style="font-size: 24px; margin-bottom: 8px">¿Cuánta electricidad es renovable?</h3>
-        <p class="a-p" style="max-width: 70ch; margin-bottom: 20px">
-          Entre enero de 2022 y mayo de 2026, de media, el 58,33 % de la generación eléctrica en España procedió de fuentes renovables. La eólica fue la tecnología más representativa, con el 23,41 % del total, seguida de la solar fotovoltaica (19,83 %) y la hidráulica (11,64 %).
-        </p>
-        <EnergyPieChart />
-        <p class="a-p" style="font-size: 13px; margin-top: 10px">Fuente: API Red Eléctrica de España (REE), datos históricos de generación.</p>
-
-        <h3 class="a-h3" style="font-size: 24px; margin: 56px 0 8px">¿Cómo ha cambiado la generación con el tiempo?</h3>
+        <h3 class="a-h3" style="font-size: 24px; margin-bottom: 8px">¿Cómo ha cambiado la generación con el tiempo?</h3>
         <p class="a-p" style="max-width: 70ch; margin-bottom: 20px">
           Generación semanal de las seis tecnologías renovables desde enero de 2022 hasta la última semana completa disponible. Pulsa en la leyenda para mostrar u ocultar una tecnología.
         </p>
@@ -138,7 +141,6 @@ const parques = [
     <!-- 3. Variables -->
     <section class="a-section">
       <div class="a-wrap">
-        <p class="a-eyebrow">Paso 3</p>
         <h2 class="a-h2" style="margin: 14px 0">Preparar las 19 variables</h2>
         <p class="a-lead" style="margin-bottom: 28px">
           Las variables son las «pistas» que se le dan al modelo para estimar la generación de mañana. Cada una indica si procede de una observación, de una previsión o de una estimación.
@@ -148,14 +150,18 @@ const parques = [
             <div class="a-card-sm"><b>{v[0]}</b><p class="a-p" style="font-size: 14px; margin-top: 4px">{v[1]}</p></div>
           ))}
         </div>
-        <div style="margin-top: 36px"><FeatureImportanceChart /></div>
+        <h3 class="a-h3" style="font-size: 24px; margin: 56px 0 8px">Las nuevas variables: sol, temperatura y previsión de REE</h3>
+        <p class="a-p" style="max-width: 70ch; margin-bottom: 24px">
+          El modelo empezó con 16 variables de viento, calendario y generación anterior. Después se estudiaron tres más. Antes de añadirlas comprobamos, con un punto por día, qué relación tenían con la producción eólica.
+        </p>
+        <NewVariablesCharts />
+        <div style="margin-top: 56px"><FeatureImportanceChart /></div>
       </div>
     </section>
 
     <!-- 4. Modelos -->
     <section class="a-section">
       <div class="a-wrap">
-        <p class="a-eyebrow">Paso 4</p>
         <h2 class="a-h2" style="margin: 14px 0">Probar modelos</h2>
         <p class="a-lead" style="margin-bottom: 16px">
           El objetivo es predecir la generación de energía eólica en España con la mayor precisión posible. Se han probado ocho familias de modelos, primero con las 16 variables originales y después con las 19 actuales.
@@ -170,7 +176,6 @@ const parques = [
     <!-- 5. Predicción diaria -->
     <section class="a-section">
       <div class="a-wrap">
-        <p class="a-eyebrow">Paso 5</p>
         <h2 class="a-h2" style="margin: 14px 0">Predecir cada día</h2>
         <ol class="diario">
           <li><b>Captura de previsiones.</b> Se guardan la previsión meteorológica de AEMET para las 12 ubicaciones y la previsión eólica de REE para el día siguiente.</li>
@@ -187,7 +192,6 @@ const parques = [
     <!-- 6. SDD y evolución -->
     <section id="evolucion" class="a-section" style="scroll-margin-top: 90px">
       <div class="a-wrap">
-        <p class="a-eyebrow">Paso 6 · Cómo se construyó</p>
         <h2 class="a-h2" style="margin: 14px 0">Evolución del proyecto, guiada por especificaciones</h2>
         <div class="a-card" style="margin: 20px 0 32px">
           <h3 class="a-h3">Desarrollo guiado por especificaciones (SDD)</h3>
