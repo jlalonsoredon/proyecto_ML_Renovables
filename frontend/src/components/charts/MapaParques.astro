@@ -1,38 +1,102 @@
 ---
-// Mapa de los parques eólicos (spec 016): Leaflet con OpenStreetMap, lista que selecciona y ficha del parque.
+// Mapa de los parques eólicos como en el lienzo de diseño (spec 018): dibujo SVG simplificado de la
+// península con retícula, ciudades y rótulos; la lista selecciona el parque y lo resalta con un anillo.
+
+// Proyección del lienzo: longitud lineal y latitud escalada por cos(40°).
+const LON0 = -10.0, LON1 = 3.9, LAT0 = 35.2, LAT1 = 44.0;
+const MW = 600;
+const sx = MW / (LON1 - LON0);
+const sy = sx / Math.cos((40 * Math.PI) / 180);
+const MH = Math.round((LAT1 - LAT0) * sy);
+const proj = (lon: number, lat: number) => [(lon - LON0) * sx, (LAT1 - lat) * sy] as const;
+const f = (v: number) => v.toFixed(1);
+
+const PENINSULA: [number, number][] = [[-1.78, 43.37], [-2.20, 43.40], [-2.75, 43.45], [-3.20, 43.38], [-3.80, 43.47], [-4.50, 43.40], [-5.20, 43.55],
+  [-5.85, 43.66], [-6.50, 43.58], [-7.04, 43.55], [-7.69, 43.79], [-8.30, 43.55], [-8.40, 43.37], [-8.85, 43.30],
+  [-9.21, 43.16], [-9.30, 42.90], [-9.00, 42.62], [-8.90, 42.40], [-8.75, 42.23], [-8.88, 41.87], [-8.85, 41.70],
+  [-8.75, 41.20], [-8.80, 40.65], [-8.90, 40.15], [-9.05, 39.75], [-9.38, 39.35], [-9.50, 38.78], [-9.15, 38.69],
+  [-9.22, 38.42], [-8.90, 38.50], [-8.88, 37.95], [-8.80, 37.40], [-8.99, 37.02], [-8.60, 37.10], [-8.30, 37.10],
+  [-7.93, 37.01], [-7.40, 37.18], [-6.95, 37.15], [-6.80, 37.13], [-6.40, 36.85], [-6.35, 36.55], [-6.20, 36.38],
+  [-6.04, 36.18], [-5.60, 36.00], [-5.43, 36.13], [-5.15, 36.42], [-4.88, 36.50], [-4.42, 36.70], [-3.85, 36.74],
+  [-3.52, 36.72], [-3.02, 36.74], [-2.46, 36.83], [-2.19, 36.72], [-1.90, 37.00], [-1.58, 37.40], [-0.69, 37.63],
+  [-0.68, 37.97], [-0.48, 38.34], [-0.12, 38.54], [0.23, 38.73], [-0.15, 38.97], [-0.32, 39.47], [0.00, 39.98],
+  [0.40, 40.36], [0.85, 40.80], [1.25, 41.11], [1.80, 41.23], [2.19, 41.38], [2.45, 41.54], [2.80, 41.67],
+  [3.13, 41.85], [3.18, 42.26], [3.32, 42.32], [3.17, 42.43], [2.50, 42.35], [1.75, 42.50], [0.95, 42.80],
+  [0.15, 42.72], [-0.30, 42.85], [-0.75, 42.97], [-1.30, 43.00], [-1.50, 43.05], [-1.78, 43.30]];
+const FRONTERA_PT: [number, number][] = [[-8.88, 41.87], [-8.62, 42.05], [-8.20, 42.15], [-7.60, 41.95], [-7.00, 41.93], [-6.60, 41.97], [-6.20, 41.58],
+  [-6.55, 41.35], [-6.80, 41.05], [-6.85, 40.60], [-6.85, 40.30], [-7.05, 40.00], [-7.25, 39.42], [-7.00, 38.88],
+  [-7.10, 38.70], [-7.30, 38.20], [-7.35, 37.80], [-7.35, 37.55], [-7.40, 37.18]];
+const trazo = (pts: [number, number][], cerrar = false) =>
+  pts.map(([lon, lat], i) => { const [x, y] = proj(lon, lat); return `${i === 0 ? "M" : "L"}${f(x)},${f(y)}`; }).join(" ") + (cerrar ? " Z" : "");
+
+const meridianos = [-8, -6, -4, -2, 0, 2].map((lon) => ({ x: proj(lon, 0)[0], t: `${Math.abs(lon)}° ${lon < 0 ? "O" : "E"}` }));
+const paralelos = [36, 38, 40, 42, 44].map((lat) => ({ y: proj(0, lat)[1], t: `${lat}° N` }));
+const CIUDADES = [["Madrid", -3.70, 40.42], ["Barcelona", 2.17, 41.39], ["Sevilla", -5.98, 37.39], ["Valencia", -0.38, 39.47],
+  ["Bilbao", -2.93, 43.26], ["Zaragoza", -0.88, 41.65]] as const;
+const ROTULOS = [["PORTUGAL", -8.1, 39.9], ["FRANCIA", 1.6, 43.65], ["Atlántico", -9.0, 36.3], ["Mediterráneo", 1.5, 38.2], ["Cantábrico", -4.5, 43.9]] as const;
+
 const PARQUES = [
-  { n: "El Andévalo", prov: "Huelva", est: "Alosno", id: "4589X", lat: 37.26418296737997, lon: -6.944856396315273 },
-  { n: "Gecama", prov: "Cuenca", est: "Albacete", id: "8175", lat: 39.40848408319995, lon: -2.2192737751771614 },
-  { n: "Maranchón", prov: "Guadalajara", est: "Molina de Aragón", id: "3013", lat: 41.06356588209968, lon: -2.206160824662825 },
-  { n: "Borja", prov: "Zaragoza", est: "Tarazona", id: "9299X", lat: 41.877046928697204, lon: -1.5630303402886618 },
-  { n: "Tarifa", prov: "Cádiz", est: "Tarifa", id: "6001", lat: 36.037373555997895, lon: -5.570950423574283 },
-  { n: "Briviesca", prov: "Burgos", est: "Briviesca", id: "9031C", lat: 42.52921710077489, lon: -3.408352539310985 },
-  { n: "La Muela", prov: "Zaragoza", est: "Tarazona", id: "9299X", lat: 41.5924449830392, lon: -1.1575020732335635 },
+  { n: "El Andévalo", prov: "Huelva", est: "Alosno", lat: 37.264, lon: -6.945 },
+  { n: "Gecama", prov: "Cuenca", est: "Albacete", lat: 39.408, lon: -2.219 },
+  { n: "Maranchón", prov: "Guadalajara", est: "Molina de Aragón", lat: 41.064, lon: -2.206 },
+  { n: "Borja", prov: "Zaragoza", est: "Tarazona", lat: 41.877, lon: -1.563 },
+  { n: "Tarifa", prov: "Cádiz", est: "Tarifa", lat: 36.037, lon: -5.571 },
+  { n: "Briviesca", prov: "Burgos", est: "Briviesca", lat: 42.529, lon: -3.408 },
+  { n: "La Muela", prov: "Zaragoza", est: "Tarazona", lat: 41.592, lon: -1.158 },
 ];
-const coord = (lat: number, lon: number) =>
-  `${lat.toFixed(2).replace(".", ",")}° N · ${Math.abs(lon).toFixed(2).replace(".", ",")}° ${lon < 0 ? "O" : "E"}`;
-const fichas = PARQUES.map((p) => ({ ...p, d: `${p.prov} · estación de ${p.est} (indicativo ${p.id})`, c: coord(p.lat, p.lon) }));
+const dos = (v: number) => v.toFixed(2).replace(".", ",");
+const parques = PARQUES.map((p) => {
+  const [x, y] = proj(p.lon, p.lat);
+  return { ...p, x, y, d: `${p.prov} · estación de observación: ${p.est}`, c: `${dos(p.lat)}° N, ${dos(Math.abs(p.lon))}° ${p.lon < 0 ? "O" : "E"}` };
+});
+const fichas = parques.map(({ n, d, c }) => ({ n, d, c }));
 ---
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<div class="mp">
+<div class="mp" data-mapa-parques={JSON.stringify(fichas)}>
   <div class="a-card mp-mapa">
-    <div id="mapaParques" class="mp-lienzo" role="region" aria-label="Mapa de España con la posición de los siete parques eólicos"></div>
-    <p class="a-p ctl-ayuda">Mapa de OpenStreetMap. Borja y La Muela comparten la estación de Tarazona.</p>
+    <svg viewBox={`0 0 ${MW} ${MH}`} role="img" aria-label="Mapa de la península ibérica con la posición de los siete parques eólicos">
+      {meridianos.map((m) => (
+        <g>
+          <line x1={f(m.x)} x2={f(m.x)} y1="0" y2={MH} stroke-width="1" style="stroke: var(--grid)" />
+          <text x={f(m.x + 3)} y={MH - 6} class="mp-et">{m.t}</text>
+        </g>
+      ))}
+      {paralelos.map((p) => (
+        <g>
+          <line x1="0" x2={MW} y1={f(p.y)} y2={f(p.y)} stroke-width="1" style="stroke: var(--grid)" />
+          <text x="5" y={f(p.y - 4)} class="mp-et">{p.t}</text>
+        </g>
+      ))}
+      <path d={trazo(PENINSULA, true)} stroke-width="1.2" stroke-linejoin="round" style="fill: var(--surface2); stroke: var(--muted)" />
+      <path d={trazo(FRONTERA_PT)} fill="none" stroke-width="1" stroke-dasharray="3 3" style="stroke: var(--muted)" />
+      {ROTULOS.map(([t, lon, lat]) => <text x={f(proj(lon, lat)[0])} y={f(proj(lon, lat)[1])} text-anchor="middle" class="mp-rotulo">{t}</text>)}
+      {CIUDADES.map(([t, lon, lat]) => (
+        <g>
+          <circle cx={f(proj(lon, lat)[0])} cy={f(proj(lon, lat)[1])} r="2.5" style="fill: var(--muted)" />
+          <text x={f(proj(lon, lat)[0] + 6)} y={f(proj(lon, lat)[1] + 3.5)} class="mp-et">{t}</text>
+        </g>
+      ))}
+      {parques.map((p, i) => (
+        <g class="mp-marca" data-marca={i} data-activa={i === 0 ? "si" : "no"}>
+          <circle class="mp-anillo" cx={f(p.x)} cy={f(p.y)} r={i === 0 ? 22 : 15} />
+          <circle class="mp-punto" cx={f(p.x)} cy={f(p.y)} r="9" />
+          <text x={f(p.x)} y={f(p.y + 3.6)} text-anchor="middle" class="mp-num-svg">{i + 1}</text>
+        </g>
+      ))}
+    </svg>
+    <p class="a-p ctl-ayuda">Mapa simplificado: contorno aproximado de la península y retícula de latitud y longitud. La línea discontinua marca la frontera con Portugal.</p>
   </div>
   <div class="mp-lista">
-    {fichas.map((p, i) => (
+    {parques.map((p, i) => (
       <button type="button" class="mp-parque" aria-pressed={i === 0 ? "true" : "false"} data-parque={i}>
         <span class="mp-num font-display">{i + 1}</span>
         <span class="mp-txt"><span class="mp-n">{p.n}</span><span class="mp-p">{p.prov}</span></span>
       </button>
     ))}
     <div class="a-card mp-ficha" aria-live="polite">
-      <p class="font-display mp-ficha-n" data-ficha-n>{fichas[0].n}</p>
-      <p class="mp-ficha-d" data-ficha-d>{fichas[0].d}</p>
-      <p class="num mp-ficha-c" data-ficha-c>{fichas[0].c}</p>
+      <p class="font-display mp-ficha-n" data-ficha-n>{parques[0].n}</p>
+      <p class="mp-ficha-d" data-ficha-d>{parques[0].d}</p>
+      <p class="num mp-ficha-c" data-ficha-c>{parques[0].c}</p>
     </div>
   </div>
 </div>
@@ -40,7 +104,14 @@ const fichas = PARQUES.map((p) => ({ ...p, d: `${p.prov} · estación de ${p.est
 <style>
   .mp { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
   .mp-mapa { flex: 1.3 1 380px; min-width: 0; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
-  .mp-lienzo { height: 440px; width: 100%; border-radius: 14px; border: 1px solid var(--line); z-index: 0; }
+  .mp-mapa svg { display: block; width: 100%; height: auto; border-radius: 14px; background: var(--bg); }
+  .mp-et { fill: var(--muted); font: 500 10px "Inter", system-ui, sans-serif; }
+  .mp-rotulo { fill: var(--muted); font: italic 500 11px "Inter", system-ui, sans-serif; letter-spacing: 0.1em; }
+  .mp-anillo { fill: var(--accent); opacity: 0.14; transition: r 0.2s, opacity 0.2s; }
+  .mp-marca[data-activa="si"] .mp-anillo { opacity: 0.35; }
+  .mp-punto { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+  .mp-marca[data-activa="si"] .mp-punto { stroke: var(--ink); stroke-width: 3; }
+  .mp-num-svg { fill: var(--accentInk); font: 700 10px "Space Grotesk", sans-serif; }
   .mp-lista { flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px; }
   .mp-parque { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; min-height: 56px; font: inherit; }
   .mp-parque:hover { background: var(--surface2); }
@@ -52,38 +123,30 @@ const fichas = PARQUES.map((p) => ({ ...p, d: `${p.prov} · estación de ${p.est
   .mp-ficha { padding: 18px; display: flex; flex-direction: column; gap: 4px; }
   .mp-ficha p { margin: 0; }
   .mp-ficha-n { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
-  .mp-ficha-d, .mp-ficha-c { font-size: 14px; color: var(--muted); }
-  .mp-ficha-c { font-size: 13px; }
-  @media (max-width: 640px) { .mp-lienzo { height: 340px; } }
-  :global(.mp-marca) { background: var(--accent); color: var(--accentInk); border: 2px solid var(--bg); border-radius: 50%; display: flex !important; align-items: center; justify-content: center; font: 700 12px "Space Grotesk", sans-serif; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
-  :global(.mp-marca.activa) { outline: 4px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  .mp-ficha-d { font-size: 14px; color: var(--muted); }
+  .mp-ficha-c { font-size: 13px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { .mp-anillo { transition: none; } }
 </style>
 
-<script is:inline define:vars={{ fichas }}>
-  (function () {
-    const contenedor = document.getElementById("mapaParques");
-    if (!contenedor || !window.L || contenedor._leaflet_id) return;
-    const mapa = L.map(contenedor, { scrollWheelZoom: false }).setView([40.0, -3.6], 6);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 18,
-    }).addTo(mapa);
+<script>
+  type Ficha = { n: string; d: string; c: string };
 
-    const icono = (i, activa) => L.divIcon({ className: "mp-marca" + (activa ? " activa" : ""), html: String(i + 1), iconSize: [26, 26], iconAnchor: [13, 13] });
-    const marcas = fichas.map((p, i) =>
-      L.marker([p.lat, p.lon], { icon: icono(i, i === 0), title: p.n, keyboard: true }).addTo(mapa).on("click", () => seleccionar(i))
-    );
-    const botones = [...document.querySelectorAll("[data-parque]")];
+  document.querySelectorAll<HTMLElement>("[data-mapa-parques]").forEach((raiz) => {
+    const fichas: Ficha[] = JSON.parse(raiz.dataset.mapaParques!);
+    const botones = [...raiz.querySelectorAll<HTMLButtonElement>("[data-parque]")];
+    const marcas = [...raiz.querySelectorAll<SVGGElement>("[data-marca]")];
+    const campo = (nombre: string) => raiz.querySelector<HTMLElement>(`[data-ficha-${nombre}]`)!;
 
-    function seleccionar(i) {
-      const p = fichas[i];
-      marcas.forEach((m, k) => m.setIcon(icono(k, k === i)));
+    const seleccionar = (i: number) => {
       botones.forEach((b, k) => b.setAttribute("aria-pressed", String(k === i)));
-      document.querySelector("[data-ficha-n]").textContent = p.n;
-      document.querySelector("[data-ficha-d]").textContent = p.d;
-      document.querySelector("[data-ficha-c]").textContent = p.c;
-      mapa.flyTo([p.lat, p.lon], 8, { duration: 0.6 });
-    }
+      marcas.forEach((m, k) => {
+        m.dataset.activa = k === i ? "si" : "no";
+        m.querySelector(".mp-anillo")?.setAttribute("r", k === i ? "22" : "15");
+      });
+      campo("n").textContent = fichas[i].n;
+      campo("d").textContent = fichas[i].d;
+      campo("c").textContent = fichas[i].c;
+    };
     botones.forEach((b, i) => b.addEventListener("click", () => seleccionar(i)));
-  })();
+  });
 </script>
