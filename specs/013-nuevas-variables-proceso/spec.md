@@ -1,6 +1,6 @@
 # Spec 013 — Las nuevas variables en Proceso
 
-Estado: implementada en el frontend (26/11/2026). Pendiente: añadir al notebook la celda de exportación (D-13-3).
+Estado: implementada (26/11/2026), con la celda de exportación en el notebook (celda 75).
 
 ## Contexto
 
