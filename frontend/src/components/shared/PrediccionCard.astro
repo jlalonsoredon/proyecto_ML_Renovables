@@ -39,10 +39,10 @@ const filas = [
 ---
 
 {variante === "instrumento" ? (
-  <section class="tp tp-inst" data-live-prediction data-state={view.estado} aria-labelledby="pred-titulo">
+  <section class="tp tp-inst" data-live-prediction data-state={view.estado} data-provisional={view.provisional ? "si" : "no"} aria-labelledby="pred-titulo">
     <div class="tp-top">
       <p class="a-eyebrow" id="pred-titulo">Predicción para mañana</p>
-      <span class="tp-chip" aria-hidden="true"></span>
+      <span class="tp-chips"><span class="tp-chip-prov">Provisional</span><span class="tp-chip" aria-hidden="true"></span></span>
     </div>
     <p class="num tp-fecha" data-field="fecha">{view.campos.fecha}</p>
     <p class="num tp-valor font-display">
@@ -64,14 +64,15 @@ const filas = [
       </div>
     )}
     <p class="tp-msg" data-field="estado" data-tone="none" data-base-class="tp-msg" role="status" aria-live="polite">{view.mensaje}</p>
+    <p class="tp-prov">Calculada sin la previsión eólica de REE para mañana, que se publica hacia las 10:50. Se actualizará a lo largo del día.</p>
   </section>
 ) : (
-  <section class="tp tp-comp" data-live-prediction data-state={view.estado} aria-labelledby="pred-titulo">
+  <section class="tp tp-comp" data-live-prediction data-state={view.estado} data-provisional={view.provisional ? "si" : "no"} aria-labelledby="pred-titulo">
     <div class="tp-izq">
       <div class="tp-fondo" aria-hidden="true"><Corrientes ancho={640} alto={360} n={10} semilla={5} /></div>
       <div class="tp-top">
         <p class="a-eyebrow" id="pred-titulo">Predicción para mañana</p>
-        <span class="tp-chip" aria-hidden="true"></span>
+        <span class="tp-chips"><span class="tp-chip-prov">Provisional</span><span class="tp-chip" aria-hidden="true"></span></span>
       </div>
       <div class="tp-cifra">
         <p class="num tp-valor font-display">
@@ -79,6 +80,7 @@ const filas = [
           <span class="tp-unidad">MWh</span>
         </p>
         <p class="tp-msg" data-field="estado" data-tone="none" data-base-class="tp-msg" role="status" aria-live="polite">{view.mensaje}</p>
+        <p class="tp-prov">Calculada sin la previsión eólica de REE para mañana, que se publica hacia las 10:50. Se actualizará a lo largo del día.</p>
       </div>
     </div>
     <div class="tp-der">
@@ -109,6 +111,12 @@ const filas = [
   [data-state="no_disponible"] .tp-unidad { display: none; }
   [data-state="no_disponible"] dd { color: var(--muted); }
   .tp-msg { font-size: 14px; color: var(--ink); text-wrap: pretty; }
+  /* Spec 019: predicción calculada sin la previsión real de REE */
+  .tp-chips { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+  .tp-chip-prov, .tp-prov { display: none; }
+  [data-provisional="si"] .tp-chip-prov { display: inline-flex; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; border: 1px dashed var(--warm); color: var(--warm); }
+  [data-provisional="si"] .tp-prov { display: block; margin-top: 8px !important; font-size: 13px; color: var(--warm); text-wrap: pretty; }
+  [data-state="no_disponible"] .tp-chip-prov, [data-state="no_disponible"] .tp-prov { display: none; }
 
   /* Inicio: instrumento */
   .tp-inst { padding: 32px; box-shadow: 0 40px 90px -50px rgba(0, 0, 0, 0.65); display: flex; flex-direction: column; }

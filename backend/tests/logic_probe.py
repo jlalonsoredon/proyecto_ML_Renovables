@@ -754,6 +754,17 @@ def _ejecutar(request):
             )
         return {"primera": primera, "segunda": segunda, "filas": filas}
 
+    if accion == "forecast_provisional":
+        from app.services.forecast_cache import es_provisional, puede_reutilizar
+
+        return {
+            "provisional": [es_provisional(snapshot) for snapshot in request["snapshots"]],
+            "reutilizar": [
+                puede_reutilizar(caso.get("cache"), caso["objetivo"], caso.get("force", False), caso.get("restauradas", 0))
+                for caso in request.get("casos", [])
+            ],
+        }
+
     if accion == "forecast_archive_rows":
         if not request.get("db_path"):
             raise ValueError("db_path es obligatorio para el archivo de previsiones")

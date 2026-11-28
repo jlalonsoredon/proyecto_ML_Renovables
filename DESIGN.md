@@ -186,7 +186,7 @@ Criterios comunes de todas las gráficas:
 - **Color:** texto, rejilla y series desde los tokens (`src/utils/charts-tema.ts`, `public/js/chart-tema.js`).
 
 ### Tarjeta de predicción (componente propio)
-Cuatro estados reales de la previsión publicada: vigente (verde), pendiente (ámbar), caducada (coral) y no disponible (coral, sin cifra). El estado se recalcula en el navegador con la fecha de hoy.
+Cuatro estados reales de la previsión publicada: vigente (verde), pendiente (ámbar), caducada (coral) y no disponible (coral, sin cifra). El estado se recalcula en el navegador con la fecha de hoy. Si la cifra se calculó sin la previsión real de REE (spec 019), se añade el distintivo «Provisional» en ámbar con borde discontinuo y una línea que lo explica.
 
 ## Do's and Don'ts
 

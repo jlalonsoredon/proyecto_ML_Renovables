@@ -730,6 +730,28 @@ def validate_snapshot(snapshot, hoy: date) -> list[str]:
     return problemas
 
 
+def es_provisional(snapshot) -> bool:
+    """Spec 019: la predicción es provisional sin la previsión real de REE (`eolica_prev`).
+
+    REE publica la previsión eólica del día siguiente hacia las 10:50 de Madrid; antes,
+    `resolve_eolica_prev` usa la media de sus siete previsiones anteriores («estimada»).
+    Espejo de `isProvisional` en frontend/src/utils/forecast.mjs.
+    """
+    origenes = ((snapshot or {}).get("prediccion") or {}).get("origenes") or {}
+    return origenes.get("eolica_prev") != "prevision"
+
+
+def puede_reutilizar(cache: dict | None, objetivo: str, force: bool, restauradas: int) -> bool:
+    """Atajo de caché de `refresh` (spec 019, D-19-4): no se reutiliza un snapshot provisional."""
+    return (
+        not force
+        and restauradas == 0
+        and bool(cache)
+        and cache["snapshot"]["fecha_objetivo"] == objetivo
+        and not es_provisional(cache["snapshot"])
+    )
+
+
 def refresh(force: bool = False, hoy: date | None = None,
             snapshot_anterior: dict | None = None) -> dict:
     """Ejecuta la tarea diaria y devuelve el snapshot validado.
@@ -738,8 +760,9 @@ def refresh(force: bool = False, hoy: date | None = None,
     el último snapshot publicado para recuperar lo que la SQLite efímera perdió.
     La restauración se intenta antes del atajo de caché; si recupera filas, se
     recalcula aunque no haya `force`. Sin `force`, una segunda llamada para el
-    mismo objetivo devuelve la ejecución cacheada. Solo se cachean las
-    ejecuciones sin avisos bloqueantes: los de AVISOS_ESPERADOS no cuentan.
+    mismo objetivo devuelve la ejecución cacheada, salvo que sea provisional
+    (sin la previsión real de REE, spec 019). Solo se cachean las ejecuciones
+    sin avisos bloqueantes: los de AVISOS_ESPERADOS no cuentan.
     """
     global _cache
     if not _lock.acquire(blocking=False):
@@ -784,12 +807,7 @@ def refresh(force: bool = False, hoy: date | None = None,
                 )
         restauradas = restauradas_predicciones + restauradas_previsiones
 
-        if (
-            not force
-            and restauradas == 0
-            and _cache
-            and _cache["snapshot"]["fecha_objetivo"] == objetivo
-        ):
+        if puede_reutilizar(_cache, objetivo, force, restauradas):
             logger.info("Snapshot ya generado para %s (run_id=%s)", objetivo, _cache["run_id"])
             return {**_cache, "estado": "already_done"}
 

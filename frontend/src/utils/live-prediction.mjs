@@ -1,6 +1,6 @@
 // Tarjeta de la previsión publicada. Sin red: los valores salen del snapshot en
 // build y el navegador solo recalcula el estado con la fecha de hoy.
-import { FORECAST_STATE, snapshotStatus, todayInMadrid } from "./forecast.mjs";
+import { FORECAST_STATE, isProvisional, snapshotStatus, todayInMadrid } from "./forecast.mjs";
 import { STATUS, formatMetric, formatDateEs, formatNumber } from "./evolution.mjs";
 
 const REFERENCE_VARIABLES = 19;
@@ -34,7 +34,7 @@ export function cardView(snapshot, today = todayInMadrid()) {
 
   if (status.estado === FORECAST_STATE.UNAVAILABLE) {
     for (const name of names) fields[name] = STATUS.UNAVAILABLE;
-    return { estado: status.estado, tono: status.tono, mensaje: status.mensaje, campos: fields };
+    return { estado: status.estado, tono: status.tono, mensaje: status.mensaje, campos: fields, provisional: false };
   }
 
   const prediction = snapshot.prediccion;
@@ -49,11 +49,13 @@ export function cardView(snapshot, today = todayInMadrid()) {
   fields.version = variables === REFERENCE_VARIABLES
     ? `La previsión usa el modelo de referencia (${REFERENCE_VARIABLES} variables).`
     : `La previsión usa una versión distinta del modelo de referencia de ${REFERENCE_VARIABLES} variables. Las métricas de esta web corresponden a la referencia.`;
-  return { estado: status.estado, tono: status.tono, mensaje: status.mensaje, campos: fields };
+  // Spec 019: sin la previsión real de REE la cifra es provisional y la tarjeta lo dice.
+  return { estado: status.estado, tono: status.tono, mensaje: status.mensaje, campos: fields, provisional: isProvisional(snapshot) };
 }
 
 function setState(root, view) {
   root.dataset.state = view.estado;
+  root.dataset.provisional = view.provisional ? "si" : "no";
   root.querySelectorAll("[data-field]").forEach((el) => {
     const name = el.dataset.field;
     if (name !== "estado" && name in view.campos) el.textContent = view.campos[name];

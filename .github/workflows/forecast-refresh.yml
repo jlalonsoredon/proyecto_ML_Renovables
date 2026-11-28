@@ -9,6 +9,12 @@ on:
     # Reintento: la guardia lo detiene si el snapshot ya es el de mañana y está limpio.
     - cron: "17 8 * * *"
       timezone: "Europe/Madrid"
+    # Spec 019: REE publica la previsión eólica del día siguiente hacia las 10:50.
+    # Estas ejecuciones recalculan la predicción con ella si la de la mañana es provisional.
+    - cron: "17 12 * * *"
+      timezone: "Europe/Madrid"
+    - cron: "17 15 * * *"
+      timezone: "Europe/Madrid"
   workflow_dispatch:
     inputs:
       force:
@@ -43,19 +49,14 @@ jobs:
         run: |
           node --input-type=module -e "
             import { existsSync, readFileSync, appendFileSync } from 'node:fs';
-            import { avisosBloqueantes, todayInMadrid, tomorrowInMadrid } from './frontend/src/utils/forecast.mjs';
+            import { shouldSkipRefresh, todayInMadrid } from './frontend/src/utils/forecast.mjs';
             const ruta = process.env.SNAPSHOT_PATH;
             let omitir = false;
             let motivo = 'no hay snapshot publicado';
             if (existsSync(ruta)) {
               try {
-                const snapshot = JSON.parse(readFileSync(ruta, 'utf8'));
-                const manana = tomorrowInMadrid(todayInMadrid());
-                const limpio = avisosBloqueantes(snapshot).length === 0;
-                omitir = snapshot.fecha_objetivo === manana && limpio;
-                motivo = omitir
-                  ? 'el snapshot ya es el de mañana y no tiene avisos bloqueantes'
-                  : 'objetivo ' + snapshot.fecha_objetivo + ' (mañana: ' + manana + '), avisos bloqueantes: ' + avisosBloqueantes(snapshot).length;
+                // Spec 019: tampoco se omite si la predicción es provisional (sin la previsión real de REE).
+                ({ omitir, motivo } = shouldSkipRefresh(JSON.parse(readFileSync(ruta, 'utf8')), todayInMadrid()));
               } catch (error) {
                 motivo = 'el snapshot publicado no se puede leer: ' + error.message;
               }

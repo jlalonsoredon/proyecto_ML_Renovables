@@ -547,3 +547,23 @@ test("el error de producción usa real menos predicción y no imputa", () => {
   });
   assert.equal(future, null);
 });
+
+test("spec 019: provisional sin la previsión real de REE y la caché no lo retiene", () => {
+  const snapshot = (origen) => ({ fecha_objetivo: "2026-11-29", prediccion: { origenes: { eolica_prev: origen } } });
+  const resultado = probe({
+    action: "forecast_provisional",
+    snapshots: [snapshot("estimada"), snapshot(undefined), {}, snapshot("prevision")],
+    casos: [
+      { cache: { snapshot: snapshot("prevision") }, objetivo: "2026-11-29" },
+      { cache: { snapshot: snapshot("estimada") }, objetivo: "2026-11-29" },
+      { cache: { snapshot: snapshot("prevision") }, objetivo: "2026-11-29", force: true },
+      { cache: { snapshot: snapshot("prevision") }, objetivo: "2026-11-29", restauradas: 3 },
+      { cache: { snapshot: snapshot("prevision") }, objetivo: "2026-11-30" },
+      { cache: null, objetivo: "2026-11-29" },
+    ],
+  });
+  // CA-1: estimada, ausente o sin predicción es provisional; la previsión real no.
+  assert.deepEqual(resultado.provisional, [true, true, true, false]);
+  // CA-3: solo se reutiliza un snapshot no provisional del mismo objetivo, sin force ni restauraciones.
+  assert.deepEqual(resultado.reutilizar, [true, false, false, false, false, false]);
+});

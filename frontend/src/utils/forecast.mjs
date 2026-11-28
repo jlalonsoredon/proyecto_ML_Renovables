@@ -349,3 +349,27 @@ export function avisosBloqueantes(snapshot) {
   const avisos = Array.isArray(snapshot?.avisos) ? snapshot.avisos : [];
   return avisos.filter((aviso) => !AVISOS_ESPERADOS.includes(aviso));
 }
+
+/**
+ * Spec 019: la predicción es provisional si se calculó sin la previsión eólica real de
+ * REE para el día objetivo (`eolica_prev` estimada o ausente). REE la publica hacia las
+ * 10:50 de Madrid; antes, el backend usa la media de sus siete previsiones anteriores.
+ */
+export function isProvisional(snapshot) {
+  return snapshot?.prediccion?.origenes?.eolica_prev !== "prevision";
+}
+
+/**
+ * Decisión de la guarda del workflow (spec 019, D-19-3): solo se omite la ejecución si el
+ * snapshot ya es el de mañana, no tiene avisos bloqueantes y no es provisional.
+ */
+export function shouldSkipRefresh(snapshot, today) {
+  const manana = tomorrowInMadrid(today);
+  const bloqueantes = avisosBloqueantes(snapshot).length;
+  const provisional = isProvisional(snapshot);
+  const omitir = snapshot?.fecha_objetivo === manana && bloqueantes === 0 && !provisional;
+  const motivo = omitir
+    ? "el snapshot ya es el de mañana, sin avisos bloqueantes y con la previsión de REE"
+    : `objetivo ${snapshot?.fecha_objetivo} (mañana: ${manana}), avisos bloqueantes: ${bloqueantes}, provisional: ${provisional ? "sí" : "no"}`;
+  return { omitir, motivo };
+}
