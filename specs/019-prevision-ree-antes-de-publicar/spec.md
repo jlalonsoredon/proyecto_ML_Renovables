@@ -1,6 +1,6 @@
 # Spec 019 — Esperar a la previsión de REE antes de dar la predicción por buena
 
-Estado: implementada (28/11/2026). Pendiente CA-5: comprobar tras desplegar que la ejecución de las 12:17 usa la previsión real de REE.
+Estado: implementada y verificada (28/11/2026).
 
 ## Contexto
 
@@ -34,6 +34,7 @@ Entre el 17 y el 25/11/2026 la predicción falló mucho en algunos días (+23 % 
 - **D-19-4 — La caché no retiene provisionales.** `forecast_cache.refresh` no reutiliza un snapshot provisional aunque no tenga avisos bloqueantes: recalcula para recoger la previsión de REE en cuanto exista.
 - **D-19-5 — La tarjeta lo dice.** Si la predicción vigente es provisional, la tarjeta mantiene su estado (vigente o pendiente) pero muestra el distintivo **«Provisional»** y el texto: «Calculada sin la previsión eólica de REE para mañana, que se publica hacia las 10:50. Se actualizará a lo largo del día.» No se oculta la cifra ni se rellena con otro dato. El contrato del snapshot no cambia: `origenes` ya se publica.
 - **D-19-6 — Sin cambios en el modelo ni en el notebook.** Es un problema de la operación diaria, no del modelo. No se toca `FEATURE_COLS`, el `.joblib` ni `main.ipynb`. El scheduler propio del backend en Render (03:00 y 09:00) no cambia: el que publica es el workflow.
+- **D-19-8 — Disparadores externos (28/11).** El cron de GitHub llega con 6-10 h de retraso, así que el autor dispara el workflow (`workflow_dispatch`) desde **cron-job.org** a las **07:27** (cifra temprana, provisional) y a las **11:27** (con la previsión real de REE). Los crons del workflow se mantienen de respaldo. Antes los disparos externos eran a las 04:27 y 06:27 UTC, ambos antes de que REE publicase.
 - **D-19-7 — Histórico honesto.** Las predicciones ya registradas (incluidas las estimadas del 17-25/11) no se reescriben. A partir de la implementación, el histórico guarda la última predicción emitida para cada día, que normalmente será la que ya usa la previsión real de REE.
 
 ## Criterios de aceptación
